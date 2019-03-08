@@ -293,7 +293,7 @@ uint32_t flag_stats_avx2_naive_counter(const uint16_t* __restrict__ data, uint32
 uint32_t flag_stats_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
 
-#if SIMD_VERSION >= 2
+#if SIMD_VERSION >= 3
 uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
@@ -468,59 +468,28 @@ uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint3
 uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
-    __m512i masks1[16];
-    __m512i masks2[16];
-    __m512i masks3[16];
-    __m512i counters[16];
+    __m512i masks[16];
     for(int i = 0; i < 16; ++i) {
-        masks1[i]   = _mm512_set1_epi32(((1 << i) << 16) | 0);
-        masks2[i]   = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
-        masks3[i]   = _mm512_set1_epi32(0 | (1 << i));
-        counters[i] = _mm512_set1_epi32(0);
+        masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
     }
     uint32_t out_counters[16];
     memset(out_counters, 0, sizeof(uint32_t)*16);
 
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
-    const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
 
     uint32_t pos = 0;
-    for(int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
-        for(int k = 0; k < 65536; ++k) { // max sum of each 16-bit value in a register
-            for(int j = 0; j < 16; ++j) {
-                __mmask16 x = _mm512_and_epi32(data_vectors[k], masks1[0]);
-                uint16_t y = *reinterpret_cast<uint16_t*>(&x);
-                std::cerr << std::bitset<16>(y) << std::endl;
-            }
-        }
-
-        // Compute vector sum
-        for(int k = 0; k < 16; ++k) { // each flag register
-            // Accumulator
-            // ((16-bit high & 16 high) >> 16) + (16-bit low & 16-low)
-            __m256i x = _mm256_add_epi32(
-                           _mm256_srli_epi32(_mm256_and_si256(counters[k], hi_mask), 16),
-                           _mm256_and_si256(counters[k], lo_mask));
-            __m256i t1 = _mm256_hadd_epi32(x,x);
-            __m256i t2 = _mm256_hadd_epi32(t1,t1);
-            __m128i t4 = _mm_add_epi32(_mm256_castsi256_si128(t2),_mm256_extractf128_si256(t2,1));
-            out_counters[k] += _mm_cvtsi128_si32(t4);
-
-            /*
-            // Naive counter
-            uint16_t* d = reinterpret_cast<uint16_t*>(&counters[k]);
-            for(int j = 0; j < 16; ++j) { // each uint16_t in the register
-                out_counters[k] += d[j];
-            }
-            */
-
-            counters[k] = _mm256_set1_epi16(0);
+    for(int i = 0; i < n_cycles; i += 2) { // each block of 2^16 values
+        for(int j = 0; j < 16; ++j) {
+            __mmask32 x = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+0], masks[j]), masks[j]);
+            __mmask32 y = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+1], masks[j]), masks[j]);
+            uint64_t z = ((uint64_t)x << 32) | y;
+            out_counters[j] += PIL_POPCOUNT(z);
         }
     }
 
     // residual
-    for(int i = pos*16; i < n; ++i) {
+    for(int i = pos*32; i < n; ++i) {
         for(int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
@@ -542,3 +511,15 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
 #else
 uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
+
+uint32_t compute_flag_stats(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    #if SIMD_VERSION >= 6
+    return(flag_stats_avx512(data, n, flags));
+    #elif SIMD_VERSION >= 5
+    return(flag_stats_avx2_naive_counter(data, n, flags));
+    #elif SIMD_VERSION >= 3
+    return(flag_stats_sse_single(data, n, flags));
+    #else
+    return(flag_stats_hist1x4(data, n, flags));
+    #endif
+}

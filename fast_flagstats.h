@@ -70,13 +70,13 @@
 #define SIMD_ALIGNMENT  16
 #define SIMD_WIDTH      128
 #elif defined(__SSE2__) && __SSE2__ == 1
-#define SIMD_AVAILABLE  1
-#define SIMD_VERSION    2
+#define SIMD_AVAILABLE  0 // unsupported version
+#define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
 #define SIMD_WIDTH      128
 #elif defined(__SSE__) && __SSE__ == 1
 #define SIMD_AVAILABLE  0 // unsupported version
-#define SIMD_VERSION    1
+#define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
 #define SIMD_WIDTH      0
 #else
@@ -131,7 +131,7 @@ uint32_t flag_stats_avx2_naive_counter(const uint16_t* __restrict__ data, uint32
 uint32_t flag_stats_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 #endif
 
-#if SIMD_VERSION >= 2
+#if SIMD_VERSION >= 3
 uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 #else
 uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
@@ -142,5 +142,9 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
 #else
 uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 #endif
+
+// Wrapper function for calling the best available algorithm during compilation
+// time.
+uint32_t compute_flag_stats(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 
 #endif /* FAST_FLAGSTATS_H_ */
