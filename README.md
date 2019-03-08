@@ -1,8 +1,8 @@
 # FastFlagStats
 
-These functions compute SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive, for example in machine learning/deep learning.
+These functions compute SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive, for example in machine learning/deep learning. Using large registers, we can achieve ~4GB/s throughput (320 billion / bits counted per second).
 
-Compile test suite with: `make`
+Compile test suite with: `make` and run `./fast_flag_stats`
 
 ## Computing FLAG-statistics
 
@@ -359,17 +359,17 @@ for(int i = pos*8; i < n; ++i) {
 
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average completion time in microseconds: 
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024*1024b). 
 
-| Range | Auto-vectorization | Byte-partition | AVX2-aggregator | AVX2-popcnt | AVX2-interlaced-aggregator | AVX2-aggregator-auto | SSE4.1-interlaced-aggregator |
-|-------|--------------------|----------------|-----------------------|-------------|----------------------|------------|------------------------|
-| 16    | 153956             | 251815         | 60788.9               | 79023       | 133167               | **60394**      | 161334                 |
-| 64    | 155937             | 257748         | 61237.8               | 79238.1     | 137295               | **60659.6**    | 166773                 |
-| 256   | 160619             | 252190         | 62317.6               | 81255.9     | 139090               | **61890.7**    | 168091                 |
-| 512   | 164162             | 157860         | 65062.4               | 81876.5     | 139874               | **64712.8**    | 168540                 |
-| 1024  | 161960             | 155339         | 64843                 | 85329.4     | 144908               | **63390.9**    | 175792                 |
-| 4096  | 155096             | 142902         | 61576.1               | 79110.3     | 134084               | **60933.2**    | 162006                 |
-| 65536 | 156812             | 141975         | 61825.5               | 80328.2     | 138361               | **61431.5**    | 165067                 |
+| Range | Auto-vectorization | Byte-partition | AVX2-aggregator | AVX2-popcnt | AVX2-interlaced-aggregator | AVX2-aggregator-auto | SSE4.1-interlaced-aggregator | Byte-partition-4way |
+|-------|--------------------|----------------|-----------------|-------------|----------------------------|----------------------|------------------------------|---------------------|
+| 16    | 1363.02            | 868.277        | 3807.34         | 3365.43     | 1630.7                     | **3863.35**              | 1325.35                      | 872.479             |
+| 64    | 1343.95            | 856.394        | **3891.1**          | 3558.88     | 1620.65                    | 3888.1               | 1359.94                      | 850.61              |
+| 256   | 1379.03            | 896.5          | 3615.93         | 3399.89     | 1592.38                    | **3775.97**              | 1333.8                       | 888.353             |
+| 512   | 1358.42            | 1554.89        | **3865.19**         | 3561.69     | 1594.62                    | 3768.23              | 1353.53                      | 1678.73             |
+| 1024  | 1365.73            | 1603.97        | 3712.23         | 3314.69     | 1606.2                     | **3915.39**              | 1351.41                      | 1755.52             |
+| 4096  | 1365.89            | 1655.92        | 3850.79         | 3554.45     | 1630.75                    | **3859.13**              | 1350.51                      | 1866.58             |
+| 65536 | 1365.93            | 1634.3         | 3817.8          | 3482.77     | 1643.55                    | **3939.18**              | 1365.93                      | 1900.61             |
 
 The AVX2-implementation of the register accumulator and aggregator algorithm (approach 3) is >2.5-fold faster across the board. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of 1.65 billion FLAG values / second when AVX2 is available.
 
