@@ -359,7 +359,7 @@ for(int i = pos*8; i < n; ++i) {
 
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024*1024b). 
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024*1024b). 
 
 | Range | Auto-vectorization | Byte-partition | AVX2-aggregator | AVX2-popcnt | AVX2-interlaced-aggregator | AVX2-aggregator-auto | SSE4.1-interlaced-aggregator | Byte-partition-4way |
 |-------|--------------------|----------------|-----------------|-------------|----------------------------|----------------------|------------------------------|---------------------|
@@ -371,6 +371,6 @@ We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with
 | 4096  | 1365.89            | 1655.92        | 3850.79         | 3554.45     | 1630.75                    | **3859.13**              | 1350.51                      | 1866.58             |
 | 65536 | 1365.93            | 1634.3         | 3817.8          | 3482.77     | 1643.55                    | **3939.18**              | 1365.93                      | 1900.61             |
 
-The AVX2-implementation of the register accumulator and aggregator algorithm (approach 3) is >2.5-fold faster across the board. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of 1.65 billion FLAG values / second when AVX2 is available.
+The AVX2-implementation of the register accumulator and aggregator algorithm (approach 3) is >2.8-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~2 billion FLAG values / second when AVX2 is available.
 
 It is intersting to note that the performance of the scalar byte-partition accumulator algorithm (approach 1) is inversely proportional to the bit-entropy of the input data. This loss of performance with lower entropy data probably originates from branch-prediction errors in the tight loops of the projection step. 
