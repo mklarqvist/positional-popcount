@@ -81,9 +81,9 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             times_local[8] = hist1x4_timing;
 
             memset(flags2, 0, sizeof(uint32_t)*16);
-            uint32_t avx512_timings = flag_stats_avx512(vals, n, &flags2[0]);
-            times[8] += avx512_timings;
-            times_local[8] = avx512_timings;
+            uint32_t avx512_timings = flag_stats_avx512_popcnt(vals, n, &flags2[0]);
+            times[9] += avx512_timings;
+            times_local[9] = avx512_timings;
 
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
             //std::cout << ranges[r] << "\t" << c << "\t" << times_local[0] << "\t" << times_local[1] << "\t" << times_local[2] << "\t" << times_local[3] << "\t" << times_local[4] << "\t" << times_local[5] << "\t" << times_local[6] << "\t" << times_local[7] << std::endl;
