@@ -390,9 +390,7 @@ uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, 
 uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
-    uint32_t low[256], high[256];
-    memset(low,  0, 256*sizeof(uint32_t));
-    memset(high, 0, 256*sizeof(uint32_t));
+    uint32_t low[256] = {0}, high[256] = {0};
     memset(flags, 0, 16*sizeof(uint32_t));
 
     for(int i = 0; i < n; ++i) {
@@ -401,6 +399,50 @@ uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t
     }
 
     for(int i = 0; i < 256; ++i) {
+        for(int k = 0; k < 8; ++k) {
+            flags[k] += ((i & (1 << k)) >> k) * low[i];
+        }
+    }
+
+    for(int i = 0; i < 256; ++i) {
+        for(int k = 0; k < 8; ++k) {
+            flags[k+8] += ((i & (1 << k)) >> k) * high[i];
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+     uint32_t low[256] = {0}, high[256] = {0};
+     memset(flags, 0, 16*sizeof(uint32_t));
+     
+     int i = 0;
+     for (i = 0; i < (n & ~3); i+=4) {
+          ++low[data[i+0] & 255];
+          ++high[(data[i+0] >> 8) & 255];
+          ++low[data[i+1] & 255];
+          ++high[(data[i+1] >> 8) & 255];
+          ++low[data[i+2] & 255];
+          ++high[(data[i+2] >> 8) & 255];
+          ++low[data[i+3] & 255];
+          ++high[(data[i+3] >> 8) & 255];
+     }
+     while (i < n) {
+          ++low[data[i] & 255];
+          ++high[(data[i++] >> 8) & 255];
+     }
+
+     for(int i = 0; i < 256; ++i) {
         for(int k = 0; k < 8; ++k) {
             flags[k] += ((i & (1 << k)) >> k) * low[i];
         }

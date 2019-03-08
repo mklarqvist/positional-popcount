@@ -1,8 +1,8 @@
 # FastFlagStats
 
-These functions compute fast SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive.
+These functions compute SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive, for example in machine learning/deep learning.
 
-Compile with: `make`
+Compile test suite with: `make`
 
 ## Computing FLAG-statistics
 

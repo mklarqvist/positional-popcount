@@ -107,6 +107,8 @@ uint32_t flag_stats_wrapper(const uint16_t* __restrict__ data, uint32_t n, uint3
 uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 
+uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+
 #if SIMD_VERSION >= 5
 
 #ifndef PIL_POPCOUNT_AVX2
