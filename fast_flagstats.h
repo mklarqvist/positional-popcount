@@ -138,9 +138,23 @@ uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, ui
 #endif
 
 #if SIMD_VERSION >= 6
+__attribute__((always_inline))
+static inline __m512i avx512_popcount(const __m512i v) {
+    const __m512i m1 = _mm512_set1_epi8(0x55);
+    const __m512i m2 = _mm512_set1_epi8(0x33);
+    const __m512i m4 = _mm512_set1_epi8(0x0F);
+
+    const __m512i t1 = _mm512_sub_epi8(v,       (_mm512_srli_epi16(v,  1) & m1));
+    const __m512i t2 = _mm512_add_epi8(t1 & m2, (_mm512_srli_epi16(t1, 2) & m2));
+    const __m512i t3 = _mm512_add_epi8(t2, _mm512_srli_epi16(t2, 4)) & m4;
+    return _mm512_sad_epu8(t3, _mm512_setzero_si512());
+}
+
+uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 #else
+uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 #endif
