@@ -465,7 +465,7 @@ uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint3
 }
 
 #if SIMD_VERSION >= 6
-uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     __m512i masks[16];
@@ -506,12 +506,53 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
     //std::cerr << std::endl;
 
-#undef ITERATION
+#undef BLOCK
 #undef UPDATE
 
     return(time_span.count());
 }
+
+uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    __m512i masks[16];
+    __m512i counters[16];
+    for(int i = 0; i < 16; ++i) {
+        masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+        counters[i] = _mm512_set1_epi32(0);
+    }
+    uint32_t out_counters[16];
+    memset(out_counters, 0, sizeof(uint32_t)*16);
+
+    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const uint32_t n_cycles = n / 32;
+
+    uint32_t pos = 0;
+    for(int i = 0; i < n_cycles; ++i) { // each block of 2^16 values
+        for(int j = 0; j < 16; ++j) {
+            counter[j] = _mm512_add_epi32(counter[j], _mm512_popcnt_epi16(_mm512_and_epi32(data[i], mask[j])));
+        }
+    }
+
+    // residual
+    for(int i = pos*32; i < n; ++i) {
+        for(int j = 0; j < 16; ++j)
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
 #else
+uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
 

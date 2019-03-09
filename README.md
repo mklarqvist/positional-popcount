@@ -359,7 +359,7 @@ for(int i = pos*8; i < n; ++i) {
 
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024*1024b). 
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024b). 
 
 | Range | Auto-vectorization | Byte-partition | AVX2-aggregator | AVX2-popcnt | AVX2-interlaced-aggregator | AVX2-aggregator-auto | SSE4.1-interlaced-aggregator | Byte-partition-4way |
 |-------|--------------------|----------------|-----------------|-------------|----------------------------|----------------------|------------------------------|---------------------|
