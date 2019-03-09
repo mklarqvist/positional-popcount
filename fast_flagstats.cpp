@@ -120,7 +120,6 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
         UPDATE(12); UPDATE(13); UPDATE(14); UPDATE(15);\
         ++pos; ++k;                                    \
 }
-
     uint32_t pos = 0;
     for(int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
         for(int k = 0; k < 65536; ) // max sum of each 16-bit value in a register
@@ -570,8 +569,9 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
 
     __m512i masks[16];
     __m512i counters[16];
+    const __m512i one_mask = _mm512_set1_epi32(1);
     for(int i = 0; i < 16; ++i) {
-        masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+        masks[i]    = _mm512_set1_epi16(1 << i);
         counters[i] = _mm512_set1_epi32(0);
     }
     uint32_t out_counters[16] = {0};
@@ -579,15 +579,24 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
 
-    for(int i = 0; i < n_cycles; ++i) { // each block of 2^16 values
-        for(int j = 0; j < 16; ++j) {
-            _mm512i a = _mm512_and_epi32(data_vectors[i], masks[pos]); // a & b
-            _mm512i b = _mm512_srli_epi32(a, 1*j);
-            _mm512i c = _mm512_srli_epi32(a, 2*j);
-            _mm512i d = _mm512_add_epi32(b, c);
-            counters[j] = _mm512_add_epi32(counters[j], d);
-        }
+#define UPDATE(pos) { \
+    __m512i a   = _mm512_and_epi32(data_vectors[i], masks[pos]); \
+    __m512i d   = _mm512_add_epi32(_mm512_and_epi32(_mm512_srli_epi32(a, pos), one_mask), _mm512_srli_epi32(a, pos+16)); \
+    counters[pos] = _mm512_add_epi32(counters[pos], d); \
+}
+#define BLOCK {                                 \
+    UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+    UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+    UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+    UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+}
+
+    for(int i = 0; i < n_cycles; ++i) {
+        BLOCK
     }
+
+#undef BLOCK
+#undef UPDATE
 
     // residual
     for(int i = n_cycles*32; i < n; ++i) {
