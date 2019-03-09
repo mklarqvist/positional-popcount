@@ -518,7 +518,7 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     __m512i masks[16];
     __m512i counters[16];
     for(int i = 0; i < 16; ++i) {
-        masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+        masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
         counters[i] = _mm512_set1_epi32(0);
     }
     uint32_t out_counters[16];
@@ -534,10 +534,59 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
     UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
-
-    //uint32_t pos = 0;
     for(int i = 0; i < n_cycles; ++i) { // each block of 2^16 values
         BLOCK
+    }
+
+#undef BLOCK
+#undef UPDATE
+
+    // residual
+    for(int i = n_cycles*32; i < n; ++i) {
+        for(int j = 0; j < 16; ++j)
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+    }
+
+    for(int i = 0; i < 16; ++i) {
+        uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+        for(int j = 0; j < 16; ++j)
+            out_counters[i] += v[j];
+    }
+    
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    __m512i masks[16];
+    __m512i counters[16];
+    for(int i = 0; i < 16; ++i) {
+        masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+        counters[i] = _mm512_set1_epi32(0);
+    }
+    uint32_t out_counters[16] = {0};
+
+    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const uint32_t n_cycles = n / 32;
+
+    for(int i = 0; i < n_cycles; ++i) { // each block of 2^16 values
+        for(int j = 0; j < 16; ++j) {
+            _mm512i a = _mm512_and_epi32(data_vectors[i], masks[pos]); // a & b
+            _mm512i b = _mm512_srli_epi32(a, 1*j);
+            _mm512i c = _mm512_srli_epi32(a, 2*j);
+            _mm512i d = _mm512_add_epi32(b, c);
+            counters[j] = _mm512_add_epi32(counters[j], d);
+        }
     }
 
     // residual
@@ -563,9 +612,11 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     return(time_span.count());
 }
+
 #else
 uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
 
 uint32_t compute_flag_stats(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
