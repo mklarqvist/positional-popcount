@@ -541,7 +541,7 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     }
 
     // residual
-    for(int i = pos*32; i < n; ++i) {
+    for(int i = n_cycles*32; i < n; ++i) {
         for(int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
@@ -549,14 +549,13 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     for(int i = 0; i < 16; ++i) {
         uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
         for(int j = 0; j < 16; ++j)
-            flags[i] += v[j];
+            out_counters[i] += v[j];
     }
-    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
-
+    
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
     std::cerr << "simd=";
     for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
