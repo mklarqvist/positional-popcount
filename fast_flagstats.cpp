@@ -376,9 +376,9 @@ uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    std::cerr << "truth=";
-    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    std::cerr << std::endl;
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -551,9 +551,9 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    std::cerr << "simd=";
-    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    std::cerr << std::endl;
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
 
     return(time_span.count());
 }

@@ -17,7 +17,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     uint64_t times[15] = {0};
     uint64_t times_local[15];
 
-    std::vector<uint32_t> ranges = {16, 64, 256, 512, 1024, 4096, 65536};
+    std::vector<uint32_t> ranges = {8, 16, 64, 256, 512, 1024, 4096, 65536};
     for(int r = 0; r < ranges.size(); ++r) {
         std::uniform_int_distribution<uint16_t> distr(1, ranges[r]); // right inclusive
 
@@ -25,8 +25,9 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
             for(uint32_t i = 0; i < n; ++i) {
-                vals[i] = distr(eng);
+                vals[i] = distr(eng); // draw random values
             }
+
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
             times[0] += time_span.count();
@@ -38,9 +39,6 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             uint32_t time_naive = flag_stats_wrapper<&flag_stats_scalar_naive>(vals,n,&flags[0]);
             times[1] += time_naive;
             times_local[1] = time_naive;
-
-            //uint32_t tt = flag_stats_wrapper<&flag_stats_scalar_naive, uint32_t>(vals,n,&flags[0]);
-            //std::cerr << "tt=" << tt << std::endl;
 
             // scalar partition
             uint32_t flags2[16]; memset(flags2, 0, sizeof(uint32_t)*16);
