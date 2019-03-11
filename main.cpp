@@ -86,7 +86,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             times_local[9] = avx512_timings;
 
             memset(flags2, 0, sizeof(uint32_t)*16);
-            uint32_t avx512_timings32 = flag_stats_avx512_popcnt32(vals, n, &flags2[0]);
+            uint32_t avx512_timings32 = flag_stats_avx512_popcnt32_mask(vals, n, &flags2[0]);
             times[10] += avx512_timings32;
             times_local[10] = avx512_timings32;
 

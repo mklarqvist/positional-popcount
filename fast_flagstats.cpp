@@ -30,8 +30,7 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
         stubs[i] = _mm256_set1_epi16(0);
     }
 
-    uint32_t out_counters[16];
-    memset(out_counters, 0, sizeof(uint32_t)*16);
+    uint32_t out_counters[16] = {0};
 
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
     const uint32_t n_cycles = n / 16;
@@ -103,8 +102,7 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
         masks[i]    = _mm256_set1_epi16(1 << i);
         counters[i] = _mm256_set1_epi16(0);
     }
-    uint32_t out_counters[16];
-    memset(out_counters, 0, sizeof(uint32_t)*16);
+    uint32_t out_counters[16] = {0};
 
     const __m256i hi_mask = _mm256_set1_epi32(0xFFFF0000);
     const __m256i lo_mask = _mm256_set1_epi32(0x0000FFFF);
@@ -180,8 +178,7 @@ uint32_t flag_stats_avx2_naive_counter(const uint16_t* __restrict__ data, uint32
         masks[i]    = _mm256_set1_epi16(1 << i);
         counters[i] = _mm256_set1_epi16(0);
     }
-    uint32_t out_counters[16];
-    memset(out_counters, 0, sizeof(uint32_t)*16);
+    uint32_t out_counters[16] = {0};
 
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
     const uint32_t n_cycles = n / 16;
@@ -464,15 +461,14 @@ uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint3
 }
 
 #if SIMD_VERSION >= 6
-uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     __m512i masks[16];
     for(int i = 0; i < 16; ++i) {
         masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
     }
-    uint32_t out_counters[16];
-    memset(out_counters, 0, sizeof(uint32_t)*16);
+    uint32_t out_counters[16] = {0};
 
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
@@ -485,13 +481,12 @@ uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t 
     UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
 
-    uint32_t pos = 0;
-    for(int i = 0; i < n_cycles; ++i) { // each block of 2^16 values
+    for(int i = 0; i < n_cycles; ++i) {
         BLOCK
     }
 
     // residual
-    for(int i = pos*32; i < n; ++i) {
+    for(int i = n_cycles*32; i < n; ++i) {
         for(int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
@@ -520,8 +515,7 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
         masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
         counters[i] = _mm512_set1_epi32(0);
     }
-    uint32_t out_counters[16];
-    memset(out_counters, 0, sizeof(uint32_t)*16);
+    uint32_t out_counters[16] = {0};
 
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
@@ -533,7 +527,7 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
     UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
-    for(int i = 0; i < n_cycles; ++i) { // each block of 2^16 values
+    for(int i = 0; i < n_cycles; i+=16) { // each block of 2^16 values
         BLOCK
     }
 
@@ -557,9 +551,9 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "simd=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -579,10 +573,10 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos) { \
+#define UPDATE(pos) {                                            \
     __m512i a   = _mm512_and_epi32(data_vectors[i], masks[pos]); \
     __m512i d   = _mm512_add_epi32(_mm512_and_epi32(_mm512_srli_epi32(a, pos), one_mask), _mm512_srli_epi32(a, pos+16)); \
-    counters[pos] = _mm512_add_epi32(counters[pos], d); \
+    counters[pos] = _mm512_add_epi32(counters[pos], d);          \
 }
 #define BLOCK {                                 \
     UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
@@ -615,15 +609,15 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    std::cerr << "simd=";
-    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    std::cerr << std::endl;
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
 
     return(time_span.count());
 }
 
 #else
-uint32_t flag_stats_avx512_popcnt32(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
