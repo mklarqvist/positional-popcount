@@ -153,18 +153,19 @@ for(int i = pos*16; i < n; ++i) {
 }
 ```
 
-### Approach 3: Register accumulator and aggregator (SIMD)
+### Approach 3: Register accumulator and aggregator (AVX2)
 
-Accumulate up to 16 * 2^16 partial sums of a 1-hot in a single register followed by a horizontal sum update.
+Accumulate up to 16 * 2^16 partial sums of a 1-hot in a single register followed by a horizontal sum update. By using 16-bit partial sum accumulators we must perform a secondary accumulation step every 2^16 iterations to prevent overflowing the 16-bit primitives.
 
 Psuedo-code for the conceptual model:
 ```python
-for c in 1..n, c+=65536 # 1->n with stride 65536
-    for j in 1..16 # Each 1-hot vector state
-        y[j] += ((x[c+i] & (1 << j)) >> j)
+for i in 1..n, i+=65536 # 1->n with stride 65536
+    for c in 1..65536 # section of 65536 iterations to prevent overflow
+        for j in 1..16 # Each 1-hot vector state
+            y[j] += ((x[c+i] & (1 << j)) >> j)
     
-    for i in 1..16 # 1->16 packed element
-        out[i] += y[i] # accumulate
+    for j in 1..16 # 1->16 packed element
+        out[j] += y[j] # accumulate
         y[j] = 0 # reset
 ```
 
@@ -226,18 +227,87 @@ for(int i = pos*16; i < n; ++i) {
 }
 ```
 
+### Approach 3b: Register accumulator and aggregator (AVX512)
+
+This algorithm is a AVX-512 implementation of approach 3a using 512-bit registers
+by computing 16 * 2^32 partial sums. The AVX512 instruction set do not provide
+native instructions to perform 16-bit-wise sums of registers. By being restricted to 32-bit accumulators while consuming 16-bit primitives we must performed a second 16-bit shift-add operation to mimic 32-bit behavior. Unlike the AVX2 algortihm, the 32-bit accumulators in this version do not require blocking under the expectation that the total count in either slot do not exceed 2^32.
+
+Psuedo-code for the conceptual model:
+```python
+for c in 1..n # primitive type is now uint32_t (2x uint16_t)
+    for j in 1..16 # Each 1-hot vector state
+        y[j] += ((x[i] & (1 << j)) >> j) + ((x[i] & (1 << (16+j))) >> (j+16))
+    
+    for i in 1..16 # 1->16 packed element
+        out[i] += y[i] # accumulate
+        y[j] = 0 # reset
+```
+
+Example C++ implementation using AVX-512:
+```c++
+__m512i masks[16];
+__m512i counters[16];
+const __m512i one_mask = _mm512_set1_epi32(1);
+for(int i = 0; i < 16; ++i) {
+    masks[i]    = _mm512_set1_epi16(1 << i);  // one register bitmask / 1-hot
+    counters[i] = _mm512_set1_epi32(0); // partial accumulators
+}
+uint32_t out_counters[16] = {0};  // output accumulators
+
+const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const uint32_t n_cycles = n / 32;
+
+// Define a macro UPDATE representing a single update step:
+#define UPDATE(pos) {                                        \
+__m512i a   = _mm512_and_epi32(data_vectors[i], masks[pos]); \
+__m512i d   = _mm512_add_epi32(_mm512_and_epi32(_mm512_srli_epi32(a, pos), one_mask), _mm512_srli_epi32(a, pos+16)); \
+counters[pos] = _mm512_add_epi32(counters[pos], d);          \
+}
+// Unroll 16 updates
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+}
+
+for(int i = 0; i < n_cycles; ++i) {
+    BLOCK
+}
+
+#undef BLOCK
+#undef UPDATE
+
+// Residual FLAGs that are not multiple of 16
+// Scalar approach:
+for(int i = n_cycles*32; i < n; ++i) {
+    for(int j = 0; j < 16; ++j)
+        out_counters[j] += ((data[i] & (1 << j)) >> j);
+}
+
+// Transfer SIMD aggregator to output scalar counters.
+for(int i = 0; i < 16; ++i) {
+    uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+    for(int j = 0; j < 16; ++j)
+        out_counters[i] += v[j];
+}
+```
+
 ### Approach 4a: Interlaced register accumulator and aggregator (AVX2)
 
 Instead of having 16 registers of 16 values of partial sums for each 1-hot state we have a single register with 16 partial sums for the different 1-hot states. We achieve this by broadcasting a single integer to all slots in a register and performing a 16-way comparison.
 
 Psuedo-code for the conceptual model:
 ```python
-for c in 1..n, c+=65536 # 1->n with stride 65536
-    for j in 1..16 # Each 1-hot vector state
-        y[j] += (((x[c+i] & (1 << j)) == (1 << j)) & 1)
+for i in 1..n, i+=4096 # 1->n with stride 4096
+    for c in 1..4096 # Block of 4096 iterations to prevent overflow
+        f = {x[c], x[c], x[c], x[c], ..., x[c]} # 16 copies of x[c]
+        for j in 1..16 # Each 1-hot vector state
+            y[j] += (((f[j] & (1 << j)) == (1 << j)) & 1)
     
-    for i in 1..16 # 1->16 packed element
-        out[i] += y[i] # accumulate
+    for j in 1..16 # 1->16 packed element
+        out[j] += y[j] # accumulate
         y[j] = 0 # reset
 ```
 
@@ -357,9 +427,101 @@ for(int i = pos*8; i < n; ++i) {
 }
 ```
 
+### Approach 5: Popcount predicate-mask accumulator (AVX-512)
+
+The AVX-512 instruction set comes with the new `vpcmpuw` (`_mm512_cmpeq_epu16_mask`) instruction
+that returns the equality predicate of two registers as a packed 32-bit integer (`__mask32`). This
+algorithm combines this packed integer with a 32-bit `popcnt` operation.
+
+Example C++ implementation:
+```c++
+__m512i masks[16]; // 1-hot masks
+for(int i = 0; i < 16; ++i) {
+    masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+}
+uint32_t out_counters[16] = {0}; // aggregators
+
+const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const uint32_t n_cycles = n / 32;
+
+// Define a macro UPDATE representing a single update step:
+#define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
+// Unroll the update for 16 values
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+}
+
+for(int i = 0; i < n_cycles; ++i) {
+    BLOCK
+}
+
+#undef BLOCK
+#undef UPDATE
+
+// Residual FLAGs that are not multiple of 16
+// Scalar approach:
+for(int i = n_cycles*32; i < n; ++i) {
+    for(int j = 0; j < 16; ++j)
+        out_counters[j] += ((data[i] & (1 << j)) >> j);
+}
+```
+
+### Approach 6: Register accumulator and aggregator and shift-pack popcount (AVX-512)
+
+This algoritmh begins as Approach 2 by shift-packing 32 bits into a register primitive. Next,
+we perform an in-place `popcnt` operation followed by a partial sums update.
+
+Example C++ implementation:
+```c++
+__m512i masks[16]; // 1-hot masks
+__m512i counters[16]; // partial sums aggregators
+for(int i = 0; i < 16; ++i) {
+    masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+    counters[i] = _mm512_set1_epi32(0);
+}
+uint32_t out_counters[16] = {0};
+
+const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const uint32_t n_cycles = n / 32;
+
+// Define a macro UPDATE representing a single update step:
+#define UPDATE(pos) counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(_mm512_and_epi32(data_vectors[i], masks[pos])));
+// Unroll the update for 16 values
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+}
+
+for(int i = 0; i < n_cycles; i+=16) { // each block of 2^16 values
+    BLOCK
+}
+
+#undef BLOCK
+#undef UPDATE
+
+// Residual FLAGs that are not multiple of 16
+// Scalar approach:
+for(int i = n_cycles*32; i < n; ++i) {
+    for(int j = 0; j < 16; ++j)
+        out_counters[j] += ((data[i] & (1 << j)) >> j);
+}
+
+// Reduce phase: transfer partial sums to final aggregators
+for(int i = 0; i < 16; ++i) {
+    uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+    for(int j = 0; j < 16; ++j)
+        out_counters[i] += v[j];
+}
+```
+
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024*1024b). 
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024b). 
 
 | Range | Auto-vectorization | Byte-partition | AVX2-aggregator | AVX2-popcnt | AVX2-interlaced-aggregator | AVX2-aggregator-auto | SSE4.1-interlaced-aggregator | Byte-partition-4way |
 |-------|--------------------|----------------|-----------------|-------------|----------------------------|----------------------|------------------------------|---------------------|
