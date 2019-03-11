@@ -431,7 +431,7 @@ for(int i = pos*8; i < n; ++i) {
 
 The AVX-512 instruction set comes with the new `vpcmpuw` (`_mm512_cmpeq_epu16_mask`) instruction
 that returns the equality predicate of two registers as a packed 32-bit integer (`__mask32`). This
-algortihm combines this packed integer with a 32-bit `popcnt` operation.
+algorithm combines this packed integer with a 32-bit `popcnt` operation.
 
 Example C++ implementation:
 ```c++
@@ -473,6 +473,51 @@ for(int i = n_cycles*32; i < n; ++i) {
 
 This algoritmh begins as Approach 2 by shift-packing 32 bits into a register primitive. Next,
 we perform an in-place `popcnt` operation followed by a partial sums update.
+
+Example C++ implementation:
+```c++
+__m512i masks[16]; // 1-hot masks
+__m512i counters[16]; // partial sums aggregators
+for(int i = 0; i < 16; ++i) {
+    masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+    counters[i] = _mm512_set1_epi32(0);
+}
+uint32_t out_counters[16] = {0};
+
+const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const uint32_t n_cycles = n / 32;
+
+// Define a macro UPDATE representing a single update step:
+#define UPDATE(pos) counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(_mm512_and_epi32(data_vectors[i], masks[pos])));
+// Unroll the update for 16 values
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+}
+
+for(int i = 0; i < n_cycles; i+=16) { // each block of 2^16 values
+    BLOCK
+}
+
+#undef BLOCK
+#undef UPDATE
+
+// Residual FLAGs that are not multiple of 16
+// Scalar approach:
+for(int i = n_cycles*32; i < n; ++i) {
+    for(int j = 0; j < 16; ++j)
+        out_counters[j] += ((data[i] & (1 << j)) >> j);
+}
+
+// Reduce phase: transfer partial sums to final aggregators
+for(int i = 0; i < 16; ++i) {
+    uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+    for(int j = 0; j < 16; ++j)
+        out_counters[i] += v[j];
+}
+```
 
 ### Results
 
