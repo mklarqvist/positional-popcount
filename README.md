@@ -524,19 +524,20 @@ We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with
 
 | Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
 |-----------------------|---------|---------|---------|---------|---------|---------|---------|---------|
-| Scalar                | 3002.14 | 2971.51 | 2983.51 | 3001.14 | 2989.41 | 2981.37 | 3006.53 | 2985.63 |
-| Byte-partition      | 1384.35 | 1410.33 | 1457.52 | 1477.92 | 1929.24 | 2044.78 | 2138.47 | 2166.03 |
-| Byte-partition 1x4               | 1315.79 | 1356.33 | 1391.72 | 1397.94 | 2222.43 | 2318.16 | 2320.96 | 2351.34 |
+| Scalar                | 2760.23 | 2761.38 | 2773.69 | 2741.66 | 2823.47 | 2724.87 | 2767.36 | 2732.9  |
+| Byte-partition      | 1343.91 | 1346.64 | 1376.01 | 1392.99 | 1832.47 | 1963.46 | 1974.73 | 2007.54 |
+| Byte-partition 1x4               | 1223.41 | 1265.07 | 1299.47 | 1307.85 | 2069.54 | 2141.29 | 2175.91 | 2161.69 |
 | AVX-2 accumulator                 | 4196.06 | 4180.18 | 4208.02 | 4218.07 | 4229.95 | 4201.68 | 4178.67 | 4167.9  |
 | AVX-2 pack-popcnt        | 4364.42 | 4351.03 | 4354.08 | 4350.36 | 4383.91 | 4358.26 | 4361.08 | 4320.24 |
 | AVX-2 interlaced pack-popcnt          | 2299.15 | 2289.23 | 2294.31 | 2278.04 | 2306.02 | 2304.01 | 2292.18 | 2295.98 |
 | AVX-2 accumulator naïve           | 4219.21 | 4202.06 | 4211.51 | 4191.71 | 4235.51 | 4234.23 | 4217.96 | 4208.33 |
 | SSE4 interlaced pack-popcnt           | 1502.92 | 1506.68 | 1516.68 | 1499.56 | 1515.12 | 1517.95 | 1512.9  | 1510.84 |
 | AVX-512 pack-popcnt        | 3487.53 | 3467.2  | 3493.57 | 3489.54 | 3480.4  | 3556.69 | 3480.66 | 3520.44 |
-| AVX-512 popcnt predicate mask | **5096.28** | **5120.15** | **5193.85** | **5071.8**  | **5101.64** | **5105.87** | **5100.49** | **5087.47** |
+| AVX-512 popcnt32 mask | 5009.68 | 4975.99 | 5069.15 | 5096.2  | 5053.76 | 5066.13 | 5010.83 | 5043.13 |
+| AVX-512 popcnt64 mask | **5554.44** | **5573.42** | **5626.61** | **5564.12** | **5614.47** | **5613.98** | **5604.84** | **5632.98** |
 | AVX-512 shift-add accumulator              | 3926.99 | 3983.02 | 3995.27 | 3951.7  | 3978.21 | 3993.42 | 3985.31 | 3967.86 |
 
-The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5) is >1.7-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~21 billion FLAG values / second when AVX-512 is available.
+The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5) is >2-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~21 billion FLAG values / second when AVX-512 is available.
 
 It is intersting to note that the performance of the scalar byte-partition accumulator algorithm (approach 1) is inversely proportional to the bit-entropy of the input data. This loss of performance with lower entropy data probably originates from branch-prediction errors in the tight loops of the projection step. 
 

@@ -376,9 +376,9 @@ uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
+    std::cerr << "truth=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -501,6 +501,53 @@ uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint
     //std::cerr << std::endl;
 
 #undef BLOCK
+#undef UPDATE
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    __m512i masks[16];
+    for(int i = 0; i < 16; ++i) {
+        masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
+    }
+    uint32_t out_counters[16] = {0};
+
+    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const uint32_t n_cycles = n / 32;
+
+#define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
+#define UP(pos) out_counters[pos] += PIL_POPCOUNT((UPDATE(pos,0) << 32) | UPDATE(pos,1));
+#define BLOCK {                 \
+    UP(0)  UP(1)  UP(2)  UP(3)  \
+    UP(4)  UP(5)  UP(6)  UP(7)  \
+    UP(8)  UP(9)  UP(10) UP(11) \
+    UP(12) UP(13) UP(14) UP(15) \
+}
+
+    for(int i = 0; i < n_cycles; i += 2) {
+        BLOCK
+    }
+
+    // residual
+    for(int i = n_cycles*32; i < n; ++i) {
+        for(int j = 0; j < 16; ++j)
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    std::cerr << "simd=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
+
+#undef BLOCK
+#undef UP
 #undef UPDATE
 
     return(time_span.count());
@@ -639,6 +686,7 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
 uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
 
 uint32_t compute_flag_stats(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {

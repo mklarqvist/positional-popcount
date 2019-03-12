@@ -93,15 +93,20 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             times[11] += avx512_agg_timings;
             times_local[11] = avx512_agg_timings;
 
+            memset(flags2, 0, sizeof(uint32_t)*16);
+            uint32_t avx512_timings64 = flag_stats_avx512_popcnt64_mask(vals, n, &flags2[0]);
+            times[12] += avx512_timings64;
+            times_local[12] = avx512_timings64;
+
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
             //std::cout << ranges[r] << "\t" << c << "\t" << times_local[0] << "\t" << times_local[1] << "\t" << times_local[2] << "\t" << times_local[3] << "\t" << times_local[4] << "\t" << times_local[5] << "\t" << times_local[6] << "\t" << times_local[7] << std::endl;
-            std::cout << ranges[r] << "\t" << c << "\t" << MBS(0) << "\t" << MBS(1) << "\t" << MBS(2) << "\t" << MBS(3) << "\t" << MBS(4) << "\t" << MBS(5) << "\t" << MBS(6) << "\t" << MBS(7) << "\t" << MBS(8) << "\t" << MBS(9) << "\t" << MBS(10) << "\t" << MBS(11) << std::endl;
+            std::cout << ranges[r] << "\t" << c << "\t" << MBS(0) << "\t" << MBS(1) << "\t" << MBS(2) << "\t" << MBS(3) << "\t" << MBS(4) << "\t" << MBS(5) << "\t" << MBS(6) << "\t" << MBS(7) << "\t" << MBS(8) << "\t" << MBS(9) << "\t" << MBS(10) << "\t" << MBS(11) << "\t" << MBS(12) << std::endl;
 #undef MBS
         }
 #define AVG(pos) (times[pos] == 0 ? 0 : (double)times[pos]/cycles)
-        std::cout << "average times\t" << AVG(0) << "\t" << AVG(1) << "\t" << AVG(2) << "\t" << AVG(3) << "\t" << AVG(4) << "\t" << AVG(5) << "\t" << AVG(6) << "\t" << AVG(7) << "\t" << AVG(8) << "\t" << AVG(9) << "\t" << AVG(10)<< "\t" << AVG(11) << std::endl;
+        std::cout << "average times\t" << AVG(0) << "\t" << AVG(1) << "\t" << AVG(2) << "\t" << AVG(3) << "\t" << AVG(4) << "\t" << AVG(5) << "\t" << AVG(6) << "\t" << AVG(7) << "\t" << AVG(8) << "\t" << AVG(9) << "\t" << AVG(10)<< "\t" << AVG(11) << "\t" << AVG(12) << std::endl;
 #define INTS_SEC(cum) (times[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (AVG(cum) / 1000000.0))
-        std::cout << "MB/s\t" << 0 << "\t" << INTS_SEC(1) << "\t" << INTS_SEC(2) << "\t" << INTS_SEC(3) << "\t" << INTS_SEC(4) << "\t" << INTS_SEC(5) << "\t" << INTS_SEC(6) << "\t" << INTS_SEC(7) << "\t" << INTS_SEC(8) << "\t" << INTS_SEC(9) << "\t" << INTS_SEC(10) << "\t" << INTS_SEC(11) << std::endl;
+        std::cout << "MB/s\t" << 0 << "\t" << INTS_SEC(1) << "\t" << INTS_SEC(2) << "\t" << INTS_SEC(3) << "\t" << INTS_SEC(4) << "\t" << INTS_SEC(5) << "\t" << INTS_SEC(6) << "\t" << INTS_SEC(7) << "\t" << INTS_SEC(8) << "\t" << INTS_SEC(9) << "\t" << INTS_SEC(10) << "\t" << INTS_SEC(11) << "\t" << INTS_SEC(12) << std::endl;
 #undef AVG
 #undef INTS_SEC
 
