@@ -522,12 +522,12 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos) stubs[pos] = _mm512_or_epi32(stubs[pos], _mm512_slli_epi16(_mm512_and_epi32(data_vectors[i], masks[pos]), pos));
-#define BLOCK {                                 \
-    UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
-    UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
-    UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
-    UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+#define UPDATE(pos,shift) stubs[pos] = _mm512_or_epi32(stubs[pos], _mm512_slli_epi16(_mm512_srli_epi16(_mm512_and_epi32(data_vectors[i], masks[pos]), pos), shift));
+#define BLOCK(shift) {                          \
+    UPDATE(0,shift)  UPDATE(1,shift)  UPDATE(2,shift)  UPDATE(3,shift)  \
+    UPDATE(4,shift)  UPDATE(5,shift)  UPDATE(6,shift)  UPDATE(7,shift)  \
+    UPDATE(8,shift)  UPDATE(9,shift)  UPDATE(10,shift) UPDATE(11,shift) \
+    UPDATE(12,shift) UPDATE(13,shift) UPDATE(14,shift) UPDATE(15,shift) \
 }
 #define UC(pos) {                      \
     counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(stubs[pos])); \
@@ -542,7 +542,7 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     for(int i = 0; i < n_cycles; i += 16) {
         for(int j = 0; j < 16; ++j) {
-            BLOCK
+            BLOCK(j)
         }
 
         UC_BLOCK
