@@ -1,6 +1,6 @@
 # FastFlagStats
 
-These functions compute SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive, for example in machine learning/deep learning. Using large registers, we can achieve ~4GB/s throughput (320 billion / bits counted per second).
+These functions compute SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive, for example in machine learning/deep learning. Using large registers, we can achieve ~5.1 GB/s throughput (21 billion 1-hot vectors / second).
 
 Compile test suite with: `make` and run `./fast_flag_stats`
 
@@ -469,10 +469,9 @@ for(int i = n_cycles*32; i < n; ++i) {
 }
 ```
 
-### Approach 6: Register accumulator and aggregator and shift-pack popcount (AVX-512)
+### Approach 6: Partial-sum accumulator and aggregator (AVX-512)
 
-This algoritmh begins as Approach 2 by shift-packing 32 bits into a register primitive. Next,
-we perform an in-place `popcnt` operation followed by a partial sums update.
+This algoritmh computes the partial sums by a 16-way predicate incrementation `popcnt`.
 
 Example C++ implementation:
 ```c++
@@ -521,18 +520,22 @@ for(int i = 0; i < 16; ++i) {
 
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024b). 
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024b). 
 
-| Range | Auto-vectorization | Byte-partition | AVX2-aggregator | AVX2-popcnt | AVX2-interlaced-aggregator | AVX2-aggregator-auto | SSE4.1-interlaced-aggregator | Byte-partition-4way |
-|-------|--------------------|----------------|-----------------|-------------|----------------------------|----------------------|------------------------------|---------------------|
-| 16    | 1363.02            | 868.277        | 3807.34         | 3365.43     | 1630.7                     | **3863.35**              | 1325.35                      | 872.479             |
-| 64    | 1343.95            | 856.394        | **3891.1**          | 3558.88     | 1620.65                    | 3888.1               | 1359.94                      | 850.61              |
-| 256   | 1379.03            | 896.5          | 3615.93         | 3399.89     | 1592.38                    | **3775.97**              | 1333.8                       | 888.353             |
-| 512   | 1358.42            | 1554.89        | **3865.19**         | 3561.69     | 1594.62                    | 3768.23              | 1353.53                      | 1678.73             |
-| 1024  | 1365.73            | 1603.97        | 3712.23         | 3314.69     | 1606.2                     | **3915.39**              | 1351.41                      | 1755.52             |
-| 4096  | 1365.89            | 1655.92        | 3850.79         | 3554.45     | 1630.75                    | **3859.13**              | 1350.51                      | 1866.58             |
-| 65536 | 1365.93            | 1634.3         | 3817.8          | 3482.77     | 1643.55                    | **3939.18**              | 1365.93                      | 1900.61             |
+| Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
+|-----------------------|---------|---------|---------|---------|---------|---------|---------|---------|
+| Scalar                | 3002.14 | 2971.51 | 2983.51 | 3001.14 | 2989.41 | 2981.37 | 3006.53 | 2985.63 |
+| Scalar partition      | 1384.35 | 1410.33 | 1457.52 | 1477.92 | 1929.24 | 2044.78 | 2138.47 | 2166.03 |
+| AVX-2                 | 4196.06 | 4180.18 | 4208.02 | 4218.07 | 4229.95 | 4201.68 | 4178.67 | 4167.9  |
+| AVX-2 popcount        | 4364.42 | 4351.03 | 4354.08 | 4350.36 | 4383.91 | 4358.26 | 4361.08 | 4320.24 |
+| AVX-2 single          | 2299.15 | 2289.23 | 2294.31 | 2278.04 | 2306.02 | 2304.01 | 2292.18 | 2295.98 |
+| AVX-2 naïve           | 4219.21 | 4202.06 | 4211.51 | 4191.71 | 4235.51 | 4234.23 | 4217.96 | 4208.33 |
+| SSE4 single           | 1502.92 | 1506.68 | 1516.68 | 1499.56 | 1515.12 | 1517.95 | 1512.9  | 1510.84 |
+| Hist1x4               | 1315.79 | 1356.33 | 1391.72 | 1397.94 | 2222.43 | 2318.16 | 2320.96 | 2351.34 |
+| AVX-512 popcnt        | 3487.53 | 3467.2  | 3493.57 | 3489.54 | 3480.4  | 3556.69 | 3480.66 | 3520.44 |
+| AVX-512 popcnt32 mask | **5096.28** | **5120.15** | **5193.85** | **5071.8**  | **5101.64** | **5105.87** | **5100.49** | **5087.47** |
+| AVX-512               | 3926.99 | 3983.02 | 3995.27 | 3951.7  | 3978.21 | 3993.42 | 3985.31 | 3967.86 |
 
-The AVX2-implementation of the register accumulator and aggregator algorithm (approach 3) is >2.8-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~2 billion FLAG values / second when AVX2 is available.
+The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5) is >1.7-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~21 billion FLAG values / second when AVX-512 is available.
 
 It is intersting to note that the performance of the scalar byte-partition accumulator algorithm (approach 1) is inversely proportional to the bit-entropy of the input data. This loss of performance with lower entropy data probably originates from branch-prediction errors in the tight loops of the projection step. 

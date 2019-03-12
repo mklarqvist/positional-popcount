@@ -409,9 +409,9 @@ uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    std::cerr << "truth=";
-    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    std::cerr << std::endl;
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -522,16 +522,16 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos,shift) stubs[pos] = _mm512_or_epi32(stubs[pos], _mm512_slli_epi16(_mm512_srli_epi16(_mm512_and_epi32(data_vectors[i], masks[pos]), pos), shift));
-#define BLOCK(shift) {                          \
+#define UPDATE(pos,shift) stubs[pos] = _mm512_or_si512(stubs[pos], _mm512_slli_epi16(_mm512_srli_epi16(_mm512_and_si512(data_vectors[i+j], masks[pos]), pos), shift));
+#define BLOCK(shift) {                                                  \
     UPDATE(0,shift)  UPDATE(1,shift)  UPDATE(2,shift)  UPDATE(3,shift)  \
     UPDATE(4,shift)  UPDATE(5,shift)  UPDATE(6,shift)  UPDATE(7,shift)  \
     UPDATE(8,shift)  UPDATE(9,shift)  UPDATE(10,shift) UPDATE(11,shift) \
     UPDATE(12,shift) UPDATE(13,shift) UPDATE(14,shift) UPDATE(15,shift) \
 }
-#define UC(pos) {                      \
+#define UC(pos) {                         \
     counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(stubs[pos])); \
-    stubs[pos] = _mm512_set1_epi32(0); \
+    stubs[pos]    = _mm512_set1_epi32(0); \
 }
 #define UC_BLOCK {              \
     UC(0)  UC(1)  UC(2)  UC(3)  \
@@ -570,9 +570,9 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    std::cerr << "simd=";
-    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    std::cerr << std::endl;
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
 
     return(time_span.count());
 }
