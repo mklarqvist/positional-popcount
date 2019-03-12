@@ -525,17 +525,56 @@ We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with
 | Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
 |-----------------------|---------|---------|---------|---------|---------|---------|---------|---------|
 | Scalar                | 3002.14 | 2971.51 | 2983.51 | 3001.14 | 2989.41 | 2981.37 | 3006.53 | 2985.63 |
-| Scalar partition      | 1384.35 | 1410.33 | 1457.52 | 1477.92 | 1929.24 | 2044.78 | 2138.47 | 2166.03 |
-| AVX-2                 | 4196.06 | 4180.18 | 4208.02 | 4218.07 | 4229.95 | 4201.68 | 4178.67 | 4167.9  |
-| AVX-2 popcount        | 4364.42 | 4351.03 | 4354.08 | 4350.36 | 4383.91 | 4358.26 | 4361.08 | 4320.24 |
-| AVX-2 single          | 2299.15 | 2289.23 | 2294.31 | 2278.04 | 2306.02 | 2304.01 | 2292.18 | 2295.98 |
-| AVX-2 naïve           | 4219.21 | 4202.06 | 4211.51 | 4191.71 | 4235.51 | 4234.23 | 4217.96 | 4208.33 |
-| SSE4 single           | 1502.92 | 1506.68 | 1516.68 | 1499.56 | 1515.12 | 1517.95 | 1512.9  | 1510.84 |
-| Hist1x4               | 1315.79 | 1356.33 | 1391.72 | 1397.94 | 2222.43 | 2318.16 | 2320.96 | 2351.34 |
-| AVX-512 popcnt        | 3487.53 | 3467.2  | 3493.57 | 3489.54 | 3480.4  | 3556.69 | 3480.66 | 3520.44 |
-| AVX-512 popcnt32 mask | **5096.28** | **5120.15** | **5193.85** | **5071.8**  | **5101.64** | **5105.87** | **5100.49** | **5087.47** |
-| AVX-512               | 3926.99 | 3983.02 | 3995.27 | 3951.7  | 3978.21 | 3993.42 | 3985.31 | 3967.86 |
+| Byte-partition      | 1384.35 | 1410.33 | 1457.52 | 1477.92 | 1929.24 | 2044.78 | 2138.47 | 2166.03 |
+| Byte-partition 1x4               | 1315.79 | 1356.33 | 1391.72 | 1397.94 | 2222.43 | 2318.16 | 2320.96 | 2351.34 |
+| AVX-2 accumulator                 | 4196.06 | 4180.18 | 4208.02 | 4218.07 | 4229.95 | 4201.68 | 4178.67 | 4167.9  |
+| AVX-2 pack-popcnt        | 4364.42 | 4351.03 | 4354.08 | 4350.36 | 4383.91 | 4358.26 | 4361.08 | 4320.24 |
+| AVX-2 interlaced pack-popcnt          | 2299.15 | 2289.23 | 2294.31 | 2278.04 | 2306.02 | 2304.01 | 2292.18 | 2295.98 |
+| AVX-2 accumulator naïve           | 4219.21 | 4202.06 | 4211.51 | 4191.71 | 4235.51 | 4234.23 | 4217.96 | 4208.33 |
+| SSE4 interlaced pack-popcnt           | 1502.92 | 1506.68 | 1516.68 | 1499.56 | 1515.12 | 1517.95 | 1512.9  | 1510.84 |
+| AVX-512 pack-popcnt        | 3487.53 | 3467.2  | 3493.57 | 3489.54 | 3480.4  | 3556.69 | 3480.66 | 3520.44 |
+| AVX-512 popcnt predicate mask | **5096.28** | **5120.15** | **5193.85** | **5071.8**  | **5101.64** | **5105.87** | **5100.49** | **5087.47** |
+| AVX-512 shift-add accumulator              | 3926.99 | 3983.02 | 3995.27 | 3951.7  | 3978.21 | 3993.42 | 3985.31 | 3967.86 |
 
 The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5) is >1.7-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~21 billion FLAG values / second when AVX-512 is available.
 
 It is intersting to note that the performance of the scalar byte-partition accumulator algorithm (approach 1) is inversely proportional to the bit-entropy of the input data. This loss of performance with lower entropy data probably originates from branch-prediction errors in the tight loops of the projection step. 
+
+### Reference systems information
+
+Intel Xeon Skylake
+```bash
+$ lscpu
+Architecture:          x86_64
+CPU op-mode(s):        32-bit, 64-bit
+Byte Order:            Little Endian
+CPU(s):                60
+On-line CPU(s) list:   0-59
+Thread(s) per core:    1
+Core(s) per socket:    1
+Socket(s):             60
+NUMA node(s):          1
+Vendor ID:             GenuineIntel
+CPU family:            6
+Model:                 85
+Model name:            Intel Xeon Processor (Skylake, IBRS)
+Stepping:              4
+CPU MHz:               2599.998
+BogoMIPS:              5199.99
+Hypervisor vendor:     KVM
+Virtualization type:   full
+L1d cache:             32K
+L1i cache:             32K
+L2 cache:              4096K
+L3 cache:              16384K
+NUMA node0 CPU(s):     0-59
+Flags:                 fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology eagerfpu pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch invpcid_single spec_ctrl ibpb_support fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm mpx avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 arat
+```
+```bash
+$ hostnamectl
+    Virtualization: kvm
+  Operating System: Red Hat Enterprise Linux
+       CPE OS Name: cpe:/o:redhat:enterprise_linux:7.4:GA:server
+            Kernel: Linux 3.10.0-693.21.1.el7.x86_64
+      Architecture: x86-64
+```
