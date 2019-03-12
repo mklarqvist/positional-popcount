@@ -139,6 +139,7 @@ uint32_t flag_stats_avx2_single(const uint16_t* __restrict__ data, uint32_t n, u
 uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 
 // Wrapper function for calling the best available algorithm during compilation
