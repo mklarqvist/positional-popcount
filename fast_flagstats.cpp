@@ -409,9 +409,9 @@ uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
+    std::cerr << "truth=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -511,26 +511,45 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     __m512i masks[16];
     __m512i counters[16];
+    __m512i stubs[16];
     for(int i = 0; i < 16; ++i) {
         masks[i]    = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
         counters[i] = _mm512_set1_epi32(0);
+        stubs[i] = _mm512_set1_epi32(0);
     }
     uint32_t out_counters[16] = {0};
 
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos) counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(_mm512_and_epi32(data_vectors[i], masks[pos])));
+#define UPDATE(pos) stubs[pos] = _mm512_or_epi32(stubs[pos], _mm512_slli_epi16(_mm512_and_epi32(data_vectors[i], masks[pos]), pos));
 #define BLOCK {                                 \
     UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
     UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
     UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
     UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
-    for(int i = 0; i < n_cycles; i+=16) { // each block of 2^16 values
-        BLOCK
+#define UC(pos) {                      \
+    counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(stubs[pos])); \
+    stubs[pos] = _mm512_set1_epi32(0); \
+}
+#define UC_BLOCK {              \
+    UC(0)  UC(1)  UC(2)  UC(3)  \
+    UC(4)  UC(5)  UC(6)  UC(7)  \
+    UC(8)  UC(9)  UC(10) UC(11) \
+    UC(12) UC(13) UC(14) UC(15) \
+}
+
+    for(int i = 0; i < n_cycles; i += 16) {
+        for(int j = 0; j < 16; ++j) {
+            BLOCK
+        }
+
+        UC_BLOCK
     }
 
+#undef UC_BLOCK
+#undef UC
 #undef BLOCK
 #undef UPDATE
 
@@ -551,9 +570,9 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "simd=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
