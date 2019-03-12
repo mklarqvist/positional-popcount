@@ -518,7 +518,7 @@ uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint
     const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos]);
+#define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
 #define UP(pos) out_counters[pos] += PIL_POPCOUNT((UPDATE(pos,0) << 32) | UPDATE(pos,1));
 #define BLOCK {                 \
     UP(0)  UP(1)  UP(2)  UP(3)  \
@@ -547,6 +547,7 @@ uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint
     std::cerr << std::endl;
 
 #undef BLOCK
+#undef UP
 #undef UPDATE
 
     return(time_span.count());
