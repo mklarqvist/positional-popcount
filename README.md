@@ -4,7 +4,25 @@ These functions compute SAM FLAG statistics using fast [SIMD instructions](https
 
 Compile test suite with: `make` and run `./fast_flag_stats`
 
-## Computing FLAG-statistics
+### Table of contents
+  - [Problem statement](#problem-statement)
+  - [Goals](#goals)
+  - [Technical approach](#technical-approach)
+    - [Approach 0: Naive iterator (scalar)](#approach-0-naive-iterator-scalar)
+    - [Approach 1: Byte-partition accumulator (scalar)](#approach-1-byte-partition-accumulator-scalar)
+    - [Approach 2: Shift-pack popcount accumulator (SIMD)](#approach-2-shift-pack-popcount-accumulator-simd)
+    - [Approach 3: Register accumulator and aggregator (AVX2)](#approach-3-register-accumulator-and-aggregator-avx2)
+    - [Approach 3b: Register accumulator and aggregator (AVX512)](#approach-3b-register-accumulator-and-aggregator-avx512)
+    - [Approach 4a: Interlaced register accumulator and aggregator (AVX2)](#approach-4a-interlaced-register-accumulator-and-aggregator-avx2)
+    - [Approach 4b: Interlaced register accumulator and aggregator (SSE4.1)](#approach-4b-interlaced-register-accumulator-and-aggregator-sse41)
+    - [Approach 5: Popcount predicate-mask accumulator (AVX-512)](#approach-5-popcount-predicate-mask-accumulator-avx-512)
+    - [Approach 6: Partial-sum accumulator and aggregator (AVX-512)](#approach-6-partial-sum-accumulator-and-aggregator-avx-512)
+  - [Results](#results)
+    - [Xeon Skylake (AVX-512)](#xeon-skylake-avx-512)
+    - [Xeon Haswell (AVX-256)](#xeon-haswell-avx-256)
+  - [Reference systems information](#reference-systems-information)
+  
+---
 
 ## Problem statement
 The FLAG field in the [SAM interchange format](https://github.com/samtools/hts-specs) is defined as the union of [1-hot](https://en.wikipedia.org/wiki/One-hot) encoded states for a given read. For example, the following three states evaluating to true
