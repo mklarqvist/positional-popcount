@@ -1,27 +1,13 @@
 # FastFlagStats
 
-These functions compute SAM FLAG statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~5.6 GB/s throughput (3 billion 1-hot vectors / second).
+These functions compute SAM FLAG statistics using fast SIMD instructions. These functions can be applied to any packed 1-hot 16-bit primitive, for example in machine learning/deep learning. Using large registers, we can achieve ~5.1 GB/s throughput (21 billion 1-hot vectors / second).
 
 Compile test suite with: `make` and run `./fast_flag_stats`
 
-### Table of contents
-  - [Problem statement](#problem-statement)
-  - [Goals](#goals)
-  - [Technical approach](#technical-approach)
-    - [Approach 0: Naive iterator (scalar)](#approach-0-naive-iterator-scalar)
-    - [Approach 1: Byte-partition accumulator (scalar)](#approach-1-byte-partition-accumulator-scalar)
-    - [Approach 2: Shift-pack popcount accumulator (SIMD)](#approach-2-shift-pack-popcount-accumulator-simd)
-    - [Approach 3: Register accumulator and aggregator (AVX2)](#approach-3-register-accumulator-and-aggregator-avx2)
-    - [Approach 3b: Register accumulator and aggregator (AVX512)](#approach-3b-register-accumulator-and-aggregator-avx512)
-    - [Approach 4a: Interlaced register accumulator and aggregator (AVX2)](#approach-4a-interlaced-register-accumulator-and-aggregator-avx2)
-    - [Approach 4b: Interlaced register accumulator and aggregator (SSE4.1)](#approach-4b-interlaced-register-accumulator-and-aggregator-sse41)
-    - [Approach 5: Popcount predicate-mask accumulator (AVX-512)](#approach-5-popcount-predicate-mask-accumulator-avx-512)
-    - [Approach 6: Partial-sum accumulator and aggregator (AVX-512)](#approach-6-partial-sum-accumulator-and-aggregator-avx-512)
-  - [Results](#results)
-    - [Xeon Skylake (AVX-512)](#xeon-skylake-avx-512)
-    - [Xeon Haswell (AVX-256)](#xeon-haswell-avx-256)
-  - [Reference systems information](#reference-systems-information)
-  
+### History
+
+These functions were developed for [pil](https://github.com/mklarqvist/pil) but can be applied to any 1-hot count problem.
+
 ---
 
 ## Problem statement
@@ -283,11 +269,11 @@ __m512i d   = _mm512_add_epi32(_mm512_and_epi32(_mm512_srli_epi32(a, pos), one_m
 counters[pos] = _mm512_add_epi32(counters[pos], d);          \
 }
 // Unroll 16 updates
-#define BLOCK {                                 \
-    UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
-    UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
-    UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
-    UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
 
 for(int i = 0; i < n_cycles; ++i) {
@@ -449,25 +435,27 @@ for(int i = pos*8; i < n; ++i) {
 
 The AVX-512 instruction set comes with the new `vpcmpuw` (`_mm512_cmpeq_epu16_mask`) instruction
 that returns the equality predicate of two registers as a packed 32-bit integer (`__mask32`). This
-algorithm combines this packed integer with a 32-bit `popcnt` operation. In the second approach (64-bit) we pack two 32-bit masks into a 64-bit primitive before performing a `popcnt` operation on the packed mask.
+algorithm combines this packed integer with a 32-bit `popcnt` operation.
 
-Example C++ implementation using 32-bit-mask:
+Example C++ implementation:
 ```c++
-__m512i masks[16];
+__m512i masks[16]; // 1-hot masks
 for(int i = 0; i < 16; ++i) {
     masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
 }
-uint32_t out_counters[16] = {0};
+uint32_t out_counters[16] = {0}; // aggregators
 
 const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
 const uint32_t n_cycles = n / 32;
 
+// Define a macro UPDATE representing a single update step:
 #define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
-#define BLOCK {                                 \
-    UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
-    UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
-    UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
-    UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+// Unroll the update for 16 values
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
 
 for(int i = 0; i < n_cycles; ++i) {
@@ -477,43 +465,7 @@ for(int i = 0; i < n_cycles; ++i) {
 #undef BLOCK
 #undef UPDATE
 
-// Residual FLAGs that are not multiple of 32
-// Scalar approach:
-for(int i = n_cycles*32; i < n; ++i) {
-    for(int j = 0; j < 16; ++j)
-        out_counters[j] += ((data[i] & (1 << j)) >> j);
-}
-```
-
-Example C++ implementation packing two 32-bit masks into a 64-bit primitive:
-```c++
-__m512i masks[16];
-for(int i = 0; i < 16; ++i) {
-    masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
-}
-uint32_t out_counters[16] = {0};
-
-const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
-const uint32_t n_cycles = n / 32;
-
-#define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
-#define UP(pos) out_counters[pos] += PIL_POPCOUNT((UPDATE(pos,0) << 32) | UPDATE(pos,1));
-#define BLOCK {                 \
-    UP(0)  UP(1)  UP(2)  UP(3)  \
-    UP(4)  UP(5)  UP(6)  UP(7)  \
-    UP(8)  UP(9)  UP(10) UP(11) \
-    UP(12) UP(13) UP(14) UP(15) \
-}
-
-for(int i = 0; i < n_cycles; i += 2) {
-    BLOCK
-}
-
-#undef BLOCK
-#undef UP
-#undef UPDATE
-
-// Residual FLAGs that are not multiple of 32
+// Residual FLAGs that are not multiple of 16
 // Scalar approach:
 for(int i = n_cycles*32; i < n; ++i) {
     for(int j = 0; j < 16; ++j)
@@ -541,11 +493,11 @@ const uint32_t n_cycles = n / 32;
 // Define a macro UPDATE representing a single update step:
 #define UPDATE(pos) counters[pos] = _mm512_add_epi32(counters[pos], avx512_popcount(_mm512_and_epi32(data_vectors[i], masks[pos])));
 // Unroll the update for 16 values
-#define BLOCK {                                 \
-    UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
-    UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
-    UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
-    UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+#define BLOCK {                             \
+UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
 }
 
 for(int i = 0; i < n_cycles; i+=16) { // each block of 2^16 values
@@ -572,51 +524,30 @@ for(int i = 0; i < 16; ++i) {
 
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average throughput in MB/s (1 MB = 1024b). 
-
-#### Xeon Skylake (AVX-512)
-
-The reference system uses a Intel Skylake @ 2.6 GHz.
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. The reference system uses a Intel Skylake @ 2.6 GHz. Numbers represent the average throughput in MB/s (1 MB = 1024 * 1024b). 
 
 | Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
 |-----------------------|---------|---------|---------|---------|---------|---------|---------|---------|
 | Scalar                | 2760.23 | 2761.38 | 2773.69 | 2741.66 | 2823.47 | 2724.87 | 2767.36 | 2732.9  |
 | Byte-partition      | 1343.91 | 1346.64 | 1376.01 | 1392.99 | 1832.47 | 1963.46 | 1974.73 | 2007.54 |
 | Byte-partition 1x4               | 1223.41 | 1265.07 | 1299.47 | 1307.85 | 2069.54 | 2141.29 | 2175.91 | 2161.69 |
-| SSE-4.1 interlaced pack-popcnt           | 1502.92 | 1506.68 | 1516.68 | 1499.56 | 1515.12 | 1517.95 | 1512.9  | 1510.84 |
 | AVX-2 accumulator                 | 4196.06 | 4180.18 | 4208.02 | 4218.07 | 4229.95 | 4201.68 | 4178.67 | 4167.9  |
 | AVX-2 pack-popcnt        | 4364.42 | 4351.03 | 4354.08 | 4350.36 | 4383.91 | 4358.26 | 4361.08 | 4320.24 |
 | AVX-2 interlaced pack-popcnt          | 2299.15 | 2289.23 | 2294.31 | 2278.04 | 2306.02 | 2304.01 | 2292.18 | 2295.98 |
 | AVX-2 accumulator naïve           | 4219.21 | 4202.06 | 4211.51 | 4191.71 | 4235.51 | 4234.23 | 4217.96 | 4208.33 |
+| SSE4 interlaced pack-popcnt           | 1502.92 | 1506.68 | 1516.68 | 1499.56 | 1515.12 | 1517.95 | 1512.9  | 1510.84 |
 | AVX-512 pack-popcnt        | 3487.53 | 3467.2  | 3493.57 | 3489.54 | 3480.4  | 3556.69 | 3480.66 | 3520.44 |
 | AVX-512 popcnt32 mask | 5009.68 | 4975.99 | 5069.15 | 5096.2  | 5053.76 | 5066.13 | 5010.83 | 5043.13 |
 | AVX-512 popcnt64 mask | **5554.44** | **5573.42** | **5626.61** | **5564.12** | **5614.47** | **5613.98** | **5604.84** | **5632.98** |
 | AVX-512 shift-add accumulator              | 3926.99 | 3983.02 | 3995.27 | 3951.7  | 3978.21 | 3993.42 | 3985.31 | 3967.86 |
 
-The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5, 64-bit mask) is >2-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance 
-profile indepedent of data entropy. We achieve an average throughput rate of ~2.9 billion FLAG values / second when AVX-512 is available.
+The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5) is >2-fold faster then auto-vectorization. Unexpectedly, the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~21 billion FLAG values / second when AVX-512 is available.
 
-#### Xeon Haswell (AVX-256)
-
-The reference system uses a Intel Haswell @ 2.8 GHz.
-
-| Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|-----------------------|---------|---------|---------|---------|---------|---------|---------|---------|
-| Scalar                      | 1224.05 | 1261.06 | 1273.68 | 1254.79 | 1227.9  | 1205.23 | 1257.53 | 1230.78 |
-| Byte-partition              | 712.347 | 733.356 | 724.289 | 749.943 | 1250.84 | 1326.97 | 1352.35 | 1355.92 |
-| Byte-partition 1x4          | 789.993 | 831.818 | 832.912 | 852.281 | 1375.49 | 1425.63 | 1511.18 | 1504.61 |
-| SSE-4.1 interlaced pack-popcnt | 1103.78 | 1169.42 | 1184.13 | 1172.35 | 1140.6  | 1094.57 | 1152.21 | 1125.54 |
-| AVX-2 accumulator           | **3226.72** | **3330.12** | **3368.8**  | **3351.59** | **3281.49** | 3149.27 | **3313.62** | 3130.18 |
-| AVX-2 pack-popcnt           | 2346.7  | 2414.26 | 2454.94 | 2438.04 | 2379.12 | 2354.46 | 2392.86 | 2357.76 |
-| AVX-2 interlaced pack-popcnt  | 1384.21 | 1433.15 | 1462.52 | 1446.17 | 1406.57 | 1395.35 | 1425.04 | 1403.56 |
-| AVX-2 accumulator naïve     | 3178.91 | 3295.09 | 3356.51 | 3334.89 | 3220.32 | **3169.8**  | 3251.75 | **3196.52** |
-
-The AVX-256 accumulator (approach 3) is >2.6-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance 
-profile indepedent of data entropy. We achieve an average throughput rate of ~1.7 billion FLAG values / second when AVX-256 is available.
+It is intersting to note that the performance of the scalar byte-partition accumulator algorithm (approach 1) is inversely proportional to the bit-entropy of the input data. This loss of performance with lower entropy data probably originates from branch-prediction errors in the tight loops of the projection step. 
 
 ### Reference systems information
 
-Intel Xeon Skylake (AVX-512)
+Intel Xeon Skylake
 ```bash
 $ lscpu
 Architecture:          x86_64
@@ -650,41 +581,5 @@ $ hostnamectl
   Operating System: Red Hat Enterprise Linux
        CPE OS Name: cpe:/o:redhat:enterprise_linux:7.4:GA:server
             Kernel: Linux 3.10.0-693.21.1.el7.x86_64
-      Architecture: x86-64
-```
-
-Intel Xeon Haswell (AVX-256)
-```bash
-$ lscpu
-Architecture:        x86_64
-CPU op-mode(s):      32-bit, 64-bit
-Byte Order:          Little Endian
-CPU(s):              28
-On-line CPU(s) list: 0-27
-Thread(s) per core:  2
-Core(s) per socket:  14
-Socket(s):           1
-NUMA node(s):        1
-Vendor ID:           GenuineIntel
-CPU family:          6
-Model:               63
-Model name:          Genuine Intel(R) CPU @ 2.20GHz
-Stepping:            1
-CPU MHz:             1200.167
-CPU max MHz:         2800.0000
-CPU min MHz:         1200.0000
-BogoMIPS:            4400.30
-Virtualisation:      VT-x
-L1d cache:           32K
-L1i cache:           32K
-L2 cache:            256K
-L3 cache:            35840K
-NUMA node0 CPU(s):   0-27
-Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand lahf_lm abm cpuid_fault invpcid_single pti intel_ppin tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts
-```
-```bash
-$ hostnamectl
-  Operating System: Ubuntu 18.04.2 LTS
-            Kernel: Linux 4.15.0-46-generic
       Architecture: x86-64
 ```
