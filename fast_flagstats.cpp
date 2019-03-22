@@ -15,6 +15,7 @@
 * specific language governing permissions and limitations
 * under the License.
 */
+#include <bitset>
 #include "fast_flagstats.h"
 
 #if SIMD_VERSION >= 5
@@ -925,17 +926,17 @@ uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ array, uint32_t le
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i < 16; i++) flags[i] = 0;
-    for (size_t i = 0; i + 32 <= len; i += 32) {
-        __m256i v0 = _mm256_load_si256((__m256i *)(array + i));
-        __m256i v1 = _mm256_load_si256((__m256i *)(array + i + 16));
 
-        __m256i input0 =
-            _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00ff)),
-                            _mm256_slli_epi16(v1, 8));
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    uint32_t n_cycles = len / 16;
 
-        __m256i input1 =
-            _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xff00)),
-                            _mm256_srli_epi16(v1, 8));
+    size_t i = 0;
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        __m256i v0 = data_vectors[i+0];
+        __m256i v1 = data_vectors[i+1];
+        
+        __m256i input0 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v1, 8));
+        __m256i input1 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v1, 8));
         
         for (int i = 0; i < 8; i++) {
             flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input0));
@@ -945,10 +946,110 @@ uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ array, uint32_t le
         }
     }
 
-  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
     std::cerr << "lemire3=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
+    
+    return(time_span.count());
+}
+
+uint32_t flag_stats_avx2_lemire3_unroll4(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    for (size_t i = 0; i < 16; i++) flags[i] = 0;
+
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    uint32_t n_cycles = len / 16;
+
+    size_t i = 0;
+    for (/**/; i + 4 <= n_cycles; i += 4) {
+        __m256i v0 = data_vectors[i+0];
+        __m256i v1 = data_vectors[i+1];
+        __m256i v2 = data_vectors[i+2];
+        __m256i v3 = data_vectors[i+3];
+        
+        __m256i input0 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v1, 8));
+        __m256i input1 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v1, 8));
+        __m256i input3 = _mm256_or_si256(_mm256_and_si256(v2, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v3, 8));
+        __m256i input4 = _mm256_or_si256(_mm256_and_si256(v2, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v3, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input1));
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input3));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input4));
+            input0 = _mm256_add_epi8(input0, input0);
+            input1 = _mm256_add_epi8(input1, input1);
+            input3 = _mm256_add_epi8(input3, input3);
+            input4 = _mm256_add_epi8(input4, input4);
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    std::cerr << "lemire3-unroll4=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
+    
+    return(time_span.count());
+}
+
+uint32_t flag_stats_avx2_lemire3_unroll8(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    for (size_t i = 0; i < 16; i++) flags[i] = 0;
+
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    uint32_t n_cycles = len / 16;
+
+    size_t i = 0;
+    for (/**/; i + 8 <= n_cycles; i += 8) {
+        __m256i v0 = data_vectors[i+0];
+        __m256i v1 = data_vectors[i+1];
+        __m256i v2 = data_vectors[i+2];
+        __m256i v3 = data_vectors[i+3];
+        __m256i v4 = data_vectors[i+4];
+        __m256i v5 = data_vectors[i+5];
+        __m256i v6 = data_vectors[i+6];
+        __m256i v7 = data_vectors[i+7];
+        
+        __m256i input0 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v1, 8));
+        __m256i input1 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v1, 8));
+        __m256i input3 = _mm256_or_si256(_mm256_and_si256(v2, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v3, 8));
+        __m256i input4 = _mm256_or_si256(_mm256_and_si256(v2, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v3, 8));
+        __m256i input5 = _mm256_or_si256(_mm256_and_si256(v4, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v5, 8));
+        __m256i input6 = _mm256_or_si256(_mm256_and_si256(v4, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v5, 8));
+        __m256i input7 = _mm256_or_si256(_mm256_and_si256(v6, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v7, 8));
+        __m256i input8 = _mm256_or_si256(_mm256_and_si256(v6, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v7, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input1));
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input3));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input4));
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input5));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input6));
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input7));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input8));
+            input0 = _mm256_add_epi8(input0, input0);
+            input1 = _mm256_add_epi8(input1, input1);
+            input3 = _mm256_add_epi8(input3, input3);
+            input4 = _mm256_add_epi8(input4, input4);
+            input5 = _mm256_add_epi8(input5, input5);
+            input6 = _mm256_add_epi8(input6, input6);
+            input7 = _mm256_add_epi8(input7, input7);
+            input8 = _mm256_add_epi8(input8, input8);
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    std::cerr << "lemire3-unroll8=";
     for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
     std::cerr << std::endl;
     
@@ -959,4 +1060,6 @@ uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ array, uint32_t le
 uint32_t flag_stats_avx2_lemire(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx2_lemire2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx2_lemire3_remake(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx2_lemire3_remake8(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
 #endif
