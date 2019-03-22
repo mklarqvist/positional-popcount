@@ -38,10 +38,10 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
 
 #define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx), shift));
 #define ITERATION(idx) {                                               \
-        UPDATE(idx,0);  UPDATE(idx,1);  UPDATE(idx,2);  UPDATE(idx,3); \
-        UPDATE(idx,4);  UPDATE(idx,5);  UPDATE(idx,6);  UPDATE(idx,7); \
-        UPDATE(idx,8);  UPDATE(idx,9);  UPDATE(idx,10); UPDATE(idx,11);\
-        UPDATE(idx,12); UPDATE(idx,13); UPDATE(idx,14); UPDATE(idx,15);\
+        UPDATE(0,idx);  UPDATE(1,idx);  UPDATE(2,idx);  UPDATE(3,idx); \
+        UPDATE(4,idx);  UPDATE(5,idx);  UPDATE(6,idx);  UPDATE(7,idx); \
+        UPDATE(8,idx);  UPDATE(9,idx);  UPDATE(10,idx); UPDATE(11,idx);\
+        UPDATE(12,idx); UPDATE(13,idx); UPDATE(14,idx); UPDATE(15,idx);\
         ++pos;                                                         \
 }
 #define BLOCK {                                                    \
@@ -55,14 +55,17 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
     for(int i = 0; i < n_cycles_updates; ++i) {
         BLOCK // unrolled
 
-        /*
+        
         // Not unrolled
-        for(int c = 0; c < 16; ++c, ++pos) { // 16 iterations per register
-            for(int j = 0; j < 16; ++j) { // each 1-hot per register
-                UPDATE(j,c)
-            }
+        /*
+        for(int c = 0; c < 16; ++c) { // 16 iterations per register
+            ITERATION(c)
+            // for(int j = 0; j < 16; ++j) { // each 1-hot per register
+            //     UPDATE(j,c)
+            // }
         }
         */
+        
 
         for(int j = 0; j < 16; ++j) {
             PIL_POPCOUNT_AVX2(out_counters[j], stubs[j])
@@ -71,6 +74,8 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
     }
 
     // residual
+    
+    assert(pos*16 <= n);
     for(int i = pos*16; i < n; ++i) {
         for(int j = 0; j < 16; ++j) {
             out_counters[j] += ((data[i] & (1 << j)) >> j);
@@ -82,9 +87,9 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "popcnt=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx2-popcnt=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
 #undef BLOCK
 #undef ITERATION
@@ -116,11 +121,11 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
         UPDATE(4);  UPDATE(5);  UPDATE(6);  UPDATE(7); \
         UPDATE(8);  UPDATE(9);  UPDATE(10); UPDATE(11);\
         UPDATE(12); UPDATE(13); UPDATE(14); UPDATE(15);\
-        ++pos; ++k;                                    \
+        ++pos;                                         \
 }
     uint32_t pos = 0;
     for(int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
-        for(int k = 0; k < 65536; ) // max sum of each 16-bit value in a register
+        for(int k = 0; k < 65536; ++k) // max sum of each 16-bit value in a register
             ITERATION // unrolled
 
         // Compute vector sum
@@ -158,9 +163,9 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx2=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
 #undef ITERATION
 #undef UPDATE
@@ -216,9 +221,9 @@ uint32_t flag_stats_avx2_naive_counter(const uint16_t* __restrict__ data, uint32
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx2-naive=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
 #undef UPDATE
 
@@ -275,9 +280,9 @@ uint32_t flag_stats_avx2_single(const uint16_t* __restrict__ data, uint32_t n, u
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx2-single=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 
@@ -351,9 +356,9 @@ uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, ui
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "sse-single=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 
@@ -376,9 +381,9 @@ uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
+    std::cerr << "scalar-naive=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -409,9 +414,9 @@ uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
+    std::cerr << "scalar-partition=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -453,9 +458,9 @@ uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint3
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
+    std::cerr << "hist1x4=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -496,9 +501,9 @@ uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx512-popcnt-mask-32=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
 #undef BLOCK
 #undef UPDATE
@@ -542,9 +547,9 @@ uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx512-popcnt-mask=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
 #undef BLOCK
 #undef UP
@@ -617,9 +622,9 @@ uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n,
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx512-popcount=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -675,9 +680,9 @@ uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32
 
     for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "simd=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
+    std::cerr << "avx512=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -700,3 +705,258 @@ uint32_t compute_flag_stats(const uint16_t* __restrict__ data, uint32_t n, uint3
     return(flag_stats_hist1x4(data, n, flags));
     #endif
 }
+
+void scalar_naive(const uint16_t *data, size_t n, uint32_t *flags) {
+  memset(flags, 0, 16 * sizeof(uint32_t));
+  for (uint32_t i = 0; i < n; ++i) {
+    for (int j = 0; j < 16; ++j) {
+      flags[j] += ((data[i] & (1 << j)) >> j);
+    }
+  }
+}
+
+#if SIMD_VERSION >= 5
+// By Daniel Lemire
+// See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
+uint32_t flag_stats_avx2_lemire(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    for (size_t i = 0; i < 16; i++)
+    flags[i] = 0;
+  uint16_t buffer[16];
+  __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512,
+                                  256, 128, 64, 32, 16, 8, 4, 2, 1);
+  // we do the first part
+  if (len < 64) {
+    // don't bother with handcrafted SIMD
+    scalar_naive(array, len, flags);
+    return 0;
+  }
+  // handle the start (naively)
+  __m256i count16 = _mm256_setzero_si256();
+
+  {
+    uint16_t startbuffer[32];
+    memset(startbuffer, 0, 32 * 2);
+    memcpy(startbuffer + 16, array, 16 * 2);
+    for (size_t i = 1; i < 16; i++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+  }
+  _mm256_storeu_si256((__m256i *)buffer, count16);
+  for (size_t k = 0; k < 16; k++) {
+    flags[k] += buffer[k];
+  }
+
+  // main loop starts here
+  for (size_t i = 0; i + 16 <= len;) {
+    count16 = _mm256_setzero_si256();
+    size_t j = 0;
+    size_t maxj = i + 65535 + 16 <= len ? 65535 : len - i;
+    if (maxj > 4) {
+      for (; j + 3 < maxj; j += 4) {
+        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i m1 = _mm256_and_si256(input1, bits);
+        __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
+        count16 = _mm256_sub_epi16(count16, eq1);
+        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i m2 = _mm256_and_si256(input2, bits);
+        __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
+        count16 = _mm256_sub_epi16(count16, eq2);
+        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i m3 = _mm256_and_si256(input3, bits);
+        __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
+        count16 = _mm256_sub_epi16(count16, eq3);
+        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i m4 = _mm256_and_si256(input4, bits);
+        __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
+        count16 = _mm256_sub_epi16(count16, eq4);
+      }
+    }
+    for (; j < maxj; j++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+    i += j;
+    _mm256_storeu_si256((__m256i *)buffer, count16);
+    for (size_t k = 0; k < 16; k++) {
+      flags[k] += buffer[k];
+    }
+}
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    std::cerr << "lemire1=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
+    
+    return(time_span.count());
+}
+
+// By Daniel Lemire
+// See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
+uint32_t flag_stats_avx2_lemire2(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    for (size_t i = 0; i < 16; i++)
+    flags[i] = 0;
+  uint16_t buffer[16];
+  __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512,
+                                  256, 128, 64, 32, 16, 8, 4, 2, 1);
+  // we do the first part
+  if (len < 64) {
+    // don't bother with handcrafted SIMD
+    scalar_naive(array, len, flags);
+    return 0;
+  }
+  // handle the start (naively)
+  __m256i count16 = _mm256_setzero_si256();
+
+  {
+    uint16_t startbuffer[32];
+    memset(startbuffer, 0, 32 * 2);
+    memcpy(startbuffer + 16, array, 16 * 2);
+    for (size_t i = 1; i < 16; i++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+  }
+  _mm256_storeu_si256((__m256i *)buffer, count16);
+  for (size_t k = 0; k < 16; k++) {
+    flags[k] += buffer[k];
+  }
+
+  // main loop starts here
+  for (size_t i = 0; i + 16 <= len;) {
+    count16 = _mm256_setzero_si256();
+    size_t j = 0;
+    size_t maxj = i + 65535 + 16 <= len ? 65535 : len - i;
+    if (maxj > 8) {
+      for (; j + 7 < maxj; j += 8) {
+        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i m1 = _mm256_and_si256(input1, bits);
+        __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
+        count16 = _mm256_sub_epi16(count16, eq1);
+        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i m2 = _mm256_and_si256(input2, bits);
+        __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
+        count16 = _mm256_sub_epi16(count16, eq2);
+        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i m3 = _mm256_and_si256(input3, bits);
+        __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
+        count16 = _mm256_sub_epi16(count16, eq3);
+        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i m4 = _mm256_and_si256(input4, bits);
+        __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
+        count16 = _mm256_sub_epi16(count16, eq4);
+        __m256i input5 = _mm256_loadu_si256((__m256i *)(array + i + j + 4));
+        __m256i m5 = _mm256_and_si256(input5, bits);
+        __m256i eq5 = _mm256_cmpeq_epi16(bits, m5);
+        count16 = _mm256_sub_epi16(count16, eq5);
+        __m256i input6 = _mm256_loadu_si256((__m256i *)(array + i + j + 5));
+        __m256i m6 = _mm256_and_si256(input6, bits);
+        __m256i eq6 = _mm256_cmpeq_epi16(bits, m6);
+        count16 = _mm256_sub_epi16(count16, eq6);
+        __m256i input7 = _mm256_loadu_si256((__m256i *)(array + i + j + 6));
+        __m256i m7 = _mm256_and_si256(input7, bits);
+        __m256i eq7 = _mm256_cmpeq_epi16(bits, m7);
+        count16 = _mm256_sub_epi16(count16, eq7);
+        __m256i input8 = _mm256_loadu_si256((__m256i *)(array + i + j + 7));
+        __m256i m8 = _mm256_and_si256(input8, bits);
+        __m256i eq8 = _mm256_cmpeq_epi16(bits, m8);
+        count16 = _mm256_sub_epi16(count16, eq8);
+      }
+    }
+
+    if (maxj > 4) {
+      for (; j + 3 < maxj; j += 4) {
+        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i m1 = _mm256_and_si256(input1, bits);
+        __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
+        count16 = _mm256_sub_epi16(count16, eq1);
+        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i m2 = _mm256_and_si256(input2, bits);
+        __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
+        count16 = _mm256_sub_epi16(count16, eq2);
+        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i m3 = _mm256_and_si256(input3, bits);
+        __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
+        count16 = _mm256_sub_epi16(count16, eq3);
+        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i m4 = _mm256_and_si256(input4, bits);
+        __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
+        count16 = _mm256_sub_epi16(count16, eq4);
+      }
+    }
+    for (; j < maxj; j++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+    i += j;
+    _mm256_storeu_si256((__m256i *)buffer, count16);
+    for (size_t k = 0; k < 16; k++) {
+      flags[k] += buffer[k];
+    }
+  }
+
+  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    std::cerr << "lemire2=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
+    
+    return(time_span.count());
+}
+
+// By Daniel Lemire
+// See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
+uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    for (size_t i = 0; i < 16; i++) flags[i] = 0;
+    for (size_t i = 0; i + 32 <= len; i += 32) {
+        __m256i v0 = _mm256_load_si256((__m256i *)(array + i));
+        __m256i v1 = _mm256_load_si256((__m256i *)(array + i + 16));
+
+        __m256i input0 =
+            _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00ff)),
+                            _mm256_slli_epi16(v1, 8));
+
+        __m256i input1 =
+            _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xff00)),
+                            _mm256_srli_epi16(v1, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[7 - i]  += _mm_popcnt_u32(_mm256_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input1));
+            input0 = _mm256_add_epi8(input0, input0);
+            input1 = _mm256_add_epi8(input1, input1);
+        }
+    }
+
+  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    std::cerr << "lemire3=";
+    for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    std::cerr << std::endl;
+    
+    return(time_span.count());
+}
+
+#else
+uint32_t flag_stats_avx2_lemire(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx2_lemire2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+#endif
