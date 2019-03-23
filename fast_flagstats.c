@@ -25,9 +25,9 @@ int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags) {
 #elif SIMD_VERSION >= 5
     return(pospopcnt_u16_avx2_mula_unroll8(data, n, flags));
 #elif SIMD_VERSION >= 3
-    return(pospopcnt_u16_sse_single(data, n, flags));
+    return(pospopcnt_u16_sse_mula_unroll8(data, n, flags));
 #else
-    return(pospopcnt_u16_hist1x4(data, n, flags));
+    return(pospopcnt_u16_scalar_naive(data, n, flags));
 #endif
 }
 
@@ -1141,6 +1141,7 @@ int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* 
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
+#if SIMD_VERSION >= 3
 int pospopcnt_u16_sse_mula(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m128i* data_vectors = (const __m128i*)(array);
     const uint32_t n_cycles = len / 8;
@@ -1345,3 +1346,8 @@ int pospopcnt_u16_sse_mula_unroll8(const uint16_t* array, uint32_t len, uint32_t
     
     return 0;
 }
+#else
+int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+#endif
