@@ -20,6 +20,10 @@
 
 #include <stdint.h> //types
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************
 *  SIMD definitions
 ****************************/
@@ -105,7 +109,7 @@ static inline void PIL_POPCOUNT_SSE(uint64_t* a, const __m128i n) {
 #endif // endif simd_version >= 5
 
 #if SIMD_VERSION >= 6
-// By Wojciech Mula
+// By Wojciech Muła
 // @see https://github.com/WojciechMula/sse-popcount/blob/master/popcnt-avx512-harley-seal.cpp#L3
 // @see https://arxiv.org/abs/1611.07612
 __attribute__((always_inline))
@@ -121,7 +125,8 @@ static inline __m512i avx512_popcount(const __m512i v) {
 }
 #endif // endif simd_version >= 6
 
-/*------ Core enums --------*/
+/*------ Function enums --------*/
+
 typedef enum {
     PPOPCNT_AUTO,
     PPOPCNT_SCALAR,
@@ -148,6 +153,8 @@ typedef enum {
     PPOPCNT_SSE_MULA_UR16
 } PPOPCNT_U16_METHODS;
 
+/*------ Functions --------*/
+
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_hist1x4(const uint16_t* data, uint32_t n, uint32_t* flags);
@@ -160,7 +167,6 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags);
-
 int pospopcnt_u16_avx2_lemire(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_lemire2(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
@@ -170,10 +176,15 @@ int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t*
 int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_sse_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);
 
 // Wrapper function for calling the best available algorithm during compilation
 // time.
 int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FAST_FLAGSTATS_H_ */

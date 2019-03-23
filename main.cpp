@@ -81,6 +81,9 @@ void flag_functions(uint16_t* vals, uint64_t* times, uint64_t* times_local, cons
     pospopcnt_u16_wrapper(&pospopcnt_u16_hist1x4,vals, n, flags,times[8],times_local[8]);
     assert_truth(flags, truth);
 
+    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll16,vals, n, flags,times[22],times_local[22]);
+    assert_truth(flags, truth);
+
     pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_popcnt,vals, n, flags,times[9],times_local[9]);
     assert_truth(flags, truth);
 
@@ -143,19 +146,25 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
 #define SPEED(cum) (times_local[cum] == 0 ? 0 : (MHZ * (times_local[cum] / 1000000.0) / n))
             std::cout << "MBS\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 22; ++i) std::cout << '\t' << MBS(i);
+            for(int i = 1; i < 23; ++i) std::cout << '\t' << MBS(i);
             std::cout << "\nCycles\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 22; ++i) std::cout << '\t' << SPEED(i);
+            for(int i = 1; i < 23; ++i) std::cout << '\t' << SPEED(i);
             std::cout << std::endl;
 #undef MBS
 #undef SPEED
         }
 #define AVG(pos) (times[pos] == 0 ? 0 : (double)times[pos]/cycles)
-        std::cout << "Times\t" << AVG(1) << "\t" << AVG(2) << "\t" << AVG(3) << "\t" << AVG(4) << "\t" << AVG(5) << "\t" << AVG(6) << "\t" << AVG(7) << "\t" << AVG(8) << "\t" << AVG(9) << "\t" << AVG(10)<< "\t" << AVG(11) << "\t" << AVG(12) << "\t" << AVG(13) << "\t" << AVG(14) << "\t" << AVG(15) << "\t" << AVG(16) << "\t" << AVG(17) << "\t" << AVG(18) << std::endl;
+        std::cout << "Times\t" << ranges[r] << "\t" << "F";
+        for (int i = 1; i < 23; ++i) std::cout << '\t' << AVG(i);
+        
 #define INTS_SEC(cum) (times[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (AVG(cum) / 1000000.0))
 #define AVG_CYCLES(pos) (times[pos] == 0 ? 0 : (MHZ * (AVG(pos) / 1000000.0) / n))
-        std::cout << "MB/s\t" << INTS_SEC(1) << "\t" << INTS_SEC(2) << "\t" << INTS_SEC(3) << "\t" << INTS_SEC(4) << "\t" << INTS_SEC(5) << "\t" << INTS_SEC(6) << "\t" << INTS_SEC(7) << "\t" << INTS_SEC(8) << "\t" << INTS_SEC(9) << "\t" << INTS_SEC(10) << "\t" << INTS_SEC(11) << "\t" << INTS_SEC(12) << "\t" << INTS_SEC(13) << "\t" << INTS_SEC(14) << "\t" << INTS_SEC(15) << "\t" << INTS_SEC(16) << "\t" << INTS_SEC(17) << "\t" << INTS_SEC(18) << std::endl;
-        std::cout << "Cycles/int\t" << AVG_CYCLES(1) << "\t" << AVG_CYCLES(2) << "\t" << AVG_CYCLES(3) << "\t" << AVG_CYCLES(4) << "\t" << AVG_CYCLES(5) << "\t" << AVG_CYCLES(6) << "\t" << AVG_CYCLES(7) << "\t" << AVG_CYCLES(8) << "\t" << AVG_CYCLES(9) << "\t" << AVG_CYCLES(10) << "\t" << AVG_CYCLES(11) << "\t" << AVG_CYCLES(12) << "\t" << AVG_CYCLES(13) << "\t" << AVG_CYCLES(14) << "\t" << AVG_CYCLES(15) << "\t" << AVG_CYCLES(16) << "\t" << AVG_CYCLES(17) << "\t" << AVG_CYCLES(18) << std::endl;
+        std::cout << "\nMB/s\t" << ranges[r] << "\t" << "F";
+        for (int i = 1; i < 23; ++i) std::cout << '\t' << INTS_SEC(i);
+        std::cout << "\nCycles/int\t" << ranges[r] << "\t" << "F";
+        for (int i = 1; i < 23; ++i) std::cout << '\t' << AVG_CYCLES(i);
+        std::cout << std::endl;
+        
 #undef AVG
 #undef INTS_SEC
 
