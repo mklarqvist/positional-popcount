@@ -15,6 +15,8 @@
 * specific language governing permissions and limitations
 * under the License.
 */
+#include <string.h> //memset
+
 #include "fast_flagstats.h"
 
 int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags) {

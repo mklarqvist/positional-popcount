@@ -19,9 +19,6 @@
 #define FAST_FLAGSTATS_H_
 
 #include <stdint.h> //types
-#include <math.h> //floor
-#include <string.h> //memset
-#include <assert.h> //assert
 
 /****************************
 *  SIMD definitions

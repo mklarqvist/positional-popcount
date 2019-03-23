@@ -1,6 +1,8 @@
 #include <iostream>//out streams
 #include <random>//random generator (c++11)
 #include <chrono>//time (c++11)
+#include <cassert>//assert
+#include <cstring> //memset
 
 #include "fast_flagstats.h"
 
