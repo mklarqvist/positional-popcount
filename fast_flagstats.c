@@ -29,7 +29,7 @@ int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags) {
 #endif
 }
 
-int pospopcnt_u16(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags) {
+int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags) {
     switch(method) {
     case(PPOPCNT_AUTO): return pospopcnt_u16(data, n, flags);
     case(PPOPCNT_SCALAR): return pospopcnt_u16_scalar_naive(data, n, flags);
@@ -50,6 +50,10 @@ int pospopcnt_u16(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, 
     case(PPOPCNT_AVX2_MULA_UR4): return pospopcnt_u16_avx2_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR8): return pospopcnt_u16_avx2_mula_unroll8(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR16): return pospopcnt_u16_avx2_mula_unroll16(data, n, flags);
+    case(PPOPCNT_SSE_MULA): return pospopcnt_u16_sse_mula(data, n, flags);
+    case(PPOPCNT_SSE_MULA_UR4): return pospopcnt_u16_sse_mula_unroll4(data, n, flags);
+    case(PPOPCNT_SSE_MULA_UR8): return pospopcnt_u16_sse_mula_unroll8(data, n, flags);
+    //case(PPOPCNT_SSE_MULA_UR16): return pospopcnt_u16_sse_mula_unroll16(data, n, flags);
     }
 }
 
@@ -67,7 +71,7 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
 
     uint32_t out_counters[16] = {0};
 
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const __m256i* data_vectors = (const __m256i*)(data);
     const uint32_t n_cycles = n / 16;
     const uint32_t n_cycles_updates = n_cycles / 16;
 
@@ -139,9 +143,9 @@ int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
 
     const __m256i hi_mask = _mm256_set1_epi32(0xFFFF0000);
     const __m256i lo_mask = _mm256_set1_epi32(0x0000FFFF);
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const __m256i* data_vectors = (const __m256i*)(data);
     const uint32_t n_cycles = n / 16;
-    const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
+    const uint32_t n_update_cycles = n_cycles / 65536;
 
 #define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
 #define ITERATION  {                                   \
@@ -170,7 +174,7 @@ int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
 
             /*
             // Naive counter
-            uint16_t* d = reinterpret_cast<uint16_t*>(&counters[k]);
+            uint16_t* d = (uint16_t*)(&counters[k]);
             for (int j = 0; j < 16; ++j) { // each uint16_t in the register
                 out_counters[k] += d[j];
             }
@@ -208,9 +212,9 @@ int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t*
     }
     uint32_t out_counters[16] = {0};
 
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const __m256i* data_vectors = (const __m256i*)(data);
     const uint32_t n_cycles = n / 16;
-    const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
+    const uint32_t n_update_cycles = n_cycles / 65536;
     //std::cerr << n << " values and " << n_cycles << " cycles " << n_residual << " residual cycles" << std::endl;
 
 #define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
@@ -225,7 +229,7 @@ int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t*
         // Compute vector sum
         for (int k = 0; k < 16; ++k) { // each flag register
             // Naive counter
-            uint16_t* d = reinterpret_cast<uint16_t*>(&counters[k]);
+            uint16_t* d = (uint16_t*)(&counters[k]);
             for (int j = 0; j < 16; ++j) // each uint16_t in the register
                 out_counters[k] += d[j];
 
@@ -259,9 +263,9 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags)
                                            1 << 7,  1 << 6,  1 << 5,  1 << 4,
                                            1 << 3,  1 << 2,  1 << 1,  1 << 0);
     uint32_t out_counters[16] = {0};
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const __m256i* data_vectors = (const __m256i*)(data);
     const uint32_t n_cycles = n / 16;
-    const uint32_t n_update_cycles = std::floor((double)n_cycles / 4096);
+    const uint32_t n_update_cycles = n_cycles / 4096;
 
 #define UPDATE(idx) counter = _mm256_add_epi16(counter, _mm256_and_si256(_mm256_cmpeq_epi16(_mm256_and_si256(_mm256_set1_epi16(_mm256_extract_epi16(data_vectors[pos], idx)), masks), masks), one_mask));
 #define BLOCK {                                 \
@@ -321,9 +325,9 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) 
                                           1 << 3,  1 << 2,  1 << 1,  1 << 0);
 
     uint32_t out_counters[16] = {0};
-    const __m128i* data_vectors = reinterpret_cast<const __m128i*>(data);
+    const __m128i* data_vectors = (const __m128i*)(data);
     const uint32_t n_cycles = n / 8;
-    const uint32_t n_update_cycles = std::floor((double)n_cycles / 4096);
+    const uint32_t n_update_cycles = n_cycles / 4096;
 
 #define UPDATE_LO(idx) counterLo = _mm_add_epi16(counterLo, _mm_and_si128(_mm_cmpeq_epi16(_mm_and_si128(_mm_set1_epi16(_mm_extract_epi16(data_vectors[pos], idx)), masksLo), masksLo), one_mask));
 #define UPDATE_HI(idx) counterHi = _mm_add_epi16(counterHi, _mm_and_si128(_mm_cmpeq_epi16(_mm_and_si128(_mm_set1_epi16(_mm_extract_epi16(data_vectors[pos], idx)), masksHi), masksHi), one_mask));
@@ -872,7 +876,7 @@ int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* fl
 // By Daniel Lemire
 // See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
 int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    const __m256i* data_vectors = (const __m256i*)(array);
     const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
@@ -909,7 +913,7 @@ int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags
 }
 
 int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    const __m256i* data_vectors = (const __m256i*)(array);
     const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
@@ -969,7 +973,7 @@ int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* array, uint32_t len, uint32_
 }
 
 int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    const __m256i* data_vectors = (const __m256i*)(array);
     const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
@@ -1040,7 +1044,7 @@ int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* array, uint32_t len, uint32_
 }
 
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
+    const __m256i* data_vectors = (const __m256i*)(array);
     const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
@@ -1134,3 +1138,208 @@ int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* 
 int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
+
+int pospopcnt_u16_sse_mula(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    const __m128i* data_vectors = (const __m128i*)(array);
+    const uint32_t n_cycles = len / 8;
+
+    size_t i = 0;
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        __m128i v0 = data_vectors[i+0];
+        __m128i v1 = data_vectors[i+1];
+        
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+            input0 = _mm_add_epi8(input0, input0);
+            input1 = _mm_add_epi8(input1, input1);
+        }
+    }
+
+    i *= 16;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    //std::cerr << "mula=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+    
+    return 0;
+}
+
+int pospopcnt_u16_sse_mula_unroll4(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    const __m128i* data_vectors = (const __m128i*)(array);
+    const uint32_t n_cycles = len / 8;
+
+    size_t i = 0;
+    for (/**/; i + 4 <= n_cycles; i += 4) {
+        __m128i v0 = data_vectors[i+0];
+        __m128i v1 = data_vectors[i+1];
+        __m128i v2 = data_vectors[i+2];
+        __m128i v3 = data_vectors[i+3];
+        
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        __m128i input2 = _mm_or_si128(_mm_and_si128(v2, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v3, 8));
+        __m128i input3 = _mm_or_si128(_mm_and_si128(v2, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v3, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input2));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input3));
+            input0 = _mm_add_epi8(input0, input0);
+            input1 = _mm_add_epi8(input1, input1);
+            input2 = _mm_add_epi8(input2, input2);
+            input3 = _mm_add_epi8(input3, input3);
+        }
+    }
+
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        __m128i v0 = data_vectors[i+0];
+        __m128i v1 = data_vectors[i+1];
+        
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+            input0 = _mm_add_epi8(input0, input0);
+            input1 = _mm_add_epi8(input1, input1);
+        }
+    }
+
+    i *= 16;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    //std::cerr << "mula=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+    
+    return 0;
+}
+
+int pospopcnt_u16_sse_mula_unroll8(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    const __m128i* data_vectors = (const __m128i*)(array);
+    const uint32_t n_cycles = len / 8;
+
+    size_t i = 0;
+    for (/**/; i + 8 <= n_cycles; i += 8) {
+        __m128i v0 = data_vectors[i+0];
+        __m128i v1 = data_vectors[i+1];
+        __m128i v2 = data_vectors[i+2];
+        __m128i v3 = data_vectors[i+3];
+        __m128i v4 = data_vectors[i+4];
+        __m128i v5 = data_vectors[i+5];
+        __m128i v6 = data_vectors[i+6];
+        __m128i v7 = data_vectors[i+7];
+        
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        __m128i input2 = _mm_or_si128(_mm_and_si128(v2, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v3, 8));
+        __m128i input3 = _mm_or_si128(_mm_and_si128(v2, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v3, 8));
+        __m128i input4 = _mm_or_si128(_mm_and_si128(v4, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v5, 8));
+        __m128i input5 = _mm_or_si128(_mm_and_si128(v4, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v5, 8));
+        __m128i input6 = _mm_or_si128(_mm_and_si128(v6, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v7, 8));
+        __m128i input7 = _mm_or_si128(_mm_and_si128(v6, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v7, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input2));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input3));
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input4));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input5));
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input6));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input7));
+            input0 = _mm_add_epi8(input0, input0);
+            input1 = _mm_add_epi8(input1, input1);
+            input2 = _mm_add_epi8(input2, input2);
+            input3 = _mm_add_epi8(input3, input3);
+            input4 = _mm_add_epi8(input4, input4);
+            input5 = _mm_add_epi8(input5, input5);
+            input6 = _mm_add_epi8(input6, input6);
+            input7 = _mm_add_epi8(input7, input7);
+        }
+    }
+
+    for (/**/; i + 4 <= n_cycles; i += 4) {
+        __m128i v0 = data_vectors[i+0];
+        __m128i v1 = data_vectors[i+1];
+        __m128i v2 = data_vectors[i+2];
+        __m128i v3 = data_vectors[i+3];
+        
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        __m128i input2 = _mm_or_si128(_mm_and_si128(v2, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v3, 8));
+        __m128i input3 = _mm_or_si128(_mm_and_si128(v2, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v3, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input2));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input3));
+            input0 = _mm_add_epi8(input0, input0);
+            input1 = _mm_add_epi8(input1, input1);
+            input2 = _mm_add_epi8(input2, input2);
+            input3 = _mm_add_epi8(input3, input3);
+        }
+    }
+
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        __m128i v0 = data_vectors[i+0];
+        __m128i v1 = data_vectors[i+1];
+        
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+            flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+            input0 = _mm_add_epi8(input0, input0);
+            input1 = _mm_add_epi8(input1, input1);
+        }
+    }
+
+    i *= 16;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    //std::cerr << "mula=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+    
+    return 0;
+}

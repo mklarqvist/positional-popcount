@@ -18,10 +18,10 @@
 #ifndef FAST_FLAGSTATS_H_
 #define FAST_FLAGSTATS_H_
 
-#include <cstdint> //types
-#include <cmath> //floor
-#include <cstring> //memset
-#include <cassert> //assert
+#include <stdint.h> //types
+#include <math.h> //floor
+#include <string.h> //memset
+#include <assert.h> //assert
 
 /****************************
 *  SIMD definitions
@@ -91,8 +91,8 @@
 
 #if SIMD_AVAILABLE
 __attribute__((always_inline))
-static inline void PIL_POPCOUNT_SSE(uint64_t& a, const __m128i n) {
-    a += PIL_POPCOUNT(_mm_cvtsi128_si64(n)) + PIL_POPCOUNT(_mm_cvtsi128_si64(_mm_unpackhi_epi64(n, n)));
+static inline void PIL_POPCOUNT_SSE(uint64_t* a, const __m128i n) {
+    *a += PIL_POPCOUNT(_mm_cvtsi128_si64(n)) + PIL_POPCOUNT(_mm_cvtsi128_si64(_mm_unpackhi_epi64(n, n)));
 }
 #endif // endif simd_available
 
@@ -144,7 +144,11 @@ typedef enum {
     PPOPCNT_AVX2_MULA,
     PPOPCNT_AVX2_MULA_UR4,
     PPOPCNT_AVX2_MULA_UR8,
-    PPOPCNT_AVX2_MULA_UR16
+    PPOPCNT_AVX2_MULA_UR16,
+    PPOPCNT_SSE_MULA,
+    PPOPCNT_SSE_MULA_UR4,
+    PPOPCNT_SSE_MULA_UR8,
+    PPOPCNT_SSE_MULA_UR16
 } PPOPCNT_U16_METHODS;
 
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags);
@@ -166,10 +170,13 @@ int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
 
 // Wrapper function for calling the best available algorithm during compilation
 // time.
 int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags);
 
 #endif /* FAST_FLAGSTATS_H_ */

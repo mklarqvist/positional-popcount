@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+example
+fast_flag_stats

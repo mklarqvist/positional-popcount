@@ -1,10 +1,23 @@
 # FastFlagStats
 
-These functions compute SAM FLAG statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~5.6 GB/s throughput (3 billion 1-hot vectors / second).
+These functions compute the "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~5.6 GB/s throughput (3 billion 1-hot vectors / second).
 
-Compile test suite with: `make` and run `./fast_flag_stats`
+Compile test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`.
+
+### Usage
+
+```c
+pospopcnt_u16(datain, length, target_counters);
+```
+
+See `example.c` for a complete example. Compile with `make example`.
+
+### History
+
+These functions were developed for [pil](https://github.com/mklarqvist/pil) but can be applied to any 1-hot count problem.
 
 ### Table of contents
+
   - [Problem statement](#problem-statement)
   - [Goals](#goals)
   - [Technical approach](#technical-approach)

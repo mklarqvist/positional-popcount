@@ -93,6 +93,15 @@ void flag_functions(uint16_t* vals, uint64_t* times, uint64_t* times_local, cons
 
     pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_popcnt64_mask,vals, n, flags,times[12],times_local[12]);
     assert_truth(flags, truth);
+
+    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula,vals, n, flags,times[19],times_local[19]);
+    assert_truth(flags, truth);
+
+    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll4,vals, n, flags,times[20],times_local[20]);
+    assert_truth(flags, truth);
+
+    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll8,vals, n, flags,times[21],times_local[21]);
+    assert_truth(flags, truth);
 }
 
 void flag_test(uint32_t n, uint32_t cycles = 1) {
@@ -106,8 +115,8 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     // Memory align input data.
     assert(!posix_memalign((void**)&vals, SIMD_ALIGNMENT, n*sizeof(uint16_t)));
 
-    uint64_t times[20] = {0};
-    uint64_t times_local[20] = {0};
+    uint64_t times[64] = {0};
+    uint64_t times_local[64] = {0};
 
     const std::vector<uint32_t> ranges = {8, 16, 64, 256, 512, 1024, 4096, 65536};
     for(int r = 0; r < ranges.size(); ++r) {
@@ -132,9 +141,9 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
 #define SPEED(cum) (times_local[cum] == 0 ? 0 : (MHZ * (times_local[cum] / 1000000.0) / n))
             std::cout << "MBS\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 19; ++i) std::cout << '\t' << MBS(i);
+            for(int i = 1; i < 22; ++i) std::cout << '\t' << MBS(i);
             std::cout << "\nCycles\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 19; ++i) std::cout << '\t' << SPEED(i);
+            for(int i = 1; i < 22; ++i) std::cout << '\t' << SPEED(i);
             std::cout << std::endl;
 #undef MBS
 #undef SPEED
@@ -148,7 +157,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
 #undef AVG
 #undef INTS_SEC
 
-        memset(times, 0, sizeof(uint64_t)*20);
+        memset(times, 0, sizeof(uint64_t)*64);
     }
 
     // Cleanup.
