@@ -1,6 +1,6 @@
 /*
-* Copyright (c) 2019 Marcus D. R. Klarqvist
-* Author(s): Marcus D. R. Klarqvist
+* Copyright (c) 2019
+* Author(s): Marcus D. R. Klarqvist and Daniel Lemire
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -52,13 +52,13 @@
 #if defined(__AVX512F__) && __AVX512F__ == 1
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    6
-#define SIMD_WIDTH      512
 #define SIMD_ALIGNMENT  64
+#define SIMD_WIDTH      512
 #elif defined(__AVX2__) && __AVX2__ == 1
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    5
-#define SIMD_WIDTH      256
 #define SIMD_ALIGNMENT  32
+#define SIMD_WIDTH      256
 #elif defined(__AVX__) && __AVX__ == 1
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    4
@@ -78,7 +78,7 @@
 #define SIMD_AVAILABLE  0 // unsupported version
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
-#define SIMD_WIDTH      0
+#define SIMD_WIDTH      128
 #else
 #define SIMD_AVAILABLE  0
 #define SIMD_VERSION    0
@@ -124,33 +124,28 @@ static inline __m512i avx512_popcount(const __m512i v) {
 }
 #endif // endif simd_version >= 6
 
-template <uint32_t(f)(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags)>
-uint32_t flag_stats_wrapper(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
-    return((*f)(data, n, flags));
-}
+uint32_t pospopcnt_u16_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_naive_counter(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 
-uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_naive_counter(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-
-uint32_t flag_stats_avx2_lemire(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_lemire2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_lemire3(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_lemire3_unroll4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_lemire3_unroll8(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
-uint32_t flag_stats_avx2_lemire3_unroll16(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_lemire(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_lemire2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_mula(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_mula_unroll4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_mula_unroll8(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16_avx2_mula_unroll16(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 
 // Wrapper function for calling the best available algorithm during compilation
 // time.
-uint32_t compute_flag_stats(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
+uint32_t pospopcnt_u16(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags);
 
 #endif /* FAST_FLAGSTATS_H_ */
