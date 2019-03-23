@@ -471,7 +471,7 @@ int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_
     }
     uint32_t out_counters[16] = {0};
 
-    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
@@ -511,7 +511,7 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
     }
     uint32_t out_counters[16] = {0};
 
-    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
@@ -522,13 +522,15 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
     UP(8)  UP(9)  UP(10) UP(11) \
     UP(12) UP(13) UP(14) UP(15) \
 }
-
-    for (int i = 0; i < n_cycles; i += 2) {
+    
+    int i = 0;
+    for (/**/; i + 2 < n_cycles; i += 2) {
         BLOCK
     }
 
     // residual
-    for (int i = n_cycles*32; i < n; ++i) {
+    i *= 32;
+    for (/**/; i < n; ++i) {
         for (int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
@@ -557,7 +559,7 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
     }
     uint32_t out_counters[16] = {0};
 
-    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos,shift) stubs[pos] = _mm512_or_si512(stubs[pos], _mm512_slli_epi16(_mm512_srli_epi16(_mm512_and_si512(data_vectors[i+j], masks[pos]), pos), shift));
@@ -578,7 +580,8 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
     UC(12) UC(13) UC(14) UC(15) \
 }
 
-    for (int i = 0; i < n_cycles; i += 16) {
+    int i = 0;
+    for (/**/; i + 16 < n_cycles; i += 16) {
         for (int j = 0; j < 16; ++j) {
             BLOCK(j)
         }
@@ -592,13 +595,14 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
 #undef UPDATE
 
     // residual
-    for (int i = n_cycles*32; i < n; ++i) {
+    i *= 32;
+    for (/**/; i < n; ++i) {
         for (int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
 
     for (int i = 0; i < 16; ++i) {
-        uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+        uint32_t* v = (uint32_t*)(&counters[i]);
         for (int j = 0; j < 16; ++j)
             out_counters[i] += v[j];
     }
@@ -622,7 +626,7 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) {
     }
     uint32_t out_counters[16] = {0};
 
-    const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+    const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos) {                                            \
@@ -651,7 +655,7 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) {
     }
 
     for (int i = 0; i < 16; ++i) {
-        uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+        uint32_t* v = (uint32_t*)(&counters[i]);
         for (int j = 0; j < 16; ++j)
             out_counters[i] += v[j];
     }
