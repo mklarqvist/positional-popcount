@@ -17,7 +17,7 @@
 */
 #include "fast_flagstats.h"
 
-uint32_t pospopcnt_u16(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags) {
 #if SIMD_VERSION >= 6
     return(pospopcnt_u16_avx512_popcnt64_mask(data, n, flags));
 #elif SIMD_VERSION >= 5
@@ -29,8 +29,32 @@ uint32_t pospopcnt_u16(const uint16_t* __restrict__ data, uint32_t n, uint32_t* 
 #endif
 }
 
+int pospopcnt_u16(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags) {
+    switch(method) {
+    case(PPOPCNT_AUTO): return pospopcnt_u16(data, n, flags);
+    case(PPOPCNT_SCALAR): return pospopcnt_u16_scalar_naive(data, n, flags);
+    case(PPOPCNT_SCALAR_PARTITION): return pospopcnt_u16_scalar_partition(data, n, flags);
+    case(PPOPCNT_SCALAR_HIST1X4): return pospopcnt_u16_hist1x4(data, n, flags);
+    case(PPOPCNT_AVX2_POPCNT): return pospopcnt_u16_avx2_popcnt(data, n, flags);
+    case(PPOPCNT_AVX2): return pospopcnt_u16_avx2(data, n, flags);
+    case(PPOPCNT_AVX2_POPCNT_NAIVE): return pospopcnt_u16_avx2_naive_counter(data, n, flags);
+    case(PPOPCNT_AVX2_SINGLE): return pospopcnt_u16_avx2_single(data, n, flags);
+    case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single(data, n, flags);
+    case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, n, flags);
+    case(PPOPCNT_AVX512_MASK32): return pospopcnt_u16_avx512_popcnt32_mask(data, n, flags);
+    case(PPOPCNT_AVX512_MASK64): return pospopcnt_u16_avx512_popcnt64_mask(data, n, flags);
+    case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt(data, n, flags);
+    case(PPOPCNT_AVX2_LEMIRE1): return pospopcnt_u16_avx2_lemire(data, n, flags);
+    case(PPOPCNT_AVX2_LEMIRE2): return pospopcnt_u16_avx2_lemire2(data, n, flags);
+    case(PPOPCNT_AVX2_MULA): return pospopcnt_u16_avx2_mula(data, n, flags);
+    case(PPOPCNT_AVX2_MULA_UR4): return pospopcnt_u16_avx2_mula_unroll4(data, n, flags);
+    case(PPOPCNT_AVX2_MULA_UR8): return pospopcnt_u16_avx2_mula_unroll8(data, n, flags);
+    case(PPOPCNT_AVX2_MULA_UR16): return pospopcnt_u16_avx2_mula_unroll16(data, n, flags);
+    }
+}
+
 #if SIMD_VERSION >= 5
-uint32_t pospopcnt_u16_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) {
     // 1 load data
     // 2 x | (((data[x] & mask[i]) >> i) << j)
     // 3 popcount
@@ -104,7 +128,7 @@ uint32_t pospopcnt_u16_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m256i masks[16];
     __m256i counters[16];
     for (int i = 0; i < 16; ++i) {
@@ -175,7 +199,7 @@ uint32_t pospopcnt_u16_avx2(const uint16_t* __restrict__ data, uint32_t n, uint3
 
 }
 
-uint32_t pospopcnt_u16_avx2_naive_counter(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m256i masks[16];
     __m256i counters[16];
     for (int i = 0; i < 16; ++i) {
@@ -226,7 +250,7 @@ uint32_t pospopcnt_u16_avx2_naive_counter(const uint16_t* __restrict__ data, uin
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m256i counter = _mm256_set1_epi16(0);
     const __m256i one_mask =  _mm256_set1_epi16(1);
     // set_epi is parameterized backwards (15->0)
@@ -279,14 +303,14 @@ uint32_t pospopcnt_u16_avx2_single(const uint16_t* __restrict__ data, uint32_t n
 
 }
 #else
-uint32_t pospopcnt_u16_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_naive_counter(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
 #if SIMD_VERSION >= 3
-uint32_t pospopcnt_u16_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m128i counterLo = _mm_set1_epi16(0);
     __m128i counterHi = _mm_set1_epi16(0);
     const __m128i one_mask =  _mm_set1_epi16(1);
@@ -350,10 +374,10 @@ uint32_t pospopcnt_u16_sse_single(const uint16_t* __restrict__ data, uint32_t n,
 
 }
 #else
-uint32_t pospopcnt_u16_sse_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
-uint32_t pospopcnt_u16_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags) {
     memset(flags, 0, 16*sizeof(uint32_t));
 
     for (int i = 0; i < n; ++i) {
@@ -369,7 +393,7 @@ uint32_t pospopcnt_u16_scalar_naive(const uint16_t* __restrict__ data, uint32_t 
     return 0;
 }
 
-uint32_t pospopcnt_u16_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t n, uint32_t* flags) {
     uint32_t low[256] = {0}, high[256] = {0};
     memset(flags, 0, 16*sizeof(uint32_t));
 
@@ -397,7 +421,7 @@ uint32_t pospopcnt_u16_scalar_partition(const uint16_t* __restrict__ data, uint3
     return 0;
 }
 
-uint32_t pospopcnt_u16_hist1x4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_hist1x4(const uint16_t* data, uint32_t n, uint32_t* flags) {
      uint32_t low[256] = {0}, high[256] = {0};
      memset(flags, 0, 16*sizeof(uint32_t));
      
@@ -437,7 +461,7 @@ uint32_t pospopcnt_u16_hist1x4(const uint16_t* __restrict__ data, uint32_t n, ui
 }
 
 #if SIMD_VERSION >= 6
-uint32_t pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m512i masks[16];
     for (int i = 0; i < 16; ++i) {
         masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
@@ -477,7 +501,7 @@ uint32_t pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* __restrict__ data, u
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m512i masks[16];
     for (int i = 0; i < 16; ++i) {
         masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
@@ -519,7 +543,7 @@ uint32_t pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* __restrict__ data, u
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m512i masks[16];
     __m512i counters[16];
     __m512i stubs[16];
@@ -585,7 +609,7 @@ uint32_t pospopcnt_u16_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) {
     __m512i masks[16];
     __m512i counters[16];
     const __m512i one_mask = _mm512_set1_epi32(1);
@@ -639,10 +663,10 @@ uint32_t pospopcnt_u16_avx512(const uint16_t* __restrict__ data, uint32_t n, uin
 }
 
 #else
-uint32_t pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx512_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx512(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
 // fixme
@@ -658,7 +682,7 @@ void scalar_naive(const uint16_t *data, size_t n, uint32_t *flags) {
 #if SIMD_VERSION >= 5
 // By Daniel Lemire
 // See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
-uint32_t pospopcnt_u16_avx2_lemire(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_lemire(const uint16_t* array, uint32_t len, uint32_t* flags) {
     uint16_t buffer[16];
     __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512, 256,
                                        128,    64,   32,   16,    8,    4,   2,   1);
@@ -734,7 +758,7 @@ uint32_t pospopcnt_u16_avx2_lemire(const uint16_t* __restrict__ array, uint32_t 
 
 // By Daniel Lemire
 // See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
-uint32_t pospopcnt_u16_avx2_lemire2(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* flags) {
     uint16_t buffer[16];
     __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512,
                                     256, 128, 64, 32, 16, 8, 4, 2, 1);
@@ -847,17 +871,20 @@ uint32_t pospopcnt_u16_avx2_lemire2(const uint16_t* __restrict__ array, uint32_t
 
 // By Daniel Lemire
 // See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
-uint32_t pospopcnt_u16_avx2_mula(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
-    uint32_t n_cycles = len / 16;
+    const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
     for (/**/; i + 2 <= n_cycles; i += 2) {
         __m256i v0 = data_vectors[i+0];
         __m256i v1 = data_vectors[i+1];
         
-        __m256i input0 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00ff)), _mm256_slli_epi16(v1, 8));
-        __m256i input1 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xff00)), _mm256_srli_epi16(v1, 8));
+        // Steps:
+        // Select LSB of V0 OR with V1 MSB
+        // Select MSB of V0 OR with V1 LSB
+        __m256i input0 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00FF)), _mm256_slli_epi16(v1, 8));
+        __m256i input1 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xFF00)), _mm256_srli_epi16(v1, 8));
         
         for (int i = 0; i < 8; i++) {
             flags[ 7 - i] += _mm_popcnt_u32(_mm256_movemask_epi8(input0));
@@ -881,9 +908,9 @@ uint32_t pospopcnt_u16_avx2_mula(const uint16_t* __restrict__ array, uint32_t le
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx2_mula_unroll4(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
-    uint32_t n_cycles = len / 16;
+    const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
     for (/**/; i + 4 <= n_cycles; i += 4) {
@@ -941,9 +968,9 @@ uint32_t pospopcnt_u16_avx2_mula_unroll4(const uint16_t* __restrict__ array, uin
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx2_mula_unroll8(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
-    uint32_t n_cycles = len / 16;
+    const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
     for (/**/; i + 8 <= n_cycles; i += 8) {
@@ -1012,9 +1039,9 @@ uint32_t pospopcnt_u16_avx2_mula_unroll8(const uint16_t* __restrict__ array, uin
     return 0;
 }
 
-uint32_t pospopcnt_u16_avx2_mula_unroll16(const uint16_t* __restrict__ array, uint32_t len, uint32_t* __restrict__ flags) {
+int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(array);
-    uint32_t n_cycles = len / 16;
+    const uint32_t n_cycles = len / 16;
 
     size_t i = 0;
     for (/**/; i + 16 <= n_cycles; i += 16) {
@@ -1100,10 +1127,10 @@ uint32_t pospopcnt_u16_avx2_mula_unroll16(const uint16_t* __restrict__ array, ui
 }
 
 #else
-uint32_t pospopcnt_u16_avx2_lemire(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_lemire2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_mula(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_mula_unroll4(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_mula_unroll8(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
-uint32_t pospopcnt_u16_avx2_mula_unroll16(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+int pospopcnt_u16_avx2_lemire(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_lemire2(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
