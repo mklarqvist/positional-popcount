@@ -184,7 +184,7 @@ for(int i = pos*16; i < n; ++i) {
 }
 ```
 
-### Approach 3: Register accumulator and aggregator (AVX2)
+### Approach 3a: Register accumulator and aggregator (AVX2)
 
 Accumulate up to 16 * 2^16 partial sums of a 1-hot in a single register followed by a horizontal sum update. By using 16-bit partial sum accumulators we must perform a secondary accumulation step every 2^16 iterations to prevent overflowing the 16-bit primitives.
 
@@ -587,7 +587,7 @@ for(int i = 0; i < 16; ++i) {
 
 We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average throughput in MB/s (1 MB = 1024b). 
 
-#### Xeon Skylake (AVX-512)
+#### Intel Xeon Skylake (AVX-512)
 
 The reference system uses a Intel Skylake @ 2.6 GHz.
 
@@ -609,7 +609,7 @@ The reference system uses a Intel Skylake @ 2.6 GHz.
 The AVX-512-implementation of the partial-sum accumulator algorithm (approach 5, 64-bit mask) is >2-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance 
 profile indepedent of data entropy. We achieve an average throughput rate of ~2.9 billion FLAG values / second when AVX-512 is available.
 
-#### Xeon Haswell (AVX-256)
+#### Intel Xeon Haswell (AVX-256)
 
 The reference system uses a Intel Haswell @ 2.8 GHz.
 
@@ -626,6 +626,36 @@ The reference system uses a Intel Haswell @ 2.8 GHz.
 
 The AVX-256 accumulator (approach 3) is >2.6-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance 
 profile indepedent of data entropy. We achieve an average throughput rate of ~1.7 billion FLAG values / second when AVX-256 is available.
+
+### Intel Ivy Bridge (AVX)
+
+The reference system is a MacBook Air (2012) using an Intel Core i5-3427U CPU @ 1.80GHz. Throughput in MB/s (higher is better):
+
+| Method           | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
+|------------------|---------|---------|---------|---------|---------|---------|---------|---------|
+| Scalar naïve     | 726.794 | 815.608 | 816.682 | 839.78  | 855.888 | 848.907 | 844.767 | 854.564 |
+| Scalar partition | 722.505 | 691.519 | 679.515 | 722.76  | 1184.48 | 1167.57 | 1134.61 | 1224.93 |
+| Hist1x4          | 724.161 | 692.48  | 679.271 | 746.612 | 1334.28 | 1334.56 | 1350.59 | 1367.4  |
+| SSE-4.1 interlaced pack-popcnt       | 1022.54 | 1003.11 | 989.33  | 1021.07 | 1057.14 | 1047.27 | 1032.17 | 1058.03 |
+| SSE-4.1 Muła         | 1935.72 | 1961.71 | 1963.55 | 2071.69 | 2073.1  | 2019.7  | 1983.61 | 2093.92 |
+| SSE-4.1 Muła unrolled-4        | 2439.31 | 2336.41 | 2373.36 | 2485.46 | 2500.95 | 2525.73 | 2380.38 | 2496.23 |
+| SSE-4.1 Muła unrolled-8        | 2793.1  | 2686.94 | 2737.13 | 2776.02 | 2817.14 | 2785.25 | 2540.06 | 2953.62 |
+| SSE-4.1 Muła unrolled-16       | **2812.62** | **2772.29** | **2894.43** | **2919.36** | **2972.27** | **2986.87** | **2853.3**  | **3057.02** |
+
+Workload in CPU cycles / integer (lower is better):
+
+| Method           | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
+|------------------|---------|---------|---------|---------|---------|---------|---------|---------|
+| Scalar naïve     | 4.7238  | 4.20941 | 4.20387 | 4.08825 | 4.0113  | 4.04429 | 4.06411 | 4.01752 |
+| Scalar partition | 4.75184 | 4.96477 | 5.05247 | 4.75017 | 2.89851 | 2.94048 | 3.02591 | 2.80281 |
+| Hist1x4          | 4.74097 | 4.95787 | 5.05428 | 4.59841 | 2.5731  | 2.57255 | 2.54202 | 2.51078 |
+| SSE-4.1 interlaced pack-popcnt       | 3.35754 | 3.42258 | 3.47026 | 3.36239 | 3.24765 | 3.27826 | 3.32621 | 3.24494 |
+| SSE-4.1 Muła         | 1.77362 | 1.75012 | 1.74848 | 1.65722 | 1.65608 | 1.69987 | 1.7308  | 1.63962 |
+| SSE-4.1 Muła unrolled-4        | 1.40746 | 1.46945 | 1.44657 | 1.38133 | 1.37277 | 1.3593  | 1.4423  | 1.37537 |
+| SSE-4.1 Muła unrolled-8        | 1.22918 | 1.27774 | 1.25432 | 1.23674 | 1.21869 | 1.23265 | 1.35163 | 1.16238 |
+| SSE-4.1 Muła unrolled-16       | **1.22065** | **1.23841** | **1.18615** | **1.17602** | **1.15509** | **1.14944** | **1.20325** | **1.12306** |
+
+The SSE-4.1-based interlaced pack-popcnt (approach 7) is >3.8-fold faster then auto-vectorization. We achieve an average throughput rate of ~1.6 billion FLAG values / second when SSE4.1 is available.
 
 ### Reference systems information
 
@@ -700,4 +730,29 @@ $ hostnamectl
   Operating System: Ubuntu 18.04.2 LTS
             Kernel: Linux 4.15.0-46-generic
       Architecture: x86-64
+```
+
+Intel Ivy Bridge (AVX)
+```bash
+$ sysctl -n machdep.cpu.brand_string
+Intel(R) Core(TM) i5-3427U CPU @ 1.80GHz
+```
+
+```bash
+$ system_profiler SPHardwareDataType
+Hardware:
+
+    Hardware Overview:
+
+      Model Name: MacBook Air
+      Model Identifier: MacBookAir5,2
+      Processor Name: Intel Core i5
+      Processor Speed: 1.8 GHz
+      Number of Processors: 1
+      Total Number of Cores: 2
+      L2 Cache (per Core): 256 KB
+      L3 Cache: 3 MB
+      Memory: 4 GB
+      Boot ROM Version: 253.0.0.0.0
+      SMC Version (system): 2.5f9
 ```
