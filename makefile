@@ -1,5 +1,5 @@
 ###################################################################
-# Copyright (c) 2019 Marcus D. R. Klarqvist
+# Copyright (c) 2019
 # Author(s): Marcus D. R. Klarqvist
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,30 +16,31 @@
 # under the License.
 ###################################################################
 
-OPTFLAGS := -O3 -march=native -mtune=native
-CXXFLAGS      = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
-CFLAGS        = -std=c99   $(OPTFLAGS) $(DEBUG_FLAGS)
-CFLAGS_VENDOR = -std=c99   $(OPTFLAGS)
-
-LIBS := 
-CXX_SOURCE = $(wildcard *.cpp)
-C_SOURCE = 
-
-OBJECTS  = $(CXX_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
-CPP_DEPS = $(CXX_SOURCE:.cpp=.d) $(C_SOURCE:.c=.d)
+OPTFLAGS  := -O3 -march=native -mtune=native
+CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS)
+CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
+CPP_SOURCE = main.cpp
+C_SOURCE   = fast_flagstats.c example.c
+OBJECTS    = $(CPP_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
 
 # Default target
 all: fast_flag_stats
 
 # Generic rules
-%.o: %.cpp
-	g++ $(CXXFLAGS) $(INCLUDE_PATH) -c -o $@ $<
+%.o: %.c
+	gcc $(CFLAGS)-c -o $@ $<
 
-fast_flag_stats: $(OBJECTS)
-	g++ $(BINARY_RPATHS) $(LIBRARY_PATHS) -pthread $(OBJECTS) $(LIBS) -o fast_flag_stats
+%.o: %.cpp
+	g++ $(CPPFLAGS)-c -o $@ $<
+
+fast_flag_stats: fast_flagstats.o main.o
+	g++ $(CPPFLAGS) fast_flagstats.c main.cpp -o fast_flag_stats
+
+example: fast_flagstats.o example.o
+	gcc $(CFLAGS) fast_flagstats.c example.c -o example
 
 clean:
-	rm -f $(OBJECTS) $(CPP_DEPS)
-	rm -f fast_flag_stats
+	rm -f $(OBJECTS)
+	rm -f fast_flag_stats example
 
 .PHONY: all clean
