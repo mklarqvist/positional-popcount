@@ -629,8 +629,8 @@ The reference system uses a Intel Xeon Skylake CPU @ 2.6 GHz. Throughput in MB/s
 | AVX-2 Muła unrolled-16          | 5656.18 | 5826.65 | 5647.29 | 5614.13 | 5764.72 | 5572.66 | 5549.68 | 5682.57 |
 | AVX-512 pack-popcnt        | 3329.5  | 3313.45 | 3330.31 | 3322.2  | 3279.32 | 3309.86 | 3308.45 | 3342.31 |
 | AVX-512 popcnt32 mask | 4721.69 | 4785.4  | 4588.68 | 4693.69 | 4737.47 | 4597.93 | 4650.84 | 4733.53 |
-| AVX-512 popcnt64 mask | 3733.21 | 3727.23 | 3719.81 | 3683.83 | 3725.68 | 3679.73 | 3628.22 | 3699.64 |
-| AVX-512 shift-add accumulator               | 4812.84 | 4965.19 | 4821.19 | 4791.98 | 4955.43 | 4752.94 | 4754.39 | 4876.91 |
+| AVX-512 popcnt64 mask               | 4812.84 | 4965.19 | 4821.19 | 4791.98 | 4955.43 | 4752.94 | 4754.39 | 4876.91 |
+| AVX-512 shift-add accumulator | 3733.21 | 3727.23 | 3719.81 | 3683.83 | 3725.68 | 3679.73 | 3628.22 | 3699.64 |
 
 Workload in CPU cycles / integer (lower is better):
 
@@ -656,8 +656,8 @@ Workload in CPU cycles / integer (lower is better):
 | AVX-2 Muła unrolled-16          | 0.876759 | 0.851107 | 0.87814  | 0.883327 | 0.860252 | 0.889899 | 0.893584 | 0.872687 |
 | AVX-512 pack-popcnt        | 1.48944  | 1.49666  | 1.48908  | 1.49272  | 1.51224  | 1.49828  | 1.49892  | 1.48373  |
 | AVX-512 popcnt32 mask | 1.05028  | 1.0363   | 1.08073  | 1.05655  | 1.04678  | 1.07855  | 1.06628  | 1.04765  |
-| AVX-512 popcnt64 mask | 1.32838  | 1.33051  | 1.33316  | 1.34618  | 1.33106  | 1.34768  | 1.36681  | 1.34043  |
-| AVX-512 shift-add accumulator               | 1.03039  | 0.998774 | 1.02861  | 1.03488  | 1.00074  | 1.04338  | 1.04306  | 1.01685  |
+| AVX-512 popcnt64 mask               | 1.03039  | 0.998774 | 1.02861  | 1.03488  | 1.00074  | 1.04338  | 1.04306  | 1.01685  |
+| AVX-512 shift-add accumulator | 1.32838  | 1.33051  | 1.33316  | 1.34618  | 1.33106  | 1.34768  | 1.36681  | 1.34043  |
 
 The AVX-2 Muła unrolled-8 accumulator (approach 7) is >2-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~3.1 billion FLAG values / second when AVX-512 is available.
 
