@@ -286,8 +286,24 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags)
         }
 
         // Compute vector sum
-        for (int k = 0; k < 16; ++k) // each flag register
-            out_counters[k] += _mm256_extract_epi16(counter, k);
+        // Unroll to prevent clang from throwing constant integer error such as:
+        // error: argument to '__builtin_ia32_vec_ext_v16hi' must be a constant integer
+        out_counters[0]  += _mm256_extract_epi16(counter, 0);
+        out_counters[1]  += _mm256_extract_epi16(counter, 1);
+        out_counters[2]  += _mm256_extract_epi16(counter, 2);
+        out_counters[3]  += _mm256_extract_epi16(counter, 3);
+        out_counters[4]  += _mm256_extract_epi16(counter, 4);
+        out_counters[5]  += _mm256_extract_epi16(counter, 5);
+        out_counters[6]  += _mm256_extract_epi16(counter, 6);
+        out_counters[7]  += _mm256_extract_epi16(counter, 7);
+        out_counters[8]  += _mm256_extract_epi16(counter, 8);
+        out_counters[9]  += _mm256_extract_epi16(counter, 9);
+        out_counters[10] += _mm256_extract_epi16(counter, 10);
+        out_counters[11] += _mm256_extract_epi16(counter, 11);
+        out_counters[12] += _mm256_extract_epi16(counter, 12);
+        out_counters[13] += _mm256_extract_epi16(counter, 13);
+        out_counters[14] += _mm256_extract_epi16(counter, 14);
+        out_counters[15] += _mm256_extract_epi16(counter, 15);
 
         counter = _mm256_set1_epi16(0);
     }
