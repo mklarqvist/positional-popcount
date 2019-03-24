@@ -107,6 +107,15 @@ void flag_functions(uint16_t* vals, uint64_t* times, uint64_t* times_local, cons
 
     pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll8,vals, n, flags,times[21],times_local[21]);
     assert_truth(flags, truth);
+
+    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_mula,vals, n, flags,times[23],times_local[23]);
+    assert_truth(flags, truth);
+
+    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_mula_unroll4,vals, n, flags,times[24],times_local[24]);
+    assert_truth(flags, truth);
+
+    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_mula_unroll8,vals, n, flags,times[25],times_local[25]);
+    assert_truth(flags, truth);
 }
 
 void flag_test(uint32_t n, uint32_t cycles = 1) {
@@ -142,30 +151,30 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             // start tests
             flag_functions(vals, times, times_local, n);
 
-#define MHZ 2800000000.0
+#define MHZ 2600000000.0
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
 #define SPEED(cum) (times_local[cum] == 0 ? 0 : (MHZ * (times_local[cum] / 1000000.0) / n))
             std::cout << "MBS\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 23; ++i) std::cout << '\t' << MBS(i);
+            for(int i = 1; i < 26; ++i) std::cout << '\t' << MBS(i);
             std::cout << std::endl;
             std::cout << "Cycles\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 23; ++i) std::cout << '\t' << SPEED(i);
+            for(int i = 1; i < 26; ++i) std::cout << '\t' << SPEED(i);
             std::cout << std::endl;
 #undef MBS
 #undef SPEED
         }
 #define AVG(pos) (times[pos] == 0 ? 0 : (double)times[pos]/cycles)
         std::cout << "Times\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < 23; ++i) std::cout << '\t' << AVG(i);
+        for (int i = 1; i < 26; ++i) std::cout << '\t' << AVG(i);
         std::cout << std::endl;
 
 #define INTS_SEC(cum) (times[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (AVG(cum) / 1000000.0))
 #define AVG_CYCLES(pos) (times[pos] == 0 ? 0 : (MHZ * (AVG(pos) / 1000000.0) / n))
         std::cout << "MB/s\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < 23; ++i) std::cout << "\t" << INTS_SEC(i);
+        for (int i = 1; i < 26; ++i) std::cout << "\t" << INTS_SEC(i);
         std::cout << std::endl;
         std::cout << "Cycles/int\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < 23; ++i) std::cout << "\t" << AVG_CYCLES(i);
+        for (int i = 1; i < 26; ++i) std::cout << "\t" << AVG_CYCLES(i);
         std::cout << std::endl;
         
 #undef AVG

@@ -21,7 +21,7 @@
 
 int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags) {
 #if SIMD_VERSION >= 6
-    return(pospopcnt_u16_avx512_popcnt64_mask(data, n, flags));
+    return(pospopcnt_u16_avx512_mula_unroll8(data, n, flags));
 #elif SIMD_VERSION >= 5
     return(pospopcnt_u16_avx2_mula_unroll8(data, n, flags));
 #elif SIMD_VERSION >= 3
@@ -56,6 +56,9 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_SSE_MULA_UR4): return pospopcnt_u16_sse_mula_unroll4(data, n, flags);
     case(PPOPCNT_SSE_MULA_UR8): return pospopcnt_u16_sse_mula_unroll8(data, n, flags);
     case(PPOPCNT_SSE_MULA_UR16): return pospopcnt_u16_sse_mula_unroll16(data, n, flags);
+    case(PPOPCNT_AVX512_MULA): return pospopcnt_u16_avx512_mula(data, n, flags);
+    case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, n, flags);
+    case(PPOPCNT_AVX512_MULA_UR8): return pospopcnt_u16_avx512_mula_unroll8(data, n, flags);
     }
 }
 
@@ -1406,4 +1409,179 @@ int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags) { 
 int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+#endif
+
+#if SIMD_VERSION >= 6
+int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+    const __m512i* data_vectors = (const __m512i*)(data);
+    const uint32_t n_cycles = len / 32;
+
+    size_t i = 0;
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        __m512i v0 = data_vectors[i+0];
+        __m512i v1 = data_vectors[i+1];
+
+        __m512i input0 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v1, 8));
+        __m512i input1 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v1, 8));
+        
+        for (int i = 0; i < 8; i++) {
+            flags[ 7 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input0));
+            flags[15 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input1));
+            input0 = _mm512_add_epi8(input0, input0);
+            input1 = _mm512_add_epi8(input1, input1);
+        }
+    }
+
+    i *= 32;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    //std::cerr << "mula=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+    
+    return 0;
+}
+
+int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+    const __m512i* data_vectors = (const __m512i*)(data);
+    const uint32_t n_cycles = len / 32;
+
+    size_t i = 0;
+    for (/**/; i + 4 <= n_cycles; i += 4) {
+#define L(p) __m512i v##p = data_vectors[i+p];
+        L(0) L(1) L(2) L(3)
+
+#define U0(p,k) __m512i input##p = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v##k, 8));
+#define U1(p,k) __m512i input##k = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v##k, 8));
+#define U(p, k)  U0(p,k) U1(p,k)
+
+        U(0,1) U(2,3)
+        
+        for (int i = 0; i < 8; i++) {
+#define A0(p) flags[ 7 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input##p));
+#define A1(k) flags[15 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input##k));
+#define A(p, k) A0(p) A1(k)
+            A(0,1) A(2, 3)
+
+#define P0(p) input##p = _mm512_add_epi8(input##p, input##p);
+#define P(p, k) input##p = P0(p) P0(k)
+
+            P(0,1) P(2, 3)
+        }
+    }
+
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        L(0) L(1)
+        U(0,1)
+        
+        for (int i = 0; i < 8; i++) {
+            A(0,1)
+            P(0,1)
+        }
+    }
+
+    i *= 32;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+#undef L
+#undef U0
+#undef U1
+#undef U
+#undef A0
+#undef A1
+#undef A
+#undef P0
+#undef P
+
+    //std::cerr << "mula=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+    
+    return 0;
+}
+
+int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+    const __m512i* data_vectors = (const __m512i*)(data);
+    const uint32_t n_cycles = len / 32;
+
+    size_t i = 0;
+    for (/**/; i + 8 <= n_cycles; i += 8) {
+#define L(p) __m512i v##p = data_vectors[i+p];
+        L(0)  L(1)  L(2)  L(3)  
+        L(4)  L(5)  L(6)  L(7) 
+
+#define U0(p,k) __m512i input##p = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v##k, 8));
+#define U1(p,k) __m512i input##k = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v##k, 8));
+#define U(p, k)  U0(p,k) U1(p,k)
+
+        U(0,1) U( 2, 3) U( 4, 5) U( 6, 7)
+        
+        for (int i = 0; i < 8; i++) {
+#define A0(p) flags[ 7 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input##p));
+#define A1(k) flags[15 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input##k));
+#define A(p, k) A0(p) A1(k)
+            A(0,1) A(2, 3) A(4,5) A(6, 7)
+
+#define P0(p) input##p = _mm512_add_epi8(input##p, input##p);
+#define P(p, k) input##p = P0(p) P0(k)
+
+            P(0,1) P(2, 3) P(4,5) P(6, 7)
+        }
+    }
+
+    for (/**/; i + 4 <= n_cycles; i += 4) {
+        L(0) L(1) L(2) L(3)
+        U(0,1) U(2,3)
+        
+        for (int i = 0; i < 8; i++) {
+            A(0,1) A(2, 3)
+            P(0,1) P(2, 3)
+        }
+    }
+
+    for (/**/; i + 2 <= n_cycles; i += 2) {
+        L(0) L(1)
+        U(0,1)
+        
+        for (int i = 0; i < 8; i++) {
+            A(0,1)
+            P(0,1)
+        }
+    }
+
+    i *= 32;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+#undef L
+#undef U0
+#undef U1
+#undef U
+#undef A0
+#undef A1
+#undef A
+#undef P0
+#undef P
+
+    //std::cerr << "mula=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+    
+    return 0;
+}
+#else
+int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif

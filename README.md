@@ -1,6 +1,6 @@
 # FastFlagStats
 
-These functions compute the "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~6 GB/s throughput (3 billion 16-bit integers / second or 48 billion one-hot vectors / second).
+These functions compute the "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~7 GB/s (~0.7 CPU cycles / int) throughput (3.7 billion 16-bit integers / second or 58 billion one-hot vectors / second).
 
 Compile test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`.
 
@@ -599,6 +599,36 @@ for(int i = 0; i < 16; ++i) {
 }
 ```
 
+### Approach 7: Shift-mask accumulator [Muła] (SIMD)
+
+```c++
+const __m128i* data_vectors = (const __m128i*)(array);
+const uint32_t n_cycles = len / 8;
+
+size_t i = 0;
+for (/**/; i + 2 <= n_cycles; i += 2) {
+    __m128i v0 = data_vectors[i+0];
+    __m128i v1 = data_vectors[i+1];
+
+    __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
+    __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+    
+    for (int i = 0; i < 8; i++) {
+        flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
+        flags[15 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input1));
+        input0 = _mm_add_epi8(input0, input0);
+        input1 = _mm_add_epi8(input1, input1);
+    }
+}
+
+i *= 8;
+for (/**/; i < len; ++i) {
+    for (int j = 0; j < 16; ++j) {
+        flags[j] += ((array[i] & (1 << j)) >> j);
+    }
+}
+```
+
 ### Results
 
 We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average throughput in MB/s (1 MB = 1024b).
@@ -625,12 +655,15 @@ The reference system uses a Intel Xeon Skylake CPU @ 2.6 GHz. Throughput in MB/s
 | AVX-2 Lemire2         | 4436.06 | 4432.91 | 4413.86 | 4418.15 | 4443.94 | 4403.71 | 4375.1  | 4404.94 |
 | AVX-2 Muła            | 4357.32 | 4457.61 | 4428.08 | 4390.74 | 4419.83 | 4407.5  | 4370.61 | 4413.22 |
 | AVX-2 Muła unrolled-4           | 5439.47 | 5805.19 | 5610.29 | 5519.51 | 5721.24 | 5525.97 | 5515.82 | 5641.12 |
-| AVX-2 Muła unrolled-8           | **5783.56** | **6012.93** | **5734.33** | **5623.83** | **5910.72** | **5754.99** | **5712.83** | **5840.26** |
+| AVX-2 Muła unrolled-8           | 5783.56 | 6012.93 | 5734.33 | 5623.83 | 5910.72 | 5754.99 | 5712.83 | 5840.26 |
 | AVX-2 Muła unrolled-16          | 5656.18 | 5826.65 | 5647.29 | 5614.13 | 5764.72 | 5572.66 | 5549.68 | 5682.57 |
 | AVX-512 pack-popcnt        | 3329.5  | 3313.45 | 3330.31 | 3322.2  | 3279.32 | 3309.86 | 3308.45 | 3342.31 |
 | AVX-512 popcnt32 mask | 4721.69 | 4785.4  | 4588.68 | 4693.69 | 4737.47 | 4597.93 | 4650.84 | 4733.53 |
 | AVX-512 popcnt64 mask               | 4812.84 | 4965.19 | 4821.19 | 4791.98 | 4955.43 | 4752.94 | 4754.39 | 4876.91 |
 | AVX-512 shift-add accumulator | 3733.21 | 3727.23 | 3719.81 | 3683.83 | 3725.68 | 3679.73 | 3628.22 | 3699.64 |
+| AVX-512 Muła          | 5378.98 | 5469.05 | 5234.17 | 5495.86 | 5532.67 | 5479.31 | 5222.89 | 5269.21 |
+| AVX-512 Muła unrolled-4         | 6755.07 | 6745.95 | 6412.74 | 6829.13 | 6825.1  | 6717.08 | 6404.52 | 6507.1  |
+| AVX-512 Muła unrolled-8         | **6834.59** | **6793.59** | **6528.55** | **6916.25** | **6866.25** | **6736.37** | **6473.77** | **6646.93** |
 
 Workload in CPU cycles / integer (lower is better):
 
@@ -652,14 +685,17 @@ Workload in CPU cycles / integer (lower is better):
 | AVX-2 Lemire2         | 1.11791  | 1.1187   | 1.12353  | 1.12244  | 1.11593  | 1.12612  | 1.13348  | 1.12581  |
 | AVX-2 Muła            | 1.13811  | 1.1125   | 1.11992  | 1.12945  | 1.12201  | 1.12515  | 1.13465  | 1.12369  |
 | AVX-2 Muła unrolled-4           | 0.91169  | 0.854253 | 0.88393  | 0.898469 | 0.866788 | 0.897419 | 0.89907  | 0.879099 |
-| AVX-2 Muła unrolled-8           | **0.857449** | **0.824741** | **0.864809** | **0.881803** | **0.839002** | **0.861705** | **0.868065** | **0.849124** |
+| AVX-2 Muła unrolled-8           | 0.857449 | 0.824741 | 0.864809 | 0.881803 | 0.839002 | 0.861705 | 0.868065 | 0.849124 |
 | AVX-2 Muła unrolled-16          | 0.876759 | 0.851107 | 0.87814  | 0.883327 | 0.860252 | 0.889899 | 0.893584 | 0.872687 |
 | AVX-512 pack-popcnt        | 1.48944  | 1.49666  | 1.48908  | 1.49272  | 1.51224  | 1.49828  | 1.49892  | 1.48373  |
 | AVX-512 popcnt32 mask | 1.05028  | 1.0363   | 1.08073  | 1.05655  | 1.04678  | 1.07855  | 1.06628  | 1.04765  |
 | AVX-512 popcnt64 mask               | 1.03039  | 0.998774 | 1.02861  | 1.03488  | 1.00074  | 1.04338  | 1.04306  | 1.01685  |
 | AVX-512 shift-add accumulator | 1.32838  | 1.33051  | 1.33316  | 1.34618  | 1.33106  | 1.34768  | 1.36681  | 1.34043  |
+| AVX-512 Muła          | 0.921942 | 0.906758 | 0.947448 | 0.902335 | 0.896332 | 0.90506  | 0.949494 | 0.941148 |
+| AVX-512 Muła unrolled-4         | 0.734131 | 0.735124 | 0.773321 | 0.72617  | 0.726599 | 0.738283 | 0.774314 | 0.762107 |
+| AVX-512 Muła unrolled-8         | **0.72559**  | **0.729968** | **0.759603** | **0.717023** | **0.722244** | **0.736169** | **0.76603**  | **0.746075** |
 
-The AVX-2 Muła unrolled-8 accumulator (approach 7) is >2-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~3.1 billion FLAG values / second when AVX-512 is available.
+The AVX-512 Muła unrolled-8 (approach 7) is ~2.5-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~3.6 billion FLAG values / second when AVX-512 is available.
 
 #### Intel Xeon Haswell (AVX-256)
 
