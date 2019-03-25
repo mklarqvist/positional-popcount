@@ -175,11 +175,51 @@ int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t n, uint32_t* flags)
 int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
 
-// Wrapper function for calling the best available algorithm during compilation
-// time.
+/*------ General functions --------*/
+
+// Function pointer definition.
 typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t n, uint32_t* flags);
+
+/**
+ * @brief Default function for computing the positional popcnt statistics. Redirects to the best available algorithm during compilation time.
+ * 
+ * Example usage:
+ * 
+ * pospopcnt_u16(data, n, flags);
+ * 
+ * @param data  Input uint16_t data.
+ * @param n     Length of input data.
+ * @param flags Output target flags.
+ * @return int  Returns 0.
+ */
 int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags);
+
+/**
+ * @brief Execute the target ppopcnt function with the argument data.
+ * 
+ * Example usage:
+ * 
+ * pospopcnt_u16_method(PPOPCNT_AVX2_MULA_UR8, data, n, flags);
+ * 
+ * @param method Target function (PPOPCNT_U16_METHODS).
+ * @param data   Input uint16_t data.
+ * @param n      Length of input data.
+ * @param flags  Output target flags.
+ * @return int   Returns 0.
+ */
 int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags);
+
+/**
+ * @brief Retrieve the target pospopcnt_u16_method pointer.
+ * 
+ * Example usage:
+ * 
+ * pospopcnt_u16_method_type f = get_pospopcnt_u16_method(PPOPCNT_AVX2_MULA_UR8);
+ * (*f)(data, n, flags);
+ * 
+ * @param method                     Target function (PPOPCNT_U16_METHODS).
+ * @return pospopcnt_u16_method_type Returns the target function pointer.
+ */
 pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method);
 
 

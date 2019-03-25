@@ -37,25 +37,25 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_SCALAR): return pospopcnt_u16_scalar_naive(data, n, flags);
     case(PPOPCNT_SCALAR_PARTITION): return pospopcnt_u16_scalar_partition(data, n, flags);
     case(PPOPCNT_SCALAR_HIST1X4): return pospopcnt_u16_hist1x4(data, n, flags);
+    case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single(data, n, flags);
+    case(PPOPCNT_SSE_MULA): return pospopcnt_u16_sse_mula(data, n, flags);
+    case(PPOPCNT_SSE_MULA_UR4): return pospopcnt_u16_sse_mula_unroll4(data, n, flags);
+    case(PPOPCNT_SSE_MULA_UR8): return pospopcnt_u16_sse_mula_unroll8(data, n, flags);
+    case(PPOPCNT_SSE_MULA_UR16): return pospopcnt_u16_sse_mula_unroll16(data, n, flags);
     case(PPOPCNT_AVX2_POPCNT): return pospopcnt_u16_avx2_popcnt(data, n, flags);
     case(PPOPCNT_AVX2): return pospopcnt_u16_avx2(data, n, flags);
     case(PPOPCNT_AVX2_POPCNT_NAIVE): return pospopcnt_u16_avx2_naive_counter(data, n, flags);
     case(PPOPCNT_AVX2_SINGLE): return pospopcnt_u16_avx2_single(data, n, flags);
-    case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single(data, n, flags);
-    case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, n, flags);
-    case(PPOPCNT_AVX512_MASK32): return pospopcnt_u16_avx512_popcnt32_mask(data, n, flags);
-    case(PPOPCNT_AVX512_MASK64): return pospopcnt_u16_avx512_popcnt64_mask(data, n, flags);
-    case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt(data, n, flags);
     case(PPOPCNT_AVX2_LEMIRE1): return pospopcnt_u16_avx2_lemire(data, n, flags);
     case(PPOPCNT_AVX2_LEMIRE2): return pospopcnt_u16_avx2_lemire2(data, n, flags);
     case(PPOPCNT_AVX2_MULA): return pospopcnt_u16_avx2_mula(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR4): return pospopcnt_u16_avx2_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR8): return pospopcnt_u16_avx2_mula_unroll8(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR16): return pospopcnt_u16_avx2_mula_unroll16(data, n, flags);
-    case(PPOPCNT_SSE_MULA): return pospopcnt_u16_sse_mula(data, n, flags);
-    case(PPOPCNT_SSE_MULA_UR4): return pospopcnt_u16_sse_mula_unroll4(data, n, flags);
-    case(PPOPCNT_SSE_MULA_UR8): return pospopcnt_u16_sse_mula_unroll8(data, n, flags);
-    case(PPOPCNT_SSE_MULA_UR16): return pospopcnt_u16_sse_mula_unroll16(data, n, flags);
+    case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, n, flags);
+    case(PPOPCNT_AVX512_MASK32): return pospopcnt_u16_avx512_popcnt32_mask(data, n, flags);
+    case(PPOPCNT_AVX512_MASK64): return pospopcnt_u16_avx512_popcnt64_mask(data, n, flags);
+    case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt(data, n, flags);
     case(PPOPCNT_AVX512_MULA): return pospopcnt_u16_avx512_mula(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR8): return pospopcnt_u16_avx512_mula_unroll8(data, n, flags);
@@ -68,25 +68,25 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_SCALAR): return &pospopcnt_u16_scalar_naive;
     case(PPOPCNT_SCALAR_PARTITION): return &pospopcnt_u16_scalar_partition;
     case(PPOPCNT_SCALAR_HIST1X4): return &pospopcnt_u16_hist1x4;
+    case(PPOPCNT_SSE_SINGLE): return &pospopcnt_u16_sse_single;
+    case(PPOPCNT_SSE_MULA): return &pospopcnt_u16_sse_mula;
+    case(PPOPCNT_SSE_MULA_UR4): return &pospopcnt_u16_sse_mula_unroll4;
+    case(PPOPCNT_SSE_MULA_UR8): return &pospopcnt_u16_sse_mula_unroll8;
+    case(PPOPCNT_SSE_MULA_UR16): return &pospopcnt_u16_sse_mula_unroll16;
     case(PPOPCNT_AVX2_POPCNT): return &pospopcnt_u16_avx2_popcnt;
     case(PPOPCNT_AVX2): return &pospopcnt_u16_avx2;
     case(PPOPCNT_AVX2_POPCNT_NAIVE): return &pospopcnt_u16_avx2_naive_counter;
     case(PPOPCNT_AVX2_SINGLE): return &pospopcnt_u16_avx2_single;
-    case(PPOPCNT_SSE_SINGLE): return &pospopcnt_u16_sse_single;
-    case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
-    case(PPOPCNT_AVX512_MASK32): return &pospopcnt_u16_avx512_popcnt32_mask;
-    case(PPOPCNT_AVX512_MASK64): return &pospopcnt_u16_avx512_popcnt64_mask;
-    case(PPOPCNT_AVX512_POPCNT): return &pospopcnt_u16_avx512_popcnt;
     case(PPOPCNT_AVX2_LEMIRE1): return &pospopcnt_u16_avx2_lemire;
     case(PPOPCNT_AVX2_LEMIRE2): return &pospopcnt_u16_avx2_lemire2;
     case(PPOPCNT_AVX2_MULA): return &pospopcnt_u16_avx2_mula;
     case(PPOPCNT_AVX2_MULA_UR4): return &pospopcnt_u16_avx2_mula_unroll4;
     case(PPOPCNT_AVX2_MULA_UR8): return &pospopcnt_u16_avx2_mula_unroll8;
     case(PPOPCNT_AVX2_MULA_UR16): return &pospopcnt_u16_avx2_mula_unroll16;
-    case(PPOPCNT_SSE_MULA): return &pospopcnt_u16_sse_mula;
-    case(PPOPCNT_SSE_MULA_UR4): return &pospopcnt_u16_sse_mula_unroll4;
-    case(PPOPCNT_SSE_MULA_UR8): return &pospopcnt_u16_sse_mula_unroll8;
-    case(PPOPCNT_SSE_MULA_UR16): return &pospopcnt_u16_sse_mula_unroll16;
+    case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
+    case(PPOPCNT_AVX512_MASK32): return &pospopcnt_u16_avx512_popcnt32_mask;
+    case(PPOPCNT_AVX512_MASK64): return &pospopcnt_u16_avx512_popcnt64_mask;
+    case(PPOPCNT_AVX512_POPCNT): return &pospopcnt_u16_avx512_popcnt;
     case(PPOPCNT_AVX512_MULA): return &pospopcnt_u16_avx512_mula;
     case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
     case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
@@ -112,14 +112,14 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
     const uint32_t n_cycles_updates = n_cycles / 16;
 
 #define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx), shift));
-#define ITERATION(idx) {                                               \
+#define ITERATION(idx) {                                           \
     UPDATE(0,idx);  UPDATE(1,idx);  UPDATE(2,idx);  UPDATE(3,idx); \
     UPDATE(4,idx);  UPDATE(5,idx);  UPDATE(6,idx);  UPDATE(7,idx); \
     UPDATE(8,idx);  UPDATE(9,idx);  UPDATE(10,idx); UPDATE(11,idx);\
     UPDATE(12,idx); UPDATE(13,idx); UPDATE(14,idx); UPDATE(15,idx);\
     ++pos;                                                         \
 }
-#define BLOCK {                                                    \
+#define BLOCK {                                                \
     ITERATION(0);  ITERATION(1);  ITERATION(2);  ITERATION(3); \
     ITERATION(4);  ITERATION(5);  ITERATION(6);  ITERATION(7); \
     ITERATION(8);  ITERATION(9);  ITERATION(10); ITERATION(11);\
@@ -129,7 +129,6 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
     uint32_t pos = 0;
     for (int i = 0; i < n_cycles_updates; ++i) {
         BLOCK // unrolled
-
         
         // Not unrolled
         /*
@@ -140,7 +139,6 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
             // }
         }
         */
-        
 
         for (int j = 0; j < 16; ++j) {
             PIL_POPCOUNT_AVX2(out_counters[j], stubs[j])
@@ -184,7 +182,7 @@ int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
     const uint32_t n_update_cycles = n_cycles / 65536;
 
 #define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
-#define ITERATION  {                                   \
+#define ITERATION  {                               \
     UPDATE(0);  UPDATE(1);  UPDATE(2);  UPDATE(3); \
     UPDATE(4);  UPDATE(5);  UPDATE(6);  UPDATE(7); \
     UPDATE(8);  UPDATE(9);  UPDATE(10); UPDATE(11);\
@@ -317,18 +315,18 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags)
         }
 
         // Compute vector sum
-        // Unroll to prevent clang from throwing constant integer error such as:
+        // Unroll to prevent clang (LLVM) from throwing constant integer error such as:
         // error: argument to '__builtin_ia32_vec_ext_v16hi' must be a constant integer
-        out_counters[0]  += _mm256_extract_epi16(counter, 0);
-        out_counters[1]  += _mm256_extract_epi16(counter, 1);
-        out_counters[2]  += _mm256_extract_epi16(counter, 2);
-        out_counters[3]  += _mm256_extract_epi16(counter, 3);
-        out_counters[4]  += _mm256_extract_epi16(counter, 4);
-        out_counters[5]  += _mm256_extract_epi16(counter, 5);
-        out_counters[6]  += _mm256_extract_epi16(counter, 6);
-        out_counters[7]  += _mm256_extract_epi16(counter, 7);
-        out_counters[8]  += _mm256_extract_epi16(counter, 8);
-        out_counters[9]  += _mm256_extract_epi16(counter, 9);
+        out_counters[0]  += _mm256_extract_epi16(counter,  0);
+        out_counters[1]  += _mm256_extract_epi16(counter,  1);
+        out_counters[2]  += _mm256_extract_epi16(counter,  2);
+        out_counters[3]  += _mm256_extract_epi16(counter,  3);
+        out_counters[4]  += _mm256_extract_epi16(counter,  4);
+        out_counters[5]  += _mm256_extract_epi16(counter,  5);
+        out_counters[6]  += _mm256_extract_epi16(counter,  6);
+        out_counters[7]  += _mm256_extract_epi16(counter,  7);
+        out_counters[8]  += _mm256_extract_epi16(counter,  8);
+        out_counters[9]  += _mm256_extract_epi16(counter,  9);
         out_counters[10] += _mm256_extract_epi16(counter, 10);
         out_counters[11] += _mm256_extract_epi16(counter, 11);
         out_counters[12] += _mm256_extract_epi16(counter, 12);
