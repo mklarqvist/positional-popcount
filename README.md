@@ -151,7 +151,7 @@ for(int i = 0; i < 16; ++i) {
 }
 
 uint32_t out_counters[16] = {0}; // accumulators
-const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+const __m256i* data_vectors = (const __m256i*)(data);
 
 // Define a macro UPDATE representing a single update step:
 #define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx), shift));
@@ -220,7 +220,7 @@ uint32_t out_counters[16] = {0}; // larger accumulators
 
 const __m256i hi_mask = _mm256_set1_epi32(0xFFFF0000); // MSB mask of 32-bit
 const __m256i lo_mask = _mm256_set1_epi32(0x0000FFFF); // LSB mask of 32-bit
-const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+const __m256i* data_vectors = (const __m256i*)(data);
 const uint32_t n_cycles = n / 16;
 const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
 
@@ -296,7 +296,7 @@ for(int i = 0; i < 16; ++i) {
 }
 uint32_t out_counters[16] = {0};  // output accumulators
 
-const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const __m512i* data_vectors = (const __m512i*)(data);
 const uint32_t n_cycles = n / 32;
 
 // Define a macro UPDATE representing a single update step:
@@ -329,7 +329,7 @@ for(int i = n_cycles*32; i < n; ++i) {
 
 // Transfer SIMD aggregator to output scalar counters.
 for(int i = 0; i < 16; ++i) {
-    uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+    uint32_t* v = (uint32_t*)(&counters[i]);
     for(int j = 0; j < 16; ++j)
         out_counters[i] += v[j];
 }
@@ -365,7 +365,7 @@ const __m256i masks = _mm256_set_epi16(
         1 << 7,  1 << 6,  1 << 5,  1 << 4,
         1 << 3,  1 << 2,  1 << 1,  1 << 0);
 uint32_t out_counters[16] = {0};
-const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+const __m256i* data_vectors = (const __m256i*)(data);
 const uint32_t n_cycles = n / 16;
 const uint32_t n_update_cycles = std::floor((double)n_cycles / 4096);
 
@@ -421,7 +421,7 @@ const __m128i masksHi = _mm_set_epi16(
         1 << 3,  1 << 2,  1 << 1,  1 << 0);
 
 uint32_t out_counters[16] = {0};
-const __m128i* data_vectors = reinterpret_cast<const __m128i*>(data);
+const __m128i* data_vectors = (const __m128i*)(data);
 const uint32_t n_cycles = n / 8;
 const uint32_t n_update_cycles = std::floor((double)n_cycles / 4096);
 
@@ -486,7 +486,7 @@ for(int i = 0; i < 16; ++i) {
 }
 uint32_t out_counters[16] = {0};
 
-const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const __m512i* data_vectors = (const __m512i*)(data);
 const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
@@ -521,7 +521,7 @@ for(int i = 0; i < 16; ++i) {
 }
 uint32_t out_counters[16] = {0};
 
-const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const __m512i* data_vectors = (const __m512i*)(data);
 const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
@@ -564,7 +564,7 @@ for(int i = 0; i < 16; ++i) {
 }
 uint32_t out_counters[16] = {0};
 
-const __m512i* data_vectors = reinterpret_cast<const __m512i*>(data);
+const __m512i* data_vectors = (const __m512i*)(data);
 const uint32_t n_cycles = n / 32;
 
 // Define a macro UPDATE representing a single update step:
@@ -593,7 +593,7 @@ for(int i = n_cycles*32; i < n; ++i) {
 
 // Reduce phase: transfer partial sums to final aggregators
 for(int i = 0; i < 16; ++i) {
-    uint32_t* v = reinterpret_cast<uint32_t*>(&counters[i]);
+    uint32_t* v = (uint32_t*)(&counters[i]);
     for(int j = 0; j < 16; ++j)
         out_counters[i] += v[j];
 }

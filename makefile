@@ -28,19 +28,23 @@ all: fast_flag_stats
 
 # Generic rules
 %.o: %.c
-	gcc $(CFLAGS)-c -o $@ $<
+	$(CC) $(CFLAGS)-c -o $@ $<
 
 %.o: %.cpp
-	g++ $(CPPFLAGS)-c -o $@ $<
+	$(CXX) $(CPPFLAGS)-c -o $@ $<
 
 fast_flag_stats: fast_flagstats.o main.o
-	g++ $(CPPFLAGS) fast_flagstats.c main.cpp -o fast_flag_stats
+	$(CXX) $(CPPFLAGS) fast_flagstats.c main.cpp -o fast_flag_stats
 
 example: fast_flagstats.o example.o
-	gcc $(CFLAGS) fast_flagstats.c example.c -o example
+	$(CC) $(CFLAGS) fast_flagstats.c example.c -o example
+
+test: fast_flag_stats
+	$(CXX) --version
+	./fast_flag_stats
 
 clean:
 	rm -f $(OBJECTS)
 	rm -f fast_flag_stats example
 
-.PHONY: all clean
+.PHONY: all clean test

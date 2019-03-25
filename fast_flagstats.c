@@ -62,6 +62,37 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     }
 }
 
+pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
+    switch(method) {
+    case(PPOPCNT_AUTO): return &pospopcnt_u16;
+    case(PPOPCNT_SCALAR): return &pospopcnt_u16_scalar_naive;
+    case(PPOPCNT_SCALAR_PARTITION): return &pospopcnt_u16_scalar_partition;
+    case(PPOPCNT_SCALAR_HIST1X4): return &pospopcnt_u16_hist1x4;
+    case(PPOPCNT_AVX2_POPCNT): return &pospopcnt_u16_avx2_popcnt;
+    case(PPOPCNT_AVX2): return &pospopcnt_u16_avx2;
+    case(PPOPCNT_AVX2_POPCNT_NAIVE): return &pospopcnt_u16_avx2_naive_counter;
+    case(PPOPCNT_AVX2_SINGLE): return &pospopcnt_u16_avx2_single;
+    case(PPOPCNT_SSE_SINGLE): return &pospopcnt_u16_sse_single;
+    case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
+    case(PPOPCNT_AVX512_MASK32): return &pospopcnt_u16_avx512_popcnt32_mask;
+    case(PPOPCNT_AVX512_MASK64): return &pospopcnt_u16_avx512_popcnt64_mask;
+    case(PPOPCNT_AVX512_POPCNT): return &pospopcnt_u16_avx512_popcnt;
+    case(PPOPCNT_AVX2_LEMIRE1): return &pospopcnt_u16_avx2_lemire;
+    case(PPOPCNT_AVX2_LEMIRE2): return &pospopcnt_u16_avx2_lemire2;
+    case(PPOPCNT_AVX2_MULA): return &pospopcnt_u16_avx2_mula;
+    case(PPOPCNT_AVX2_MULA_UR4): return &pospopcnt_u16_avx2_mula_unroll4;
+    case(PPOPCNT_AVX2_MULA_UR8): return &pospopcnt_u16_avx2_mula_unroll8;
+    case(PPOPCNT_AVX2_MULA_UR16): return &pospopcnt_u16_avx2_mula_unroll16;
+    case(PPOPCNT_SSE_MULA): return &pospopcnt_u16_sse_mula;
+    case(PPOPCNT_SSE_MULA_UR4): return &pospopcnt_u16_sse_mula_unroll4;
+    case(PPOPCNT_SSE_MULA_UR8): return &pospopcnt_u16_sse_mula_unroll8;
+    case(PPOPCNT_SSE_MULA_UR16): return &pospopcnt_u16_sse_mula_unroll16;
+    case(PPOPCNT_AVX512_MULA): return &pospopcnt_u16_avx512_mula;
+    case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
+    case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
+    }
+}
+
 #if SIMD_VERSION >= 5
 int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) {
     // 1 load data
@@ -82,17 +113,17 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
 
 #define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx), shift));
 #define ITERATION(idx) {                                               \
-        UPDATE(0,idx);  UPDATE(1,idx);  UPDATE(2,idx);  UPDATE(3,idx); \
-        UPDATE(4,idx);  UPDATE(5,idx);  UPDATE(6,idx);  UPDATE(7,idx); \
-        UPDATE(8,idx);  UPDATE(9,idx);  UPDATE(10,idx); UPDATE(11,idx);\
-        UPDATE(12,idx); UPDATE(13,idx); UPDATE(14,idx); UPDATE(15,idx);\
-        ++pos;                                                         \
+    UPDATE(0,idx);  UPDATE(1,idx);  UPDATE(2,idx);  UPDATE(3,idx); \
+    UPDATE(4,idx);  UPDATE(5,idx);  UPDATE(6,idx);  UPDATE(7,idx); \
+    UPDATE(8,idx);  UPDATE(9,idx);  UPDATE(10,idx); UPDATE(11,idx);\
+    UPDATE(12,idx); UPDATE(13,idx); UPDATE(14,idx); UPDATE(15,idx);\
+    ++pos;                                                         \
 }
 #define BLOCK {                                                    \
-        ITERATION(0);  ITERATION(1);  ITERATION(2);  ITERATION(3); \
-        ITERATION(4);  ITERATION(5);  ITERATION(6);  ITERATION(7); \
-        ITERATION(8);  ITERATION(9);  ITERATION(10); ITERATION(11);\
-        ITERATION(12); ITERATION(13); ITERATION(14); ITERATION(15);\
+    ITERATION(0);  ITERATION(1);  ITERATION(2);  ITERATION(3); \
+    ITERATION(4);  ITERATION(5);  ITERATION(6);  ITERATION(7); \
+    ITERATION(8);  ITERATION(9);  ITERATION(10); ITERATION(11);\
+    ITERATION(12); ITERATION(13); ITERATION(14); ITERATION(15);\
 }
 
     uint32_t pos = 0;
@@ -154,11 +185,11 @@ int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
 
 #define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
 #define ITERATION  {                                   \
-        UPDATE(0);  UPDATE(1);  UPDATE(2);  UPDATE(3); \
-        UPDATE(4);  UPDATE(5);  UPDATE(6);  UPDATE(7); \
-        UPDATE(8);  UPDATE(9);  UPDATE(10); UPDATE(11);\
-        UPDATE(12); UPDATE(13); UPDATE(14); UPDATE(15);\
-        ++pos;                                         \
+    UPDATE(0);  UPDATE(1);  UPDATE(2);  UPDATE(3); \
+    UPDATE(4);  UPDATE(5);  UPDATE(6);  UPDATE(7); \
+    UPDATE(8);  UPDATE(9);  UPDATE(10); UPDATE(11);\
+    UPDATE(12); UPDATE(13); UPDATE(14); UPDATE(15);\
+    ++pos;                                         \
 }
     uint32_t pos = 0;
     for (int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
@@ -697,12 +728,12 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
 
 // fixme
 void scalar_naive(const uint16_t *data, size_t n, uint32_t *flags) {
-  memset(flags, 0, 16 * sizeof(uint32_t));
-  for (uint32_t i = 0; i < n; ++i) {
-    for (int j = 0; j < 16; ++j) {
-      flags[j] += ((data[i] & (1 << j)) >> j);
+    memset(flags, 0, 16 * sizeof(uint32_t));
+    for (uint32_t i = 0; i < n; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
     }
-  }
 }
 
 #if SIMD_VERSION >= 5
@@ -786,35 +817,35 @@ int pospopcnt_u16_avx2_lemire(const uint16_t* array, uint32_t len, uint32_t* fla
 // See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
 int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* flags) {
     uint16_t buffer[16];
-    __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512,
-                                    256, 128, 64, 32, 16, 8, 4, 2, 1);
+    __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512, 256,
+                                       128,    64,   32,   16,    8,    4,   2,   1);
     // we do the first part
     if (len < 64) {
-    // don't bother with handcrafted SIMD
-    scalar_naive(array, len, flags);
-    return 0;
+        // don't bother with handcrafted SIMD
+        scalar_naive(array, len, flags);
+        return 0;
     }
     // handle the start (naively)
     __m256i count16 = _mm256_setzero_si256();
 
     {
-    uint16_t startbuffer[32];
-    memset(startbuffer, 0, 32 * 2);
-    memcpy(startbuffer + 16, array, 16 * 2);
-    for (size_t i = 1; i < 16; i++) {
-        __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
-        __m256i m = _mm256_and_si256(input, bits);
-        __m256i eq = _mm256_cmpeq_epi16(bits, m);
-        count16 = _mm256_sub_epi16(count16, eq);
-    }
+        uint16_t startbuffer[32];
+        memset(startbuffer, 0, 32 * 2);
+        memcpy(startbuffer + 16, array, 16 * 2);
+        for (size_t i = 1; i < 16; i++) {
+            __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+            __m256i m = _mm256_and_si256(input, bits);
+            __m256i eq = _mm256_cmpeq_epi16(bits, m);
+            count16 = _mm256_sub_epi16(count16, eq);
+        }
     }
     _mm256_storeu_si256((__m256i *)buffer, count16);
     for (size_t k = 0; k < 16; k++) {
-    flags[k] += buffer[k];
+        flags[k] += buffer[k];
     }
 
     // main loop starts here
-    for (size_t i = 0; i + 16 <= len;) {
+    for (size_t i = 0; i + 16 <= len;/**/) {
         count16 = _mm256_setzero_si256();
         size_t j = 0;
         size_t maxj = i + 65535 + 16 <= len ? 65535 : len - i;

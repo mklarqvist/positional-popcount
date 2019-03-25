@@ -2,9 +2,27 @@
 #include <random>//random generator (c++11)
 #include <chrono>//time (c++11)
 #include <cassert>//assert
-#include <cstring> //memset
+#include <cstring>//memset
 
 #include "fast_flagstats.h"
+
+inline void* aligned_malloc(size_t size, size_t align) {
+    void* result;
+#ifdef _MSC_VER 
+    result = _aligned_malloc(size, align);
+#else 
+     if(posix_memalign(&result, align, size)) result = 0;
+#endif
+    return result;
+}
+
+inline void aligned_free(void* ptr) {
+#ifdef _MSC_VER 
+      _aligned_free(ptr);
+#else 
+      free(ptr);
+#endif
+}
 
 bool assert_truth(uint32_t* vals, uint32_t* truth) {
     uint64_t n_all = 0;
@@ -17,20 +35,23 @@ bool assert_truth(uint32_t* vals, uint32_t* truth) {
     return true;
 }
 
-// Definition for time.
+// Definition for microsecond timer.
 typedef std::chrono::high_resolution_clock::time_point clockdef;
 
-int pospopcnt_u16_wrapper(int(f)(const uint16_t* data, uint32_t n, uint32_t* flags), const uint16_t* data, uint32_t n, uint32_t* flags, uint64_t& times, uint64_t& times_local) {
+int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, 
+                          const uint16_t* data, uint32_t n, uint32_t* flags, 
+                          uint64_t& times, uint64_t& times_local) 
+{
     // Set counters to 0.
     memset(flags, 0, sizeof(uint32_t)*16);
 
     // Start timer.
     clockdef t1 = std::chrono::high_resolution_clock::now();
 
-    // Call provided subroutine pointer.
+    // Call argument subroutine pointer.
     (*f)(data, n, flags);
 
-    // End timer.
+    // End timer and update times.
     clockdef t2 = std::chrono::high_resolution_clock::now();
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
     times += time_span.count();
@@ -38,96 +59,27 @@ int pospopcnt_u16_wrapper(int(f)(const uint16_t* data, uint32_t n, uint32_t* fla
     return 0;
 }
 
-void flag_functions(uint16_t* vals, uint64_t* times, uint64_t* times_local, const uint32_t n) {
+void benchmark(uint16_t* vals, uint64_t* times, uint64_t* times_local, const uint32_t n) {
     uint32_t truth[16];
     uint32_t flags[16];
 
     // Truth-set from naive scalar subroutine.
     pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,vals,n,truth,times[1],times_local[1]);
     
-    pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_partition,vals,n,flags,times[2],times_local[2]);
-    assert_truth(flags, truth);
-    
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2,vals, n, flags,times[3],times_local[3]);
-    assert_truth(flags, truth);
-    
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_popcnt,vals, n, flags,times[4],times_local[4]);
-    assert_truth(flags, truth);
-    
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_single,vals, n, flags,times[5],times_local[5]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_mula_unroll4,vals, n, flags,times[16],times_local[16]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_naive_counter,vals, n, flags,times[6],times_local[6]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_lemire,vals, n, flags,times[13],times_local[13]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_lemire2,vals, n, flags,times[14],times_local[14]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_mula,vals, n, flags,times[15],times_local[15]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_single,vals, n, flags,times[7],times_local[7]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_mula_unroll8,vals, n, flags,times[17],times_local[17]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_hist1x4,vals, n, flags,times[8],times_local[8]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll16,vals, n, flags,times[22],times_local[22]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_popcnt,vals, n, flags,times[9],times_local[9]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_popcnt32_mask,vals, n, flags,times[10],times_local[10]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx2_mula_unroll16,vals, n, flags,times[18],times_local[18]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512,vals, n, flags,times[11],times_local[11]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_popcnt64_mask,vals, n, flags,times[12],times_local[12]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula,vals, n, flags,times[19],times_local[19]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll4,vals, n, flags,times[20],times_local[20]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_sse_mula_unroll8,vals, n, flags,times[21],times_local[21]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_mula,vals, n, flags,times[23],times_local[23]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_mula_unroll4,vals, n, flags,times[24],times_local[24]);
-    assert_truth(flags, truth);
-
-    pospopcnt_u16_wrapper(&pospopcnt_u16_avx512_mula_unroll8,vals, n, flags,times[25],times_local[25]);
-    assert_truth(flags, truth);
+    for(int i = 2; i < 26; ++i) {
+        pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),vals,n,flags,times[i],times_local[i]);
+        assert_truth(flags, truth);
+    }
 }
 
 void flag_test(uint32_t n, uint32_t cycles = 1) {
-    std::cerr << "Generating flags: " << n << std::endl;
+    std::cerr << "Generating " << n << " flags." << std::endl;
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
 
-    //uint16_t* vals = new uint16_t[n];
-    uint16_t* vals;
     // Memory align input data.
-    assert(!posix_memalign((void**)&vals, SIMD_ALIGNMENT, n*sizeof(uint16_t)));
+    uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), SIMD_ALIGNMENT);
 
     uint64_t times[64] = {0};
     uint64_t times_local[64] = {0};
@@ -139,8 +91,9 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
         for(int c = 0; c < cycles; ++c) {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
+            // Generate random data every iteration.
             for(uint32_t i = 0; i < n; ++i) {
-                vals[i] = distr(eng); // draw random values
+                vals[i] = distr(eng);
             }
 
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
@@ -148,10 +101,10 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             times[0] += time_span.count();
             times_local[0] = time_span.count();
 
-            // start tests
-            flag_functions(vals, times, times_local, n);
+            // Start benchmarking.
+            benchmark(vals, times, times_local, n);
 
-#define MHZ 2600000000.0
+#define MHZ 2800000000.0
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
 #define SPEED(cum) (times_local[cum] == 0 ? 0 : (MHZ * (times_local[cum] / 1000000.0) / n))
             std::cout << "MBS\t" << ranges[r] << "\t" << c;
@@ -179,12 +132,13 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
         
 #undef AVG
 #undef INTS_SEC
+#undef MHZ
 
         memset(times, 0, sizeof(uint64_t)*64);
     }
 
     // Cleanup.
-    delete[] vals;
+    aligned_free(vals);
 }
 
 int main(int argc, char **argv) {

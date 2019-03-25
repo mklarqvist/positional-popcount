@@ -24,9 +24,7 @@
 extern "C" {
 #endif
 
-/****************************
-*  SIMD definitions
-****************************/
+/*------ SIMD definitions --------*/
 #if defined(_MSC_VER)
      /* Microsoft C/C++-compatible compiler */
      #include <intrin.h>
@@ -90,13 +88,6 @@ extern "C" {
 #define PIL_POPCOUNT __builtin_popcountll
 #endif
 
-#if SIMD_AVAILABLE
-__attribute__((always_inline))
-static inline void PIL_POPCOUNT_SSE(uint64_t* a, const __m128i n) {
-    *a += PIL_POPCOUNT(_mm_cvtsi128_si64(n)) + PIL_POPCOUNT(_mm_cvtsi128_si64(_mm_unpackhi_epi64(n, n)));
-}
-#endif // endif simd_available
-
 #if SIMD_VERSION >= 5
 #ifndef PIL_POPCOUNT_AVX2
 #define PIL_POPCOUNT_AVX2(A, B) {                  \
@@ -132,25 +123,25 @@ typedef enum {
     PPOPCNT_SCALAR,
     PPOPCNT_SCALAR_PARTITION,
     PPOPCNT_SCALAR_HIST1X4,
+    PPOPCNT_SSE_SINGLE,
+    PPOPCNT_SSE_MULA,
+    PPOPCNT_SSE_MULA_UR4,
+    PPOPCNT_SSE_MULA_UR8,
+    PPOPCNT_SSE_MULA_UR16,
     PPOPCNT_AVX2_POPCNT,
     PPOPCNT_AVX2,
     PPOPCNT_AVX2_POPCNT_NAIVE,
     PPOPCNT_AVX2_SINGLE,
-    PPOPCNT_SSE_SINGLE,
-    PPOPCNT_AVX512,
-    PPOPCNT_AVX512_MASK32,
-    PPOPCNT_AVX512_MASK64,
-    PPOPCNT_AVX512_POPCNT,
     PPOPCNT_AVX2_LEMIRE1,
     PPOPCNT_AVX2_LEMIRE2,
     PPOPCNT_AVX2_MULA,
     PPOPCNT_AVX2_MULA_UR4,
     PPOPCNT_AVX2_MULA_UR8,
     PPOPCNT_AVX2_MULA_UR16,
-    PPOPCNT_SSE_MULA,
-    PPOPCNT_SSE_MULA_UR4,
-    PPOPCNT_SSE_MULA_UR8,
-    PPOPCNT_SSE_MULA_UR16,
+    PPOPCNT_AVX512,
+    PPOPCNT_AVX512_MASK32,
+    PPOPCNT_AVX512_MASK64,
+    PPOPCNT_AVX512_POPCNT,
     PPOPCNT_AVX512_MULA,
     PPOPCNT_AVX512_MULA_UR4,
     PPOPCNT_AVX512_MULA_UR8
@@ -186,8 +177,11 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t
 
 // Wrapper function for calling the best available algorithm during compilation
 // time.
+typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags);
+pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method);
+
 
 #ifdef __cplusplus
 }
