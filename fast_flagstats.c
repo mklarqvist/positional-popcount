@@ -59,6 +59,7 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX512_MULA): return pospopcnt_u16_avx512_mula(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR8): return pospopcnt_u16_avx512_mula_unroll8(data, n, flags);
+    case(PPOPCNT_AVX512_MUL_MASK): return pospopcnt_u16_avx512_mul_mask(data, n, flags);
     }
 }
 
@@ -90,6 +91,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX512_MULA): return &pospopcnt_u16_avx512_mula;
     case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
     case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
+    case(PPOPCNT_AVX512_MUL_MASK): return &pospopcnt_u16_avx512_mul_mask;
     }
 }
 
@@ -522,7 +524,7 @@ int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
+#define UPDATE(pos) out_counters[pos] += _mm_popcnt_u32(_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
 #define BLOCK {                                 \
     UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
     UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
@@ -563,7 +565,7 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
     const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
-#define UP(pos) out_counters[pos] += PIL_POPCOUNT((UPDATE(pos,0) << 32) | UPDATE(pos,1));
+#define UP(pos) out_counters[pos] += _mm_popcnt_u64((UPDATE(pos,0) << 32) | UPDATE(pos,1));
 #define BLOCK {                 \
     UP(0)  UP(1)  UP(2)  UP(3)  \
     UP(4)  UP(5)  UP(6)  UP(7)  \
@@ -594,6 +596,60 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
 #undef UPDATE
 
     return 0;
+}
+
+int pospopcnt_u16_avx512_mul_mask(const uint16_t* data, uint32_t n, uint32_t* flags) {
+    __m512i mask = _mm512_set_epi16(1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7, 
+                                    1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15, 
+                                    1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7, 
+                                    1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15);
+
+    const __m512i rotl_mask = _mm512_set_epi8(61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,63,62);
+    const __m512i* data_vectors = (const __m512i*)(data);
+    __m512i counter = _mm512_setzero_si512();
+    uint32_t out_counters[16] = {0};
+    const uint32_t n_cycles = n / 32;
+    const uint32_t n_cycles_inner = n_cycles / 65536;
+
+    int i = 0;
+    for (/**/; i < n_cycles_inner; ++i) {
+        // start
+        for(int j = 0; j < 65536; ++j) {
+            __m512i d = data_vectors[i];
+            __mmask32 a = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], mask), mask);
+            __m512i b   = _mm512_maskz_set1_epi16(a, 1); // broadcast int to dst using zeromask
+            counter     = _mm512_add_epi16(counter, b); // accumulator addition
+            // do 15 ROTLs
+            for (int j = 1; j < 16; ++j) {
+                d = _mm512_shuffle_epi8(d, rotl_mask);
+                __mmask32 a = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], mask), mask);
+                __m512i b   = _mm512_maskz_set1_epi16(a, 1);
+                counter     = _mm512_add_epi16(counter, b);
+            }
+        }
+    }
+
+    // residual
+    i *= 32;
+    for (/**/; i < n; ++i) {
+        for (int j = 0; j < 16; ++j)
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+    }
+
+    for (int i = 0; i < 16; ++i) {
+        uint32_t* v = (uint32_t*)(&counters[i]);
+        for (int j = 0; j < 16; ++j)
+            out_counters[i] += v[j];
+    }
+    
+    for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    std::cerr << "avx512-rotl=";
+    for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    std::cerr << std::endl;
+
+    return 0;
+
 }
 
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) {
@@ -722,6 +778,7 @@ int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_mul_mask(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
 // fixme

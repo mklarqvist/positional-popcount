@@ -66,7 +66,7 @@ void benchmark(uint16_t* vals, uint64_t* times, uint64_t* times_local, const uin
     // Truth-set from naive scalar subroutine.
     pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,vals,n,truth,times[1],times_local[1]);
     
-    for(int i = 2; i < 26; ++i) {
+    for(int i = 2; i < 27; ++i) {
         pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),vals,n,flags,times[i],times_local[i]);
         assert_truth(flags, truth);
     }
