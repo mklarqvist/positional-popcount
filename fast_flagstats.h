@@ -150,6 +150,7 @@ typedef enum {
 /*------ Functions --------*/
 
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_hist1x4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags);

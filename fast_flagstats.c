@@ -430,6 +430,22 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) 
 int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
+ __attribute__((optimize("no-tree-vectorize")))
+int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t n, uint32_t* flags) {
+    memset(flags, 0, 16*sizeof(uint32_t));
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    //std::cerr << "scalar-naive=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+
+    return 0;
+}
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags) {
     memset(flags, 0, 16*sizeof(uint32_t));
 

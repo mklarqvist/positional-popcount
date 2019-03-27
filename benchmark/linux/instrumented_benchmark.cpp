@@ -17,8 +17,9 @@
 
 typedef int (*pospopcnt16)(const uint16_t *, uint32_t, uint32_t *);
 
-#define NUMBEROFFNC 25
-pospopcnt16 ourfunctions[NUMBEROFFNC] = {pospopcnt_u16_scalar_naive,
+#define NUMBEROFFNC 26
+pospopcnt16 ourfunctions[NUMBEROFFNC] = {pospopcnt_u16_scalar_naive_nosimd,
+                                         pospopcnt_u16_scalar_naive,
                                          pospopcnt_u16_scalar_partition,
                                          pospopcnt_u16_hist1x4,
                                          pospopcnt_u16_sse_single,
@@ -45,6 +46,7 @@ pospopcnt16 ourfunctions[NUMBEROFFNC] = {pospopcnt_u16_scalar_naive,
                                          pospopcnt_u16_avx512_mula_unroll8};
 
 std::string ourfunctionsnames[NUMBEROFFNC] = {
+    "pospopcnt_u16_scalar_naive_nosimd",
     "pospopcnt_u16_scalar_naive",
     "pospopcnt_u16_scalar_partition",
     "pospopcnt_u16_hist1x4",
@@ -154,7 +156,9 @@ bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose) {
   std::vector<unsigned long long> mins = computemins(allresults);
   std::vector<double> avg = computeavgs(allresults);
   if (verbose) {
-    printf(" all tests ok.\n");
+    printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+           "instructions per 16-bit word %4.3f \n",
+           double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
     // first we display mins
     printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
            "cache ref., %8llu cache mis.\n",
@@ -162,11 +166,8 @@ bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose) {
     printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
            "cache ref., %8.1f cache mis.\n",
            avg[0], avg[1], avg[2], avg[3], avg[4]);
-    printf("min: instructions per cycle %4.2f, cycles per 16-bit word:  %4.2f, "
-           "instructions per 16-bit word %4.2f \n",
-           double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
   } else {
-    printf("cycles per 16-bit word:  %4.2f \n", double(mins[1]) / n);
+    printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
   }
   return true;
 }
@@ -210,7 +211,8 @@ int main(int argc, char **argv) {
     if (!isok) {
       printf("Problem detected with %s.\n", ourfunctionsnames[k].c_str());
     }
-    printf("\n");
+    if (verbose)
+      printf("\n");
   }
   if (!verbose)
     printf("Try -v to get more details.\n");
