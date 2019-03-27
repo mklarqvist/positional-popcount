@@ -36,6 +36,12 @@ all: fast_flag_stats
 fast_flag_stats: fast_flagstats.o main.o
 	$(CXX) $(CPPFLAGS) fast_flagstats.c main.cpp -o fast_flag_stats
 
+itest: instrumented_benchmark
+	./instrumented_benchmark
+
+instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h fast_flagstats.h fast_flagstats.c
+	$(CXX) -march=native -O3 -o instrumented_benchmark fast_flagstats.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux
+
 example: fast_flagstats.o example.o
 	$(CC) $(CFLAGS) fast_flagstats.c example.c -o example
 
@@ -45,6 +51,7 @@ test: fast_flag_stats
 
 clean:
 	rm -f $(OBJECTS)
+	rm -f instrumented_benchmark
 	rm -f fast_flag_stats example
 
 .PHONY: all clean test
