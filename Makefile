@@ -1,6 +1,6 @@
 ###################################################################
 # Copyright (c) 2019
-# Author(s): Marcus D. R. Klarqvist
+# Author(s): Marcus D. R. Klarqvist and Daniel Lemire
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # under the License.
 ###################################################################
 
-OPTFLAGS  := -O3 -march=native -mtune=native
+OPTFLAGS  := -O3 -march=native
 CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS)
 CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
 CPP_SOURCE = main.cpp
@@ -37,10 +37,11 @@ fast_flag_stats: fast_flagstats.o main.o
 	$(CXX) $(CPPFLAGS) fast_flagstats.c main.cpp -o fast_flag_stats
 
 itest: instrumented_benchmark
-	./instrumented_benchmark
+	$(CXX) --version
+	sudo ./instrumented_benchmark
 
 instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h fast_flagstats.h fast_flagstats.c
-	$(CXX) -std=c++11 -march=native -O3 -o instrumented_benchmark fast_flagstats.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux
+	$(CXX) $(CPPFLAGS) fast_flagstats.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
 
 example: fast_flagstats.o example.o
 	$(CC) $(CFLAGS) fast_flagstats.c example.c -o example
@@ -51,7 +52,6 @@ test: fast_flag_stats
 
 clean:
 	rm -f $(OBJECTS)
-	rm -f instrumented_benchmark
-	rm -f fast_flag_stats example
+	rm -f fast_flag_stats example instrumented_benchmark
 
-.PHONY: all clean test
+.PHONY: all clean test itest
