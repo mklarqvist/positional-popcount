@@ -439,9 +439,9 @@ int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags
         }
     }
 
-    //std::cerr << "scalar-naive=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
+    printf("scalar-naive=");
+    for (int i = 0; i < 16; ++i) printf(" %d", flags[i]);
+    printf("\n");
 
     return 0;
 }
@@ -599,12 +599,32 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
 }
 
 int pospopcnt_u16_avx512_mul_mask(const uint16_t* data, uint32_t n, uint32_t* flags) {
-    __m512i mask = _mm512_set_epi16(1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7, 
-                                    1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15, 
-                                    1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7, 
-                                    1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15);
+    // hack to overcome missing _mm512_set_epi16 function
+    const uint16_t mask_order[32] = {(1 << 15), (1 << 14), (1 << 13), (1 << 12), 
+                                     (1 << 11), (1 << 10), (1 << 9), (1 << 8), 
+                                     (1 << 7), (1 << 6), (1 << 5), (1 << 4), 
+                                     (1 << 3), (1 << 2), (1 << 1), (1 << 0), 
+                                     (1 << 15), (1 << 14), (1 << 13), (1 << 12), 
+                                     (1 << 11), (1 << 10), (1 << 9), (1 << 8), 
+                                     (1 << 7), (1 << 6), (1 << 5), (1 << 4), 
+                                     (1 << 3), (1 << 2), (1 << 1), (1 << 0)};
 
-    const __m512i rotl_mask = _mm512_set_epi8(61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,63,62);
+const uint16_t mask_order[32] = {1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15, 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15};
+
+    const __m512i mask = _mm512_loadu_si512((__m512i *)(mask_order));
+
+    // hack to overcome missing _mm512_set_epi8 function
+    const uint8_t rotl_order[64] = {61,60,59,58,57,56,55,54,
+                                    53,52,51,50,49,48,47,46,
+                                    45,44,43,42,41,40,39,38,
+                                    37,36,35,34,33,32,31,30,
+                                    29,28,27,26,25,24,23,22,
+                                    21,20,19,18,17,16,15,14,
+                                    13,12,11,10, 9, 8, 7, 6,
+                                     5, 4, 3, 2, 1, 0,63,62};
+
+    const __m512i rotl_mask = _mm512_loadu_si512((__m512i *)(rotl_order));
+    
     const __m512i* data_vectors = (const __m512i*)(data);
     __m512i counter = _mm512_setzero_si512();
     uint32_t out_counters[16] = {0};
@@ -615,38 +635,43 @@ int pospopcnt_u16_avx512_mul_mask(const uint16_t* data, uint32_t n, uint32_t* fl
     for (/**/; i < n_cycles_inner; ++i) {
         // start
         for(int j = 0; j < 65536; ++j) {
-            __m512i d = data_vectors[i];
-            __mmask32 a = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], mask), mask);
+            __m512i d = data_vectors[i+j];
+            __mmask32 a = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(d, mask), mask);
+            counter = _mm512_maskz_add_epi16(a, counter, _mm512_set1_epi32());
+
             __m512i b   = _mm512_maskz_set1_epi16(a, 1); // broadcast int to dst using zeromask
             counter     = _mm512_add_epi16(counter, b); // accumulator addition
             // do 15 ROTLs
-            for (int j = 1; j < 16; ++j) {
+            for (int k = 1; k < 16; ++k) {
                 d = _mm512_shuffle_epi8(d, rotl_mask);
-                __mmask32 a = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], mask), mask);
+                __mmask32 a = _mm512_cmpeq_epu16_mask(_mm512_and_epi32(d, mask), mask);
                 __m512i b   = _mm512_maskz_set1_epi16(a, 1);
                 counter     = _mm512_add_epi16(counter, b);
             }
         }
+
+        uint16_t* v = (uint16_t*)(&counter);
+        for (int j = 0; j < 16; ++j) out_counters[j] += v[j];
+        for (int j = 0; j < 16; ++j) out_counters[j] += v[j+16];
+        counter = _mm512_setzero_si512();
     }
 
     // residual
-    i *= 32;
+    i *= 32*65536;
     for (/**/; i < n; ++i) {
         for (int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
 
-    for (int i = 0; i < 16; ++i) {
-        uint32_t* v = (uint32_t*)(&counters[i]);
-        for (int j = 0; j < 16; ++j)
-            out_counters[i] += v[j];
-    }
+    uint16_t* v = (uint16_t*)(&counter);
+    for (int j = 0; j < 16; ++j) out_counters[j] += v[j];
+    for (int j = 0; j < 16; ++j) out_counters[j] += v[j+16];
     
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    std::cerr << "avx512-rotl=";
-    for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    std::cerr << std::endl;
+    printf("avx512-rotl=");
+    for (int i = 0; i < 16; ++i) printf(" %d", out_counters[i]);
+    printf("\n");
 
     return 0;
 
