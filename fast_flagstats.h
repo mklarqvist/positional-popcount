@@ -165,6 +165,8 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags)
 int pospopcnt_u16_avx2_lemire(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_lemire2(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_avx2_mula2(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_avx2_mula3(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);

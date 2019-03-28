@@ -17,61 +17,40 @@
 
 typedef int (*pospopcnt16)(const uint16_t *, uint32_t, uint32_t *);
 
-#define NUMBEROFFNC 26
-pospopcnt16 ourfunctions[NUMBEROFFNC] = {pospopcnt_u16_scalar_naive_nosimd,
-                                         pospopcnt_u16_scalar_naive,
-                                         pospopcnt_u16_scalar_partition,
-                                         pospopcnt_u16_hist1x4,
-                                         pospopcnt_u16_sse_single,
-                                         pospopcnt_u16_sse_mula,
-                                         pospopcnt_u16_sse_mula_unroll4,
-                                         pospopcnt_u16_sse_mula_unroll8,
-                                         pospopcnt_u16_sse_mula_unroll16,
-                                         pospopcnt_u16_avx2_popcnt,
-                                         pospopcnt_u16_avx2,
-                                         pospopcnt_u16_avx2_naive_counter,
-                                         pospopcnt_u16_avx2_single,
-                                         pospopcnt_u16_avx2_lemire,
-                                         pospopcnt_u16_avx2_lemire2,
-                                         pospopcnt_u16_avx2_mula,
-                                         pospopcnt_u16_avx2_mula_unroll4,
-                                         pospopcnt_u16_avx2_mula_unroll8,
-                                         pospopcnt_u16_avx2_mula_unroll16,
-                                         pospopcnt_u16_avx512,
-                                         pospopcnt_u16_avx512_popcnt32_mask,
-                                         pospopcnt_u16_avx512_popcnt64_mask,
-                                         pospopcnt_u16_avx512_popcnt,
-                                         pospopcnt_u16_avx512_mula,
-                                         pospopcnt_u16_avx512_mula_unroll4,
-                                         pospopcnt_u16_avx512_mula_unroll8};
+#define NUMBEROFFNC 28
+pospopcnt16 ourfunctions[NUMBEROFFNC] = {
+  pospopcnt_u16_scalar_naive_nosimd,  pospopcnt_u16_scalar_naive,
+  pospopcnt_u16_scalar_partition,     pospopcnt_u16_hist1x4,
+  pospopcnt_u16_sse_single,           pospopcnt_u16_sse_mula,
+  pospopcnt_u16_sse_mula_unroll4,     pospopcnt_u16_sse_mula_unroll8,
+  pospopcnt_u16_sse_mula_unroll16,    pospopcnt_u16_avx2_popcnt,
+  pospopcnt_u16_avx2,                 pospopcnt_u16_avx2_naive_counter,
+  pospopcnt_u16_avx2_single,          pospopcnt_u16_avx2_lemire,
+  pospopcnt_u16_avx2_lemire2,         pospopcnt_u16_avx2_mula,
+  pospopcnt_u16_avx2_mula2,           pospopcnt_u16_avx2_mula3,
+  pospopcnt_u16_avx2_mula_unroll4,    pospopcnt_u16_avx2_mula_unroll8,
+  pospopcnt_u16_avx2_mula_unroll16,   pospopcnt_u16_avx512,
+  pospopcnt_u16_avx512_popcnt32_mask, pospopcnt_u16_avx512_popcnt64_mask,
+  pospopcnt_u16_avx512_popcnt,        pospopcnt_u16_avx512_mula,
+  pospopcnt_u16_avx512_mula_unroll4,  pospopcnt_u16_avx512_mula_unroll8
+};
 
 std::string ourfunctionsnames[NUMBEROFFNC] = {
-    "pospopcnt_u16_scalar_naive_nosimd",
-    "pospopcnt_u16_scalar_naive",
-    "pospopcnt_u16_scalar_partition",
-    "pospopcnt_u16_hist1x4",
-    "pospopcnt_u16_sse_single",
-    "pospopcnt_u16_sse_mula",
-    "pospopcnt_u16_sse_mula_unroll4",
-    "pospopcnt_u16_sse_mula_unroll8",
-    "pospopcnt_u16_sse_mula_unroll16",
-    "pospopcnt_u16_avx2_popcnt",
-    "pospopcnt_u16_avx2",
-    "pospopcnt_u16_avx2_naive_counter",
-    "pospopcnt_u16_avx2_single",
-    "pospopcnt_u16_avx2_lemire",
-    "pospopcnt_u16_avx2_lemire2",
-    "pospopcnt_u16_avx2_mula",
-    "pospopcnt_u16_avx2_mula_unroll4",
-    "pospopcnt_u16_avx2_mula_unroll8",
-    "pospopcnt_u16_avx2_mula_unroll16",
-    "pospopcnt_u16_avx512",
-    "pospopcnt_u16_avx512_popcnt32_mask",
-    "pospopcnt_u16_avx512_popcnt64_mask",
-    "pospopcnt_u16_avx512_popcnt",
-    "pospopcnt_u16_avx512_mula",
-    "pospopcnt_u16_avx512_mula_unroll4",
-    "pospopcnt_u16_avx512_mula_unroll8"};
+  "pospopcnt_u16_scalar_naive_nosimd",  "pospopcnt_u16_scalar_naive",
+  "pospopcnt_u16_scalar_partition",     "pospopcnt_u16_hist1x4",
+  "pospopcnt_u16_sse_single",           "pospopcnt_u16_sse_mula",
+  "pospopcnt_u16_sse_mula_unroll4",     "pospopcnt_u16_sse_mula_unroll8",
+  "pospopcnt_u16_sse_mula_unroll16",    "pospopcnt_u16_avx2_popcnt",
+  "pospopcnt_u16_avx2",                 "pospopcnt_u16_avx2_naive_counter",
+  "pospopcnt_u16_avx2_single",          "pospopcnt_u16_avx2_lemire",
+  "pospopcnt_u16_avx2_lemire2",         "pospopcnt_u16_avx2_mula",
+  "pospopcnt_u16_avx2_mula2",           "pospopcnt_u16_avx2_mula3",
+  "pospopcnt_u16_avx2_mula_unroll4",    "pospopcnt_u16_avx2_mula_unroll8",
+  "pospopcnt_u16_avx2_mula_unroll16",   "pospopcnt_u16_avx512",
+  "pospopcnt_u16_avx512_popcnt32_mask", "pospopcnt_u16_avx512_popcnt64_mask",
+  "pospopcnt_u16_avx512_popcnt",        "pospopcnt_u16_avx512_mula",
+  "pospopcnt_u16_avx512_mula_unroll4",  "pospopcnt_u16_avx512_mula_unroll8"
+};
 
 void print16(uint32_t *flags) {
   for (int k = 0; k < 16; k++)
@@ -80,7 +59,7 @@ void print16(uint32_t *flags) {
 }
 
 std::vector<unsigned long long>
-computemins(std::vector<std::vector<unsigned long long>> allresults) {
+computemins(std::vector<std::vector<unsigned long long> > allresults) {
   if (allresults.size() == 0)
     return std::vector<unsigned long long>();
   std::vector<unsigned long long> answer = allresults[0];
@@ -95,7 +74,7 @@ computemins(std::vector<std::vector<unsigned long long>> allresults) {
 }
 
 std::vector<double>
-computeavgs(std::vector<std::vector<unsigned long long>> allresults) {
+computeavgs(std::vector<std::vector<unsigned long long> > allresults) {
   if (allresults.size() == 0)
     return std::vector<double>();
   std::vector<double> answer(allresults[0].size());
@@ -113,7 +92,8 @@ computeavgs(std::vector<std::vector<unsigned long long>> allresults) {
 }
 
 // returns true if the results are correct.
-bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose) {
+bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose,
+           bool test) {
   std::vector<int> evts;
   std::vector<uint16_t> vdata(n);
   evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
@@ -123,11 +103,12 @@ bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose) {
   evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
   LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
   std::vector<unsigned long long> results; // tmp buffer
-  std::vector<std::vector<unsigned long long>> allresults;
+  std::vector<std::vector<unsigned long long> > allresults;
   results.resize(evts.size());
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> dis(0, 0xFFFF);
+  bool isok = true;
   for (uint32_t i = 0; i < iterations; i++) {
     for (size_t k = 0; k < vdata.size(); k++) {
       vdata[k] = dis(gen); // random init.
@@ -143,12 +124,16 @@ bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose) {
     unified.end(results);
     for (size_t k = 0; k < 16; k++) {
       if (correctflags[k] != flags[k]) {
-        printf("bug:\n");
-        printf("expected : ");
-        print16(correctflags);
-        printf("got      : ");
-        print16(flags);
-        return false;
+        if (test) {
+          printf("bug:\n");
+          printf("expected : ");
+          print16(correctflags);
+          printf("got      : ");
+          print16(flags);
+          return false;
+        } else {
+          isok = false;
+        }
       }
     }
     allresults.push_back(results);
@@ -169,7 +154,7 @@ bool bench(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose) {
   } else {
     printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
   }
-  return true;
+  return isok;
 }
 
 static void printusage(char *command) {
@@ -207,9 +192,11 @@ int main(int argc, char **argv) {
   for (size_t k = 0; k < NUMBEROFFNC; k++) {
     printf("%-40s\t", ourfunctionsnames[k].c_str());
     fflush(NULL);
-    bool isok = bench(n, iterations, ourfunctions[k], verbose);
+    bool isok = bench(n, iterations, ourfunctions[k], verbose, true);
     if (!isok) {
       printf("Problem detected with %s.\n", ourfunctionsnames[k].c_str());
+      printf("%-40s\t", ourfunctionsnames[k].c_str());
+      bench(n, iterations, ourfunctions[k], verbose, false);
     }
     if (verbose)
       printf("\n");
