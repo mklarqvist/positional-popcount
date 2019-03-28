@@ -66,7 +66,7 @@ void benchmark(uint16_t* vals, uint64_t* times, uint64_t* times_local, const uin
     // Truth-set from naive scalar subroutine.
     pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,vals,n,truth,times[1],times_local[1]);
     
-    for(int i = 2; i < 26; ++i) {
+    for(int i = 2; i < PPOPCNT_NUMBER_METHODS; ++i) {
         pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),vals,n,flags,times[i],times_local[i]);
         assert_truth(flags, truth);
     }
@@ -84,15 +84,19 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     uint64_t times[64] = {0};
     uint64_t times_local[64] = {0};
 
+    std::cout << "Type\tRange\tIteration";
+    for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << pospopcnt_u16_method_names[i];
+    std::cout << std::endl;
+
     const std::vector<uint32_t> ranges = {8, 16, 64, 256, 512, 1024, 4096, 65536};
-    for(int r = 0; r < ranges.size(); ++r) {
+    for (int r = 0; r < ranges.size(); ++r) {
         std::uniform_int_distribution<uint16_t> distr(1, ranges[r]); // right inclusive
 
-        for(int c = 0; c < cycles; ++c) {
+        for (int c = 0; c < cycles; ++c) {
             std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
             // Generate random data every iteration.
-            for(uint32_t i = 0; i < n; ++i) {
+            for (int i = 0; i < n; ++i) {
                 vals[i] = distr(eng);
             }
 
@@ -108,26 +112,26 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
 #define MBS(cum) (times_local[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (times_local[cum] / 1000000.0))
 #define SPEED(cum) (times_local[cum] == 0 ? 0 : (MHZ * (times_local[cum] / 1000000.0) / n))
             std::cout << "MBS\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 26; ++i) std::cout << '\t' << MBS(i);
+            for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << '\t' << MBS(i);
             std::cout << std::endl;
             std::cout << "Cycles\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < 26; ++i) std::cout << '\t' << SPEED(i);
+            for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << '\t' << SPEED(i);
             std::cout << std::endl;
 #undef MBS
 #undef SPEED
         }
 #define AVG(pos) (times[pos] == 0 ? 0 : (double)times[pos]/cycles)
         std::cout << "Times\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < 26; ++i) std::cout << '\t' << AVG(i);
+        for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << '\t' << AVG(i);
         std::cout << std::endl;
 
 #define INTS_SEC(cum) (times[cum] == 0 ? 0 : ((n*sizeof(uint16_t)) / (1024*1024.0)) / (AVG(cum) / 1000000.0))
 #define AVG_CYCLES(pos) (times[pos] == 0 ? 0 : (MHZ * (AVG(pos) / 1000000.0) / n))
         std::cout << "MB/s\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < 26; ++i) std::cout << "\t" << INTS_SEC(i);
+        for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << INTS_SEC(i);
         std::cout << std::endl;
         std::cout << "Cycles/int\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < 26; ++i) std::cout << "\t" << AVG_CYCLES(i);
+        for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << AVG_CYCLES(i);
         std::cout << std::endl;
         
 #undef AVG

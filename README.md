@@ -1,16 +1,23 @@
 # FastFlagStats
 
-These functions compute the "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~7 GB/s (~0.7 CPU cycles / int) throughput (3.7 billion 16-bit integers / second or 58 billion one-hot vectors / second).
+These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word
 
-Compile test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`.
+These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~7 GB/s (~0.7 CPU cycles / int) throughput (3.7 billion 16-bit integers / second or 58 billion one-hot vectors / second).
 
 ### Usage
 
+Compile the test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`. If you run the test suite you **must** set the `MHZ` argument in `main.cpp` to the speed of your processor! For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
+
+Include `fast_flagstats.h` and `fast_flagstats.c` in your project. Then use the wrapper function for `pospopcnt`:
 ```c
 pospopcnt_u16(datain, length, target_counters);
 ```
 
 See `example.c` for a complete example. Compile with `make example`.
+
+### Note
+
+This is a collaborative effort between Marcus D. R. Klarqvist ([@klarqvist](https://github.com/mklarqvist/)), Wojciech Muła ([@WojciechMula](https://github.com/WojciechMula)), and Daniel Lemire ([@lemire](https://github.com/lemire/)).
 
 ### History
 
@@ -30,12 +37,14 @@ These functions were developed for [pil](https://github.com/mklarqvist/pil) but 
     - [Approach 4b: Interlaced register accumulator and aggregator (SSE4.1)](#approach-4b-interlaced-register-accumulator-and-aggregator-sse41)
     - [Approach 5: Popcount predicate-mask accumulator (AVX-512)](#approach-5-popcount-predicate-mask-accumulator-avx-512)
     - [Approach 6: Partial-sum accumulator and aggregator (AVX-512)](#approach-6-partial-sum-accumulator-and-aggregator-avx-512)
+    - [Approach 7: Shift-mask accumulator [Muła] (SIMD)](#approach-7-shift-mask-accumulator-muła-simd)
   - [Results](#results)
     - [Intel Xeon Skylake (AVX-512)](#intel-xeon-skylake-avx-512)
     - [Intel Xeon Haswell (AVX-256)](#intel-xeon-haswell-avx-256)
     - [Intel Ivy Bridge (AVX)](#intel-ivy-bridge-avx)
   - [Reference systems information](#reference-systems-information)
-  
+  - [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific)
+
 ---
 
 ## Problem statement
@@ -885,14 +894,11 @@ Hardware:
 
 ## Instrumented tests (Linux specific)
 
-If you are under Linux, you can run tests that take advantage of Linux performance counters. Assuming that you have
-a box with AVX-512 instructions, you should be able to build the `instrumented_benchmark` executable. When you launch
-it with the `-v` flag, it reports detailed counters. Try the `-v` flag for instructions.
+If you are running Linux, you can run tests that take advantage of Performance Counters for Linux (PCL). This allows for programmatic discovery and enumeration of all counters and events. Compile this test suite with: `make instrumented_benchmark`. Running the output exectuable requires root (sudo) access to the host machine. Pass the `-v` (verbose) flag to get a detailed report of performance counters:
 
-```
-make instrumented_benchmark 
-./instrumented_benchmark 
-./instrumented_benchmark -v
+```bash
+$ make instrumented_benchmark 
+$ sudo ./instrumented_benchmark -v
 n = 10000000 
 pospopcnt_u16_scalar_naive                       all tests ok.
 min:   116160 cycles,   313320 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.

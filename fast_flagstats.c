@@ -35,6 +35,7 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     switch(method) {
     case(PPOPCNT_AUTO): return pospopcnt_u16(data, n, flags);
     case(PPOPCNT_SCALAR): return pospopcnt_u16_scalar_naive(data, n, flags);
+    case(PPOPCNT_SCALAR_NOSIMD): return pospopcnt_u16_scalar_naive_nosimd(data, n, flags);
     case(PPOPCNT_SCALAR_PARTITION): return pospopcnt_u16_scalar_partition(data, n, flags);
     case(PPOPCNT_SCALAR_HIST1X4): return pospopcnt_u16_hist1x4(data, n, flags);
     case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single(data, n, flags);
@@ -67,6 +68,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     switch(method) {
     case(PPOPCNT_AUTO): return &pospopcnt_u16;
     case(PPOPCNT_SCALAR): return &pospopcnt_u16_scalar_naive;
+    case(PPOPCNT_SCALAR_NOSIMD): return &pospopcnt_u16_scalar_naive_nosimd;
     case(PPOPCNT_SCALAR_PARTITION): return &pospopcnt_u16_scalar_partition;
     case(PPOPCNT_SCALAR_HIST1X4): return &pospopcnt_u16_hist1x4;
     case(PPOPCNT_SSE_SINGLE): return &pospopcnt_u16_sse_single;
@@ -446,6 +448,7 @@ int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t n, uint32_t
 
     return 0;
 }
+
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags) {
     memset(flags, 0, 16*sizeof(uint32_t));
 
@@ -742,16 +745,6 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) { re
 int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
-// fixme
-void scalar_naive(const uint16_t *data, size_t n, uint32_t *flags) {
-    memset(flags, 0, 16 * sizeof(uint32_t));
-    for (uint32_t i = 0; i < n; ++i) {
-        for (int j = 0; j < 16; ++j) {
-            flags[j] += ((data[i] & (1 << j)) >> j);
-        }
-    }
-}
-
 #if SIMD_VERSION >= 5
 
 // by D. Lemire
@@ -820,7 +813,7 @@ int pospopcnt_u16_avx2_lemire(const uint16_t *array, uint32_t len, uint32_t *fla
 }
 
 // By D. Lemire
-int pospopcnt_u16_avx2_lemire2(const uint16_t *array, uint32_t len, uint32_t *flags) {
+int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* flags) {
   for (size_t i = 0; i < 16; i++)
     flags[i] = 0;
   uint16_t buffer[16];
@@ -969,7 +962,6 @@ int pospopcnt_u16_avx2_mula2(const uint16_t* array, uint32_t len, uint32_t* flag
 }
 
 // By Daniel Lemire
-// See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
 int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m256i* data_vectors = (const __m256i*)(array);
     const uint32_t n_cycles = len / 16;

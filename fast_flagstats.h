@@ -49,37 +49,30 @@ extern "C" {
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    6
 #define SIMD_ALIGNMENT  64
-#define SIMD_WIDTH      512
 #elif defined(__AVX2__) && __AVX2__ == 1
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    5
 #define SIMD_ALIGNMENT  32
-#define SIMD_WIDTH      256
 #elif defined(__AVX__) && __AVX__ == 1
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    4
 #define SIMD_ALIGNMENT  16
-#define SIMD_WIDTH      128
 #elif defined(__SSE4_1__) && __SSE4_1__ == 1
 #define SIMD_AVAILABLE  1
 #define SIMD_VERSION    3
 #define SIMD_ALIGNMENT  16
-#define SIMD_WIDTH      128
 #elif defined(__SSE2__) && __SSE2__ == 1
 #define SIMD_AVAILABLE  0 // unsupported version
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
-#define SIMD_WIDTH      128
 #elif defined(__SSE__) && __SSE__ == 1
 #define SIMD_AVAILABLE  0 // unsupported version
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
-#define SIMD_WIDTH      128
 #else
 #define SIMD_AVAILABLE  0
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
-#define SIMD_WIDTH      0
 #endif
 
 #ifdef _mm_popcnt_u64
@@ -121,6 +114,7 @@ static inline __m512i avx512_popcount(const __m512i v) {
 typedef enum {
     PPOPCNT_AUTO,
     PPOPCNT_SCALAR,
+    PPOPCNT_SCALAR_NOSIMD,
     PPOPCNT_SCALAR_PARTITION,
     PPOPCNT_SCALAR_HIST1X4,
     PPOPCNT_SSE_SINGLE,
@@ -146,6 +140,37 @@ typedef enum {
     PPOPCNT_AVX512_MULA_UR4,
     PPOPCNT_AVX512_MULA_UR8
 } PPOPCNT_U16_METHODS;
+
+#define PPOPCNT_NUMBER_METHODS 27
+
+static const char * const pospopcnt_u16_method_names[] = {
+    "pospopcnt_u16",
+    "pospopcnt_u16_scalar_naive",
+    "pospopcnt_u16_scalar_naive_nosimd",
+    "pospopcnt_u16_scalar_partition",
+    "pospopcnt_u16_hist1x4",
+    "pospopcnt_u16_sse_single",
+    "pospopcnt_u16_sse_mula",
+    "pospopcnt_u16_sse_mula_unroll4",
+    "pospopcnt_u16_sse_mula_unroll8",
+    "pospopcnt_u16_sse_mula_unroll16",
+    "pospopcnt_u16_avx2_popcnt",
+    "pospopcnt_u16_avx2",
+    "pospopcnt_u16_avx2_naive_counter",
+    "pospopcnt_u16_avx2_single",
+    "pospopcnt_u16_avx2_lemire",
+    "pospopcnt_u16_avx2_lemire2",
+    "pospopcnt_u16_avx2_mula",
+    "pospopcnt_u16_avx2_mula_unroll4",
+    "pospopcnt_u16_avx2_mula_unroll8",
+    "pospopcnt_u16_avx2_mula_unroll16",
+    "pospopcnt_u16_avx512",
+    "pospopcnt_u16_avx512_popcnt32_mask",
+    "pospopcnt_u16_avx512_popcnt64_mask",
+    "pospopcnt_u16_avx512_popcnt",
+    "pospopcnt_u16_avx512_mula",
+    "pospopcnt_u16_avx512_mula_unroll4",
+    "pospopcnt_u16_avx512_mula_unroll8"};
 
 /*------ Functions --------*/
 
