@@ -60,6 +60,7 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR8): return pospopcnt_u16_avx512_mula_unroll8(data, n, flags);
     }
+    return 0;
 }
 
 pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
@@ -91,6 +92,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
     case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
     }
+    return 0;
 }
 
 #if SIMD_VERSION >= 5
@@ -111,7 +113,7 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
     const uint32_t n_cycles = n / 16;
     const uint32_t n_cycles_updates = n_cycles / 16;
 
-#define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx), shift));
+#define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(_mm256_loadu_si256(data_vectors+pos), masks[idx]),  idx), shift));
 #define ITERATION(idx) {                                           \
     UPDATE(0,idx);  UPDATE(1,idx);  UPDATE(2,idx);  UPDATE(3,idx); \
     UPDATE(4,idx);  UPDATE(5,idx);  UPDATE(6,idx);  UPDATE(7,idx); \
@@ -181,7 +183,7 @@ int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
     const uint32_t n_cycles = n / 16;
     const uint32_t n_update_cycles = n_cycles / 65536;
 
-#define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
+#define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(_mm256_loadu_si256(data_vectors+pos), masks[idx]),  idx))
 #define ITERATION  {                               \
     UPDATE(0);  UPDATE(1);  UPDATE(2);  UPDATE(3); \
     UPDATE(4);  UPDATE(5);  UPDATE(6);  UPDATE(7); \
@@ -250,7 +252,7 @@ int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t*
     const uint32_t n_update_cycles = n_cycles / 65536;
     //std::cerr << n << " values and " << n_cycles << " cycles " << n_residual << " residual cycles" << std::endl;
 
-#define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
+#define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(_mm256_loadu_si256(data_vectors+pos), masks[idx]),  idx))
 
     uint32_t pos = 0;
     for (int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
@@ -300,7 +302,7 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags)
     const uint32_t n_cycles = n / 16;
     const uint32_t n_update_cycles = n_cycles / 4096;
 
-#define UPDATE(idx) counter = _mm256_add_epi16(counter, _mm256_and_si256(_mm256_cmpeq_epi16(_mm256_and_si256(_mm256_set1_epi16(_mm256_extract_epi16(data_vectors[pos], idx)), masks), masks), one_mask));
+#define UPDATE(idx) counter = _mm256_add_epi16(counter, _mm256_and_si256(_mm256_cmpeq_epi16(_mm256_and_si256(_mm256_set1_epi16(_mm256_extract_epi16(_mm256_loadu_si256(data_vectors+pos), idx)), masks), masks), one_mask));
 #define BLOCK {                                 \
     UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
     UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
@@ -377,8 +379,8 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) 
     const uint32_t n_cycles = n / 8;
     const uint32_t n_update_cycles = n_cycles / 4096;
 
-#define UPDATE_LO(idx) counterLo = _mm_add_epi16(counterLo, _mm_and_si128(_mm_cmpeq_epi16(_mm_and_si128(_mm_set1_epi16(_mm_extract_epi16(data_vectors[pos], idx)), masksLo), masksLo), one_mask));
-#define UPDATE_HI(idx) counterHi = _mm_add_epi16(counterHi, _mm_and_si128(_mm_cmpeq_epi16(_mm_and_si128(_mm_set1_epi16(_mm_extract_epi16(data_vectors[pos], idx)), masksHi), masksHi), one_mask));
+#define UPDATE_LO(idx) counterLo = _mm_add_epi16(counterLo, _mm_and_si128(_mm_cmpeq_epi16(_mm_and_si128(_mm_set1_epi16(_mm_extract_epi16(_mm_loadu_si128(data_vectors+pos), idx)), masksLo), masksLo), one_mask));
+#define UPDATE_HI(idx) counterHi = _mm_add_epi16(counterHi, _mm_and_si128(_mm_cmpeq_epi16(_mm_and_si128(_mm_set1_epi16(_mm_extract_epi16(_mm_loadu_si128(data_vectors+pos), idx)), masksHi), masksHi), one_mask));
 #define BLOCK {                                         \
     UPDATE_LO(0) UPDATE_LO(1) UPDATE_LO(2) UPDATE_LO(3) \
     UPDATE_LO(4) UPDATE_LO(5) UPDATE_LO(6) UPDATE_LO(7) \
@@ -428,6 +430,22 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) 
 int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
+ __attribute__((optimize("no-tree-vectorize")))
+int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t n, uint32_t* flags) {
+    memset(flags, 0, 16*sizeof(uint32_t));
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    //std::cerr << "scalar-naive=";
+    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+
+    return 0;
+}
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags) {
     memset(flags, 0, 16*sizeof(uint32_t));
 
@@ -522,7 +540,7 @@ int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i], masks[pos]), masks[pos]));
+#define UPDATE(pos) out_counters[pos] += PIL_POPCOUNT((uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(_mm512_loadu_si512(data_vectors+i), masks[pos]), masks[pos]));
 #define BLOCK {                                 \
     UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
     UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
@@ -562,7 +580,7 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(data_vectors[i+add], masks[pos]), masks[pos])
+#define UPDATE(pos,add) (uint64_t)_mm512_cmpeq_epu16_mask(_mm512_and_epi32(_mm512_loadu_si512(data_vectors+i+add), masks[pos]), masks[pos])
 #define UP(pos) out_counters[pos] += PIL_POPCOUNT((UPDATE(pos,0) << 32) | UPDATE(pos,1));
 #define BLOCK {                 \
     UP(0)  UP(1)  UP(2)  UP(3)  \
@@ -610,7 +628,7 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = n / 32;
 
-#define UPDATE(pos,shift) stubs[pos] = _mm512_or_si512(stubs[pos], _mm512_slli_epi16(_mm512_srli_epi16(_mm512_and_si512(data_vectors[i+j], masks[pos]), pos), shift));
+#define UPDATE(pos,shift) stubs[pos] = _mm512_or_si512(stubs[pos], _mm512_slli_epi16(_mm512_srli_epi16(_mm512_and_si512(_mm512_loadu_si512(data_vectors+i+j), masks[pos]), pos), shift));
 #define BLOCK(shift) {                                                  \
     UPDATE(0,shift)  UPDATE(1,shift)  UPDATE(2,shift)  UPDATE(3,shift)  \
     UPDATE(4,shift)  UPDATE(5,shift)  UPDATE(6,shift)  UPDATE(7,shift)  \
@@ -678,7 +696,7 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) {
     const uint32_t n_cycles = n / 32;
 
 #define UPDATE(pos) {                                            \
-    __m512i a   = _mm512_and_epi32(data_vectors[i], masks[pos]); \
+    __m512i a   = _mm512_and_epi32(_mm512_loadu_si512(data_vectors+i), masks[pos]); \
     __m512i d   = _mm512_add_epi32(_mm512_and_epi32(_mm512_srli_epi32(a, pos), one_mask), _mm512_srli_epi32(a, pos+16)); \
     counters[pos] = _mm512_add_epi32(counters[pos], d);          \
 }
@@ -735,193 +753,192 @@ void scalar_naive(const uint16_t *data, size_t n, uint32_t *flags) {
 }
 
 #if SIMD_VERSION >= 5
-// By Daniel Lemire
-// See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
-int pospopcnt_u16_avx2_lemire(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    uint16_t buffer[16];
-    __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512, 256,
-                                       128,    64,   32,   16,    8,    4,   2,   1);
-    // we do the first part
-    if (len < 64) {
-        // don't bother with handcrafted SIMD
-        scalar_naive(array, len, flags);
-        return 0;
-    }
-    // handle the start (naively)
-    __m256i count16 = _mm256_setzero_si256();
 
-    {
-        uint16_t startbuffer[32];
-        memset(startbuffer, 0, 32 * 2);
-        memcpy(startbuffer + 16, array, 16 * 2);
-        for (size_t i = 1; i < 16; i++) {
-            __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
-            __m256i m = _mm256_and_si256(input, bits);
-            __m256i eq = _mm256_cmpeq_epi16(bits, m);
-            count16 = _mm256_sub_epi16(count16, eq);
-        }
+// by D. Lemire
+int pospopcnt_u16_avx2_lemire(const uint16_t *array, uint32_t len, uint32_t *flags) {
+  for (size_t i = 0; i < 16; i++)
+    flags[i] = 0;
+  uint16_t buffer[16];
+  __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512,
+                                  256, 128, 64, 32, 16, 8, 4, 2, 1);
+  // we do the first part
+  if (len < 64) {
+    // don't bother with handcrafted SIMD
+    pospopcnt_u16_scalar_naive(array, len, flags);
+    return 0;
+  }
+  // handle the start (naively)
+  __m256i count16 = _mm256_setzero_si256();
+
+  {
+    uint16_t startbuffer[32];
+    memset(startbuffer, 0, 32 * 2);
+    memcpy(startbuffer + 16, array, 16 * 2);
+    for (size_t i = 1; i < 16; i++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
     }
+  }
+  {
+    uint16_t startbuffer[32];
+    memset(startbuffer, 0, 32 * 2);
+    memcpy(startbuffer, array + len - 16, 16 * 2);
+    for (size_t i = 1; i < 16; i++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+  }
+  _mm256_storeu_si256((__m256i *)buffer, count16);
+  for (size_t k = 0; k < 16; k++) {
+    flags[k] += buffer[k];
+  }
+
+  // main loop starts here
+  for (size_t i = 0; i + 16 <= len;) {
+    count16 = _mm256_setzero_si256();
+    size_t j = 0;
+    size_t maxj = 65535;
+    if (maxj + i + 16 >= len)
+      maxj = len - i - 15;
+    for (; j < maxj; j++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+    i += j;
     _mm256_storeu_si256((__m256i *)buffer, count16);
     for (size_t k = 0; k < 16; k++) {
-        flags[k] += buffer[k];
+      flags[k] += buffer[k];
     }
-
-    // main loop starts here
-    for (size_t i = 0; i + 16 <= len;) {
-        count16 = _mm256_setzero_si256();
-        size_t j = 0;
-        size_t maxj = i + 65535 + 16 <= len ? 65535 : len - i;
-        if (maxj > 4) {
-            for (/**/; j + 3 < maxj; j += 4) {
-                __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
-                __m256i m1 = _mm256_and_si256(input1, bits);
-                __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
-                count16 = _mm256_sub_epi16(count16, eq1);
-                __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
-                __m256i m2 = _mm256_and_si256(input2, bits);
-                __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
-                count16 = _mm256_sub_epi16(count16, eq2);
-                __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
-                __m256i m3 = _mm256_and_si256(input3, bits);
-                __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
-                count16 = _mm256_sub_epi16(count16, eq3);
-                __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
-                __m256i m4 = _mm256_and_si256(input4, bits);
-                __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
-                count16 = _mm256_sub_epi16(count16, eq4);
-            }
-        }
-        for (/**/; j < maxj; j++) {
-            __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
-            __m256i m = _mm256_and_si256(input, bits);
-            __m256i eq = _mm256_cmpeq_epi16(bits, m);
-            count16 = _mm256_sub_epi16(count16, eq);
-        }
-        i += j;
-        _mm256_storeu_si256((__m256i *)buffer, count16);
-        for (size_t k = 0; k < 16; k++) {
-            flags[k] += buffer[k];
-        }
-    }
-
-    //std::cerr << "lemire1=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-    
-    return 0;
+  }
+  return 0;
 }
 
-// By Daniel Lemire
-// See: https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/tree/master/extra/fastflags
-int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    uint16_t buffer[16];
-    __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512, 256,
-                                       128,    64,   32,   16,    8,    4,   2,   1);
-    // we do the first part
-    if (len < 64) {
-        // don't bother with handcrafted SIMD
-        scalar_naive(array, len, flags);
-        return 0;
-    }
-    // handle the start (naively)
-    __m256i count16 = _mm256_setzero_si256();
+// By D. Lemire
+int pospopcnt_u16_avx2_lemire2(const uint16_t *array, uint32_t len, uint32_t *flags) {
+  for (size_t i = 0; i < 16; i++)
+    flags[i] = 0;
+  uint16_t buffer[16];
+  __m256i bits = _mm256_set_epi16(-32768, 16384, 8192, 4096, 2048, 1024, 512,
+                                  256, 128, 64, 32, 16, 8, 4, 2, 1);
+  // we do the first part
+  if (len < 64) {
+    // don't bother with handcrafted SIMD
+    pospopcnt_u16_scalar_naive(array, len, flags);
+    return 0;
+  }
+  // handle the start (naively)
+  __m256i count16 = _mm256_setzero_si256();
 
-    {
-        uint16_t startbuffer[32];
-        memset(startbuffer, 0, 32 * 2);
-        memcpy(startbuffer + 16, array, 16 * 2);
-        for (size_t i = 1; i < 16; i++) {
-            __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
-            __m256i m = _mm256_and_si256(input, bits);
-            __m256i eq = _mm256_cmpeq_epi16(bits, m);
-            count16 = _mm256_sub_epi16(count16, eq);
-        }
+  {
+    uint16_t startbuffer[32];
+    memset(startbuffer, 0, 32 * 2);
+    memcpy(startbuffer + 16, array, 16 * 2);
+    for (size_t i = 1; i < 16; i++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
     }
+  }
+  {
+    uint16_t startbuffer[32];
+    memset(startbuffer, 0, 32 * 2);
+    memcpy(startbuffer, array + len - 16, 16 * 2);
+    for (size_t i = 1; i < 16; i++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+  }
+  _mm256_storeu_si256((__m256i *)buffer, count16);
+  for (size_t k = 0; k < 16; k++) {
+    flags[k] += buffer[k];
+  }
+
+  // main loop starts here
+  for (size_t i = 0; i + 16 <= len;) {
+    count16 = _mm256_setzero_si256();
+    size_t j = 0;
+    size_t maxj = 65535;
+    if (maxj + i + 16 >= len)
+      maxj = len - i - 15;
+    if (maxj > 8) {
+      for (; j < maxj - 7; j += 8) {
+        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i m1 = _mm256_and_si256(input1, bits);
+        __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
+        count16 = _mm256_sub_epi16(count16, eq1);
+        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i m2 = _mm256_and_si256(input2, bits);
+        __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
+        count16 = _mm256_sub_epi16(count16, eq2);
+        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i m3 = _mm256_and_si256(input3, bits);
+        __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
+        count16 = _mm256_sub_epi16(count16, eq3);
+        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i m4 = _mm256_and_si256(input4, bits);
+        __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
+        count16 = _mm256_sub_epi16(count16, eq4);
+        __m256i input5 = _mm256_loadu_si256((__m256i *)(array + i + j + 4));
+        __m256i m5 = _mm256_and_si256(input5, bits);
+        __m256i eq5 = _mm256_cmpeq_epi16(bits, m5);
+        count16 = _mm256_sub_epi16(count16, eq5);
+        __m256i input6 = _mm256_loadu_si256((__m256i *)(array + i + j + 5));
+        __m256i m6 = _mm256_and_si256(input6, bits);
+        __m256i eq6 = _mm256_cmpeq_epi16(bits, m6);
+        count16 = _mm256_sub_epi16(count16, eq6);
+        __m256i input7 = _mm256_loadu_si256((__m256i *)(array + i + j + 6));
+        __m256i m7 = _mm256_and_si256(input7, bits);
+        __m256i eq7 = _mm256_cmpeq_epi16(bits, m7);
+        count16 = _mm256_sub_epi16(count16, eq7);
+        __m256i input8 = _mm256_loadu_si256((__m256i *)(array + i + j + 7));
+        __m256i m8 = _mm256_and_si256(input8, bits);
+        __m256i eq8 = _mm256_cmpeq_epi16(bits, m8);
+        count16 = _mm256_sub_epi16(count16, eq8);
+      }
+    }
+
+    if (maxj > 4) {
+      for (; j + 3 < maxj; j += 4) {
+        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i m1 = _mm256_and_si256(input1, bits);
+        __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
+        count16 = _mm256_sub_epi16(count16, eq1);
+        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i m2 = _mm256_and_si256(input2, bits);
+        __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
+        count16 = _mm256_sub_epi16(count16, eq2);
+        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i m3 = _mm256_and_si256(input3, bits);
+        __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
+        count16 = _mm256_sub_epi16(count16, eq3);
+        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i m4 = _mm256_and_si256(input4, bits);
+        __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
+        count16 = _mm256_sub_epi16(count16, eq4);
+      }
+    }
+    for (; j < maxj; j++) {
+      __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
+      __m256i m = _mm256_and_si256(input, bits);
+      __m256i eq = _mm256_cmpeq_epi16(bits, m);
+      count16 = _mm256_sub_epi16(count16, eq);
+    }
+    i += j;
     _mm256_storeu_si256((__m256i *)buffer, count16);
     for (size_t k = 0; k < 16; k++) {
-        flags[k] += buffer[k];
+      flags[k] += buffer[k];
     }
-
-    // main loop starts here
-    for (size_t i = 0; i + 16 <= len;/**/) {
-        count16 = _mm256_setzero_si256();
-        size_t j = 0;
-        size_t maxj = i + 65535 + 16 <= len ? 65535 : len - i;
-        if (maxj > 8) {
-            for (/**/; j + 7 < maxj; j += 8) {
-            __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
-            __m256i m1 = _mm256_and_si256(input1, bits);
-            __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
-            count16 = _mm256_sub_epi16(count16, eq1);
-            __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
-            __m256i m2 = _mm256_and_si256(input2, bits);
-            __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
-            count16 = _mm256_sub_epi16(count16, eq2);
-            __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
-            __m256i m3 = _mm256_and_si256(input3, bits);
-            __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
-            count16 = _mm256_sub_epi16(count16, eq3);
-            __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
-            __m256i m4 = _mm256_and_si256(input4, bits);
-            __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
-            count16 = _mm256_sub_epi16(count16, eq4);
-            __m256i input5 = _mm256_loadu_si256((__m256i *)(array + i + j + 4));
-            __m256i m5 = _mm256_and_si256(input5, bits);
-            __m256i eq5 = _mm256_cmpeq_epi16(bits, m5);
-            count16 = _mm256_sub_epi16(count16, eq5);
-            __m256i input6 = _mm256_loadu_si256((__m256i *)(array + i + j + 5));
-            __m256i m6 = _mm256_and_si256(input6, bits);
-            __m256i eq6 = _mm256_cmpeq_epi16(bits, m6);
-            count16 = _mm256_sub_epi16(count16, eq6);
-            __m256i input7 = _mm256_loadu_si256((__m256i *)(array + i + j + 6));
-            __m256i m7 = _mm256_and_si256(input7, bits);
-            __m256i eq7 = _mm256_cmpeq_epi16(bits, m7);
-            count16 = _mm256_sub_epi16(count16, eq7);
-            __m256i input8 = _mm256_loadu_si256((__m256i *)(array + i + j + 7));
-            __m256i m8 = _mm256_and_si256(input8, bits);
-            __m256i eq8 = _mm256_cmpeq_epi16(bits, m8);
-            count16 = _mm256_sub_epi16(count16, eq8);
-            }
-        }
-
-        if (maxj > 4) {
-            for (/**/; j + 3 < maxj; j += 4) {
-                __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
-                __m256i m1 = _mm256_and_si256(input1, bits);
-                __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
-                count16 = _mm256_sub_epi16(count16, eq1);
-                __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
-                __m256i m2 = _mm256_and_si256(input2, bits);
-                __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
-                count16 = _mm256_sub_epi16(count16, eq2);
-                __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
-                __m256i m3 = _mm256_and_si256(input3, bits);
-                __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
-                count16 = _mm256_sub_epi16(count16, eq3);
-                __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
-                __m256i m4 = _mm256_and_si256(input4, bits);
-                __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
-                count16 = _mm256_sub_epi16(count16, eq4);
-            }
-        }
-        for (/**/; j < maxj; j++) {
-            __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
-            __m256i m = _mm256_and_si256(input, bits);
-            __m256i eq = _mm256_cmpeq_epi16(bits, m);
-            count16 = _mm256_sub_epi16(count16, eq);
-        }
-        i += j;
-        _mm256_storeu_si256((__m256i *)buffer, count16);
-        for (size_t k = 0; k < 16; k++) {
-            flags[k] += buffer[k];
-        }
-    }
-
-    //std::cerr << "lemire2=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-
-    return 0;
+  }
+  return 0;
 }
 
 // By Daniel Lemire
@@ -932,8 +949,8 @@ int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags
 
     size_t i = 0;
     for (/**/; i + 2 <= n_cycles; i += 2) {
-        __m256i v0 = data_vectors[i+0];
-        __m256i v1 = data_vectors[i+1];
+        __m256i v0 = _mm256_loadu_si256(data_vectors+i+0); // don't assume alignment
+        __m256i v1 = _mm256_loadu_si256(data_vectors+i+1); // don't assume alignment
         
         // Steps:
         // Select LSB of V0 OR with V1 MSB
@@ -969,7 +986,7 @@ int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* array, uint32_t len, uint32_
 
     size_t i = 0;
     for (/**/; i + 4 <= n_cycles; i += 4) {
-#define L(p) __m256i v##p = data_vectors[i+p];
+#define L(p) __m256i v##p = _mm256_loadu_si256(data_vectors+i+p);
         L(0) L(1) L(2) L(3)
         
 #define U0(p,k) __m256i input##p = _mm256_or_si256(_mm256_and_si256(v##p, _mm256_set1_epi16(0x00FF)), _mm256_slli_epi16(v##k, 8));
@@ -1029,7 +1046,7 @@ int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* array, uint32_t len, uint32_
 
     size_t i = 0;
     for (/**/; i + 8 <= n_cycles; i += 8) {
-#define L(p) __m256i v##p = data_vectors[i+p];
+#define L(p) __m256i v##p = _mm256_loadu_si256(data_vectors+i+p);
         L(0) L(1) L(2) L(3)
         L(4) L(5) L(6) L(7) 
         
@@ -1100,7 +1117,7 @@ int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* array, uint32_t len, uint32
 
     size_t i = 0;
     for (/**/; i + 16 <= n_cycles; i += 16) {
-#define L(p) __m256i v##p = data_vectors[i+p];
+#define L(p) __m256i v##p = _mm256_loadu_si256(data_vectors+i+p);
         L(0)  L(1)  L(2)  L(3)  
         L(4)  L(5)  L(6)  L(7) 
         L(8)  L(9)  L(10) L(11) 
@@ -1197,8 +1214,8 @@ int pospopcnt_u16_sse_mula(const uint16_t* array, uint32_t len, uint32_t* flags)
 
     size_t i = 0;
     for (/**/; i + 2 <= n_cycles; i += 2) {
-        __m128i v0 = data_vectors[i+0];
-        __m128i v1 = data_vectors[i+1];
+        __m128i v0 = _mm_loadu_si128(data_vectors + i);// don't assume alignment
+        __m128i v1 = _mm_loadu_si128(data_vectors + i + 1);// don't assume alignment
 
         __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
         __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
@@ -1231,7 +1248,7 @@ int pospopcnt_u16_sse_mula_unroll4(const uint16_t* array, uint32_t len, uint32_t
 
     size_t i = 0;
     for (/**/; i + 4 <= n_cycles; i += 4) {
-#define L(p) __m128i v##p = data_vectors[i+p];
+#define L(p) __m128i v##p =  _mm_loadu_si128(data_vectors+i+p);
         L(0) L(1) L(2) L(3)
 
 #define U0(p,k) __m128i input##p = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v##k, 8));
@@ -1293,7 +1310,7 @@ int pospopcnt_u16_sse_mula_unroll8(const uint16_t* array, uint32_t len, uint32_t
 
     size_t i = 0;
     for (/**/; i + 8 <= n_cycles; i += 8) {
-#define L(p) __m128i v##p = data_vectors[i+p];
+#define L(p) __m128i v##p = _mm_loadu_si128(data_vectors+i+p);
         L(0) L(1) L(2) L(3)
         L(4) L(5) L(6) L(7)
 
@@ -1366,7 +1383,7 @@ int pospopcnt_u16_sse_mula_unroll16(const uint16_t* array, uint32_t len, uint32_
 
     size_t i = 0;
     for (/**/; i + 16 <= n_cycles; i += 16) {
-#define L(p) __m128i v##p = data_vectors[i+p];
+#define L(p) __m128i v##p = _mm_loadu_si128(data_vectors+i+p);
         L(0)  L(1)  L(2)  L(3)  
         L(4)  L(5)  L(6)  L(7) 
         L(8)  L(9)  L(10) L(11) 
@@ -1463,8 +1480,8 @@ int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flag
 
     size_t i = 0;
     for (/**/; i + 2 <= n_cycles; i += 2) {
-        __m512i v0 = data_vectors[i+0];
-        __m512i v1 = data_vectors[i+1];
+        __m512i v0 = _mm512_loadu_si512(data_vectors+i);// don't assume alignment
+        __m512i v1 = _mm512_loadu_si512(data_vectors+i+1);// don't assume alignment
 
         __m512i input0 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v1, 8));
         __m512i input1 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v1, 8));
@@ -1497,7 +1514,7 @@ int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32
 
     size_t i = 0;
     for (/**/; i + 4 <= n_cycles; i += 4) {
-#define L(p) __m512i v##p = data_vectors[i+p];
+#define L(p) __m512i v##p = _mm512_loadu_si512(data_vectors+i+p);
         L(0) L(1) L(2) L(3)
 
 #define U0(p,k) __m512i input##p = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v##k, 8));
@@ -1559,7 +1576,7 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32
 
     size_t i = 0;
     for (/**/; i + 8 <= n_cycles; i += 8) {
-#define L(p) __m512i v##p = data_vectors[i+p];
+#define L(p) __m512i v##p = _mm512_loadu_si512(data_vectors+i+p);
         L(0)  L(1)  L(2)  L(3)  
         L(4)  L(5)  L(6)  L(7) 
 

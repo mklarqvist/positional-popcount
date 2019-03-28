@@ -882,3 +882,140 @@ Hardware:
       Boot ROM Version: 253.0.0.0.0
       SMC Version (system): 2.5f9
 ```
+
+## Instrumented tests (Linux specific)
+
+If you are under Linux, you can run tests that take advantage of Linux performance counters. Assuming that you have
+a box with AVX-512 instructions, you should be able to build the `instrumented_benchmark` executable. When you launch
+it with the `-v` flag, it reports detailed counters. Try the `-v` flag for instructions.
+
+```
+make instrumented_benchmark 
+./instrumented_benchmark 
+./instrumented_benchmark -v
+n = 10000000 
+pospopcnt_u16_scalar_naive                       all tests ok.
+min:   116160 cycles,   313320 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 118214.9 cycles, 313320.0 instructions,         2.9 branch mis.,      0.2 cache ref.,      0.1 cache mis.
+min: instructions per cycle 2.70, cycles per 16-bit word:  3.01, instructions per 16-bit word 8.13 
+
+pospopcnt_u16_scalar_partition                   all tests ok.
+min:   116492 cycles,   310869 instructions,           5 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 117607.2 cycles, 310869.0 instructions,         6.3 branch mis.,      0.7 cache ref.,      0.2 cache mis.
+min: instructions per cycle 2.67, cycles per 16-bit word:  3.02, instructions per 16-bit word 8.07 
+
+pospopcnt_u16_hist1x4                            all tests ok.
+min:   113291 cycles,   224184 instructions,           4 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 114189.4 cycles, 224184.0 instructions,         5.9 branch mis.,      0.2 cache ref.,      0.2 cache mis.
+min: instructions per cycle 1.98, cycles per 16-bit word:  2.94, instructions per 16-bit word 5.82 
+
+pospopcnt_u16_sse_single                         all tests ok.
+min:   144016 cycles,   415813 instructions,           3 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 150550.7 cycles, 415813.1 instructions,         5.2 branch mis.,      0.5 cache ref.,      0.5 cache mis.
+min: instructions per cycle 2.89, cycles per 16-bit word:  3.74, instructions per 16-bit word 10.79 
+
+pospopcnt_u16_sse_mula                           all tests ok.
+min:    62453 cycles,   226434 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  62716.5 cycles, 226434.0 instructions,         2.1 branch mis.,      0.3 cache ref.,      0.3 cache mis.
+min: instructions per cycle 3.63, cycles per 16-bit word:  1.62, instructions per 16-bit word 5.88 
+
+pospopcnt_u16_sse_mula_unroll4                   all tests ok.
+min:    54080 cycles,   199953 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  54216.8 cycles, 199953.0 instructions,         2.1 branch mis.,      0.4 cache ref.,      0.4 cache mis.
+min: instructions per cycle 3.70, cycles per 16-bit word:  1.40, instructions per 16-bit word 5.19 
+
+pospopcnt_u16_sse_mula_unroll8                   all tests ok.
+min:    52003 cycles,   210164 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  52292.1 cycles, 210164.0 instructions,         2.1 branch mis.,      0.3 cache ref.,      0.3 cache mis.
+min: instructions per cycle 4.04, cycles per 16-bit word:  1.35, instructions per 16-bit word 5.45 
+
+pospopcnt_u16_sse_mula_unroll16                  all tests ok.
+min:    54264 cycles,   195124 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  54648.6 cycles, 195124.0 instructions,         2.1 branch mis.,      0.5 cache ref.,      0.5 cache mis.
+min: instructions per cycle 3.60, cycles per 16-bit word:  1.41, instructions per 16-bit word 5.06 
+
+pospopcnt_u16_avx2_popcnt                        all tests ok.
+min:    93288 cycles,   246858 instructions,           3 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  94320.5 cycles, 246858.0 instructions,         3.7 branch mis.,      3.3 cache ref.,      2.4 cache mis.
+min: instructions per cycle 2.65, cycles per 16-bit word:  2.42, instructions per 16-bit word 6.41 
+
+pospopcnt_u16_avx2                               all tests ok.
+min:   116269 cycles,   313340 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 116368.9 cycles, 313340.0 instructions,         2.1 branch mis.,      0.5 cache ref.,      0.5 cache mis.
+min: instructions per cycle 2.69, cycles per 16-bit word:  3.02, instructions per 16-bit word 8.13 
+
+pospopcnt_u16_avx2_naive_counter                 all tests ok.
+min:   116549 cycles,   313342 instructions,           3 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 116933.3 cycles, 313342.0 instructions,         3.1 branch mis.,      0.5 cache ref.,      0.5 cache mis.
+min: instructions per cycle 2.69, cycles per 16-bit word:  3.03, instructions per 16-bit word 8.13 
+
+pospopcnt_u16_avx2_single                        all tests ok.
+min:   116408 cycles,   313352 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg: 116544.5 cycles, 313352.0 instructions,         2.7 branch mis.,      0.4 cache ref.,      0.4 cache mis.
+min: instructions per cycle 2.69, cycles per 16-bit word:  3.02, instructions per 16-bit word 8.13 
+
+pospopcnt_u16_avx2_lemire                        all tests ok.
+min:    77288 cycles,   231345 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  77312.9 cycles, 231345.0 instructions,         2.0 branch mis.,      0.3 cache ref.,      0.3 cache mis.
+min: instructions per cycle 2.99, cycles per 16-bit word:  2.01, instructions per 16-bit word 6.00 
+
+pospopcnt_u16_avx2_lemire2                       all tests ok.
+min:    43453 cycles,   130276 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  44136.5 cycles, 130276.0 instructions,         2.1 branch mis.,      0.4 cache ref.,      0.4 cache mis.
+min: instructions per cycle 3.00, cycles per 16-bit word:  1.13, instructions per 16-bit word 3.38 
+
+pospopcnt_u16_avx2_mula                          all tests ok.
+min:    54414 cycles,   113260 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  55164.6 cycles, 113260.0 instructions,         1.8 branch mis.,      0.4 cache ref.,      0.3 cache mis.
+
+
+pospopcnt_u16_avx2_mula_unroll4                  all tests ok.
+min:    32856 cycles,   100023 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  32997.0 cycles, 100023.0 instructions,         1.6 branch mis.,      0.4 cache ref.,      0.4 cache mis.
+min: instructions per cycle 3.04, cycles per 16-bit word:  0.85, instructions per 16-bit word 2.60 
+
+pospopcnt_u16_avx2_mula_unroll8                  all tests ok.
+min:    28018 cycles,   105116 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  28204.2 cycles, 105116.0 instructions,         2.2 branch mis.,      0.3 cache ref.,      0.3 cache mis.
+min: instructions per cycle 3.75, cycles per 16-bit word:  0.73, instructions per 16-bit word 2.73 
+
+pospopcnt_u16_avx2_mula_unroll16                 all tests ok.
+min:    28842 cycles,    97633 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  29124.6 cycles,  97633.0 instructions,         2.2 branch mis.,      0.4 cache ref.,      0.4 cache mis.
+min: instructions per cycle 3.39, cycles per 16-bit word:  0.75, instructions per 16-bit word 2.53 
+
+pospopcnt_u16_avx512                             all tests ok.
+min:    61818 cycles,   120801 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  62077.7 cycles, 120801.0 instructions,         2.7 branch mis.,      1.0 cache ref.,      0.9 cache mis.
+min: instructions per cycle 1.95, cycles per 16-bit word:  1.60, instructions per 16-bit word 3.14 
+
+pospopcnt_u16_avx512_popcnt32_mask               all tests ok.
+min:    52202 cycles,   101294 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  52479.1 cycles, 101294.0 instructions,         2.1 branch mis.,      0.3 cache ref.,      0.2 cache mis.
+min: instructions per cycle 1.94, cycles per 16-bit word:  1.35, instructions per 16-bit word 2.63 
+
+pospopcnt_u16_avx512_popcnt64_mask               all tests ok.
+min:    37527 cycles,   100062 instructions,           3 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  37802.1 cycles, 100062.0 instructions,         3.1 branch mis.,      0.5 cache ref.,      0.5 cache mis.
+min: instructions per cycle 2.67, cycles per 16-bit word:  0.97, instructions per 16-bit word 2.60 
+
+pospopcnt_u16_avx512_popcnt                      all tests ok.
+min:    67169 cycles,   122452 instructions,           2 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  67245.6 cycles, 122452.0 instructions,         2.2 branch mis.,      1.1 cache ref.,      1.1 cache mis.
+min: instructions per cycle 1.82, cycles per 16-bit word:  1.74, instructions per 16-bit word 3.18 
+
+pospopcnt_u16_avx512_mula                        all tests ok.
+min:    30083 cycles,    65702 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  30242.8 cycles,  65702.0 instructions,         1.5 branch mis.,      0.2 cache ref.,      0.2 cache mis.
+min: instructions per cycle 2.18, cycles per 16-bit word:  0.78, instructions per 16-bit word 1.71 
+
+pospopcnt_u16_avx512_mula_unroll4                all tests ok.
+min:    22311 cycles,    59088 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  22715.2 cycles,  59088.0 instructions,         1.2 branch mis.,      0.5 cache ref.,      0.4 cache mis.
+min: instructions per cycle 2.65, cycles per 16-bit word:  0.58, instructions per 16-bit word 1.53 
+
+pospopcnt_u16_avx512_mula_unroll8                all tests ok.
+min:    22467 cycles,    61643 instructions,           1 branch mis.,        0 cache ref.,        0 cache mis.
+avg:  22852.7 cycles,  61643.0 instructions,         1.8 branch mis.,      0.3 cache ref.,      0.3 cache mis.
+min: instructions per cycle 2.74, cycles per 16-bit word:  0.58, instructions per 16-bit word 1.60 
+```
