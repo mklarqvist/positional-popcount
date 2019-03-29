@@ -18,7 +18,113 @@
 
 typedef int (*pospopcnt16)(const uint16_t *, uint32_t, uint32_t *);
 
-#define NUMBEROFFNC 28
+static inline void CSA(__m256i *h, __m256i *l, __m256i a, __m256i b,
+                       __m256i c) {
+  const __m256i u = _mm256_xor_si256(a, b);
+  *h = _mm256_or_si256(_mm256_and_si256(a, b), _mm256_and_si256(u, c));
+  *l = _mm256_xor_si256(u, c);
+}
+
+int purecircuit(const uint16_t *array, uint32_t len, uint32_t *flags) {
+  for (size_t i = 0; i < 16; i++)
+    flags[i] = 0;
+  for (uint32_t i = len - (len % (16 * 16)); i < len; ++i) {
+    for (int j = 0; j < 16; ++j) {
+      flags[j] += ((array[i] & (1 << j)) >> j);
+    }
+  }
+  const __m256i *data = (const __m256i *)array;
+  size_t size = len / 16;
+  __m256i ones = _mm256_setzero_si256();
+  __m256i twos = _mm256_setzero_si256();
+  __m256i fours = _mm256_setzero_si256();
+  __m256i eights = _mm256_setzero_si256();
+  __m256i sixteens = _mm256_setzero_si256();
+  __m256i twosA, twosB, foursA, foursB, eightsA, eightsB;
+
+  const uint64_t limit = size - size % 16;
+  uint64_t i = 0;
+
+  uint16_t buffer[16];
+
+  // uint16_t x = 0;
+  while (i < limit) {
+    __m256i counter[16];
+    for (size_t i = 0; i < 16; i++) {
+      counter[i] = _mm256_setzero_si256();
+    }
+    size_t thislimit = limit;
+    if (thislimit - i >= (1 << 16))
+      thislimit = i + (1 << 16) - 1;
+    for (; i < thislimit; i += 16) {
+      CSA(&twosA, &ones, ones, _mm256_lddqu_si256(data + i),
+          _mm256_lddqu_si256(data + i + 1));
+      CSA(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 2),
+          _mm256_lddqu_si256(data + i + 3));
+      CSA(&foursA, &twos, twos, twosA, twosB);
+      CSA(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 4),
+          _mm256_lddqu_si256(data + i + 5));
+      CSA(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 6),
+          _mm256_lddqu_si256(data + i + 7));
+      CSA(&foursB, &twos, twos, twosA, twosB);
+      CSA(&eightsA, &fours, fours, foursA, foursB);
+      CSA(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 8),
+          _mm256_lddqu_si256(data + i + 9));
+      CSA(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 10),
+          _mm256_lddqu_si256(data + i + 11));
+      CSA(&foursA, &twos, twos, twosA, twosB);
+      CSA(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 12),
+          _mm256_lddqu_si256(data + i + 13));
+      CSA(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 14),
+          _mm256_lddqu_si256(data + i + 15));
+      CSA(&foursB, &twos, twos, twosA, twosB);
+      CSA(&eightsB, &fours, fours, foursA, foursB);
+      CSA(&sixteens, &eights, eights, eightsA, eightsB);
+      for (size_t i = 0; i < 16; i++) {
+        counter[i] = _mm256_add_epi16(
+            counter[i], _mm256_and_si256(sixteens, _mm256_set1_epi16(1)));
+        sixteens = _mm256_srli_epi16(sixteens, 1);
+      }
+    }
+    for (size_t i = 0; i < 16; i++) {
+      _mm256_storeu_si256((__m256i *)buffer, counter[i]);
+      for (size_t z = 0; z < 16; z++) {
+        flags[i] += buffer[z] * 16;
+      }
+    }
+  }
+
+  _mm256_storeu_si256((__m256i *)buffer, ones);
+  for (size_t i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      flags[j] += ((buffer[i] & (1 << j)) >> j);
+    }
+  }
+
+  _mm256_storeu_si256((__m256i *)buffer, twos);
+  for (size_t i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+    }
+  }
+  _mm256_storeu_si256((__m256i *)buffer, fours);
+  for (size_t i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+    }
+  }
+  _mm256_storeu_si256((__m256i *)buffer, eights);
+  for (size_t i = 0; i < 16; i++) {
+    for (int j = 0; j < 16; j++) {
+      flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+    }
+  }
+  return 0;
+}
+
+
+
+#define NUMBEROFFNC 29
 pospopcnt16 ourfunctions[NUMBEROFFNC] = {
   pospopcnt_u16_scalar_naive_nosimd,  pospopcnt_u16_scalar_naive,
   pospopcnt_u16_scalar_partition,     pospopcnt_u16_hist1x4,
@@ -33,7 +139,7 @@ pospopcnt16 ourfunctions[NUMBEROFFNC] = {
   pospopcnt_u16_avx2_mula_unroll16,   pospopcnt_u16_avx512,
   pospopcnt_u16_avx512_popcnt32_mask, pospopcnt_u16_avx512_popcnt64_mask,
   pospopcnt_u16_avx512_popcnt,        pospopcnt_u16_avx512_mula,
-  pospopcnt_u16_avx512_mula_unroll4,  pospopcnt_u16_avx512_mula_unroll8
+  pospopcnt_u16_avx512_mula_unroll4,  pospopcnt_u16_avx512_mula_unroll8, purecircuit
 };
 
 std::string ourfunctionsnames[NUMBEROFFNC] = {
@@ -50,7 +156,7 @@ std::string ourfunctionsnames[NUMBEROFFNC] = {
   "pospopcnt_u16_avx2_mula_unroll16",   "pospopcnt_u16_avx512",
   "pospopcnt_u16_avx512_popcnt32_mask", "pospopcnt_u16_avx512_popcnt64_mask",
   "pospopcnt_u16_avx512_popcnt",        "pospopcnt_u16_avx512_mula",
-  "pospopcnt_u16_avx512_mula_unroll4",  "pospopcnt_u16_avx512_mula_unroll8"
+  "pospopcnt_u16_avx512_mula_unroll4",  "pospopcnt_u16_avx512_mula_unroll8", "purecircuit"
 };
 
 void print16(uint32_t *flags) {
