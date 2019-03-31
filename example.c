@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "fast_flagstats.h"
+#include "pospopcnt.h"
 
 int main() {
     uint16_t datain[] = {14,64,12,1923,12621,1203,4129,12314,12,1124,12314};

@@ -15,8 +15,8 @@
 * specific language governing permissions and limitations
 * under the License.
 */
-#ifndef FAST_FLAGSTATS_H_
-#define FAST_FLAGSTATS_H_
+#ifndef POSPOPCNT_H_
+#define POSPOPCNT_H_
 
 #include <stdint.h> //types
 
@@ -95,11 +95,28 @@ extern "C" {
 }
 #endif
 
-PPOPCNT_INLINE void CSA_AVX2(__m256i* __restrict__ h, __m256i* __restrict__ l, 
-                             __m256i a, __m256i b, __m256i c) 
+/**
+ * Steps:
+ * 1)  U = *L ⊕ B
+ * 2) *H = (*L ^ B) | (U ^ C)
+ * 3) *L = *L ⊕ B ⊕ C = U ⊕ C
+ * 
+ * B and C are 16-bit staggered registers such that &C - &B = 1.
+ * 
+ * CSA_AVX512(&twosA, &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
+ * 
+ * @param h 
+ * @param l 
+ * @param b 
+ * @param c 
+ * @return PPOPCNT_INLINE CSA_AVX2 
+ */
+PPOPCNT_INLINE void POSPOPCNT_CSA_AVX2(__m256i* __restrict__ h, 
+                                       __m256i* __restrict__ l, 
+                                       const __m256i b, const __m256i c) 
 {
-     const __m256i u = _mm256_xor_si256(a, b);
-     *h = _mm256_or_si256(_mm256_and_si256(a, b), _mm256_and_si256(u, c));
+     const __m256i u = _mm256_xor_si256(*l, b);
+     *h = _mm256_or_si256(*l & b, u & c);
      *l = _mm256_xor_si256(u, c);
 }
 #endif // endif simd_version >= 5
@@ -120,11 +137,13 @@ static inline __m512i avx512_popcount(const __m512i v) {
     return _mm512_sad_epu8(t3, _mm512_setzero_si512());
 }
 
-PPOPCNT_INLINE void CSA_AVX512(__m512i* __restrict__ h, __m512i* __restrict__ l, 
-                               __m512i a, __m512i b, __m512i c) 
+// 512i-version of POSPOPCNT_CSA_AVX2
+PPOPCNT_INLINE void POSPOPCNT_CSA_AVX512(__m512i* __restrict__ h, 
+                                         __m512i* __restrict__ l, 
+                                         __m512i b, __m512i c) 
 {
-     const __m512i u = _mm512_xor_si512(a, b);
-     *h = _mm512_or_si512(_mm512_and_si512(a, b), _mm512_and_si512(u, c));
+     const __m512i u = _mm512_xor_si512(*l, b);
+     *h = _mm512_or_si512(*l & b), u & c));
      *l = _mm512_xor_si512(u, c);
 }
 #endif // endif simd_version >= 6
@@ -142,6 +161,7 @@ typedef enum {
     PPOPCNT_SSE_MULA_UR4,
     PPOPCNT_SSE_MULA_UR8,
     PPOPCNT_SSE_MULA_UR16,
+    PPOPCNT_SSE_SAD,
     PPOPCNT_AVX2_POPCNT,
     PPOPCNT_AVX2,
     PPOPCNT_AVX2_POPCNT_NAIVE,
@@ -161,11 +181,12 @@ typedef enum {
     PPOPCNT_AVX512_MULA,
     PPOPCNT_AVX512_MULA_UR4,
     PPOPCNT_AVX512_MULA_UR8,
+    PPOPCNT_AVX512_MULA2,
     PPOPCNT_AVX512_MULA3,
     PPOPCNT_AVX512_CSA
 } PPOPCNT_U16_METHODS;
 
-#define PPOPCNT_NUMBER_METHODS 31
+#define PPOPCNT_NUMBER_METHODS 33
 
 static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16",
@@ -178,6 +199,7 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_sse_mula_unroll4",
     "pospopcnt_u16_sse_mula_unroll8",
     "pospopcnt_u16_sse_mula_unroll16",
+    "pospopcnt_u16_sse2_sad",
     "pospopcnt_u16_avx2_popcnt",
     "pospopcnt_u16_avx2",
     "pospopcnt_u16_avx2_naive_counter",
@@ -197,8 +219,9 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx512_mula",
     "pospopcnt_u16_avx512_mula_unroll4",
     "pospopcnt_u16_avx512_mula_unroll8",
+    "pospopcnt_u16_avx512_mula2",
     "pospopcnt_u16_avx512_mula3",
-    "pospopcnt_u16_avx512_csa",};
+    "pospopcnt_u16_avx512_csa"};
 
 /*------ Functions --------*/
 
@@ -211,6 +234,7 @@ int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_sse_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t* flags);
@@ -231,6 +255,7 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
 int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_csa(const uint16_t* data, uint32_t n, uint32_t* flags);
 
@@ -286,4 +311,4 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method);
 }
 #endif
 
-#endif /* FAST_FLAGSTATS_H_ */
+#endif /* POSPOPCNT_H_ */

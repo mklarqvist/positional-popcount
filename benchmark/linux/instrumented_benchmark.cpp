@@ -13,29 +13,31 @@
 #include <string>
 #include <vector>
 
-#include "fast_flagstats.h"
+#include "pospopcnt.h"
 #include "linux-perf-events.h"
 
-typedef int (*pospopcnt16)(const uint16_t *, uint32_t, uint32_t *);
+typedef int (*pospopcnt16)(const uint16_t*, uint32_t, uint32_t*);
 
-#define NUMBEROFFNC 32
+#define NUMBEROFFNC 33
 pospopcnt16 ourfunctions[NUMBEROFFNC] = {
   pospopcnt_u16_scalar_naive_nosimd,  pospopcnt_u16_scalar_naive,
   pospopcnt_u16_scalar_partition,     pospopcnt_u16_hist1x4,
   pospopcnt_u16_sse_single,           pospopcnt_u16_sse_mula,
   pospopcnt_u16_sse_mula_unroll4,     pospopcnt_u16_sse_mula_unroll8,
-  pospopcnt_u16_sse_mula_unroll16,    pospopcnt_u16_avx2_popcnt,
+  pospopcnt_u16_sse_mula_unroll16,    pospopcnt_u16_sse_sad,
+  pospopcnt_u16_avx2_popcnt,
   pospopcnt_u16_avx2,                 pospopcnt_u16_avx2_naive_counter,
   pospopcnt_u16_avx2_single,          pospopcnt_u16_avx2_lemire,
   pospopcnt_u16_avx2_lemire2,         pospopcnt_u16_avx2_mula,
-  pospopcnt_u16_avx2_mula2,           pospopcnt_u16_avx2_mula3,
+  pospopcnt_u16_avx2_mula2,           
   pospopcnt_u16_avx2_mula_unroll4,    pospopcnt_u16_avx2_mula_unroll8,
   pospopcnt_u16_avx2_mula_unroll16,   pospopcnt_u16_avx512,
   pospopcnt_u16_avx512_popcnt32_mask, pospopcnt_u16_avx512_popcnt64_mask,
   pospopcnt_u16_avx512_popcnt,        pospopcnt_u16_avx512_mula,
   pospopcnt_u16_avx512_mula_unroll4,  pospopcnt_u16_avx512_mula_unroll8,
-  pospopcnt_u16_avx2_mula3,  pospopcnt_u16_avx512_mula3,
-  pospopcnt_u16_avx2_csa,  pospopcnt_u16_avx512_csa
+  pospopcnt_u16_avx2_mula3,           pospopcnt_u16_avx512_mula3,
+  pospopcnt_u16_avx2_csa,             pospopcnt_u16_avx512_csa, 
+  pospopcnt_u16_avx512_mula2          
 };
 
 std::string ourfunctionsnames[NUMBEROFFNC] = {
@@ -43,18 +45,20 @@ std::string ourfunctionsnames[NUMBEROFFNC] = {
   "pospopcnt_u16_scalar_partition",     "pospopcnt_u16_hist1x4",
   "pospopcnt_u16_sse_single",           "pospopcnt_u16_sse_mula",
   "pospopcnt_u16_sse_mula_unroll4",     "pospopcnt_u16_sse_mula_unroll8",
-  "pospopcnt_u16_sse_mula_unroll16",    "pospopcnt_u16_avx2_popcnt",
+  "pospopcnt_u16_sse_mula_unroll16",    "pospopcnt_u16_sse_sad",
+  "pospopcnt_u16_avx2_popcnt",
   "pospopcnt_u16_avx2",                 "pospopcnt_u16_avx2_naive_counter",
   "pospopcnt_u16_avx2_single",          "pospopcnt_u16_avx2_lemire",
   "pospopcnt_u16_avx2_lemire2",         "pospopcnt_u16_avx2_mula",
-  "pospopcnt_u16_avx2_mula2",           "pospopcnt_u16_avx2_mula3",
+  "pospopcnt_u16_avx2_mula2",           
   "pospopcnt_u16_avx2_mula_unroll4",    "pospopcnt_u16_avx2_mula_unroll8",
   "pospopcnt_u16_avx2_mula_unroll16",   "pospopcnt_u16_avx512",
   "pospopcnt_u16_avx512_popcnt32_mask", "pospopcnt_u16_avx512_popcnt64_mask",
   "pospopcnt_u16_avx512_popcnt",        "pospopcnt_u16_avx512_mula",
   "pospopcnt_u16_avx512_mula_unroll4",  "pospopcnt_u16_avx512_mula_unroll8",
   "pospopcnt_u16_avx2_mula3",           "pospopcnt_u16_avx512_mula3",
-  "pospopcnt_u16_avx2_csa",             "pospopcnt_u16_avx512_csa"
+  "pospopcnt_u16_avx2_csa",             "pospopcnt_u16_avx512_csa", 
+  "pospopcnt_u16_avx512_mula2"         
 };
 
 void print16(uint32_t *flags) {
@@ -108,8 +112,8 @@ computeavgs(std::vector< std::vector<unsigned long long> > allresults) {
  * @param iterations Number of iterations.
  * @param fn         Target function pointer.
  * @param verbose    Flag enabling verbose output.
- * @return Returns true if the results are correct. returns false if the results
- *         are either incorrect or the target function is not supported.
+ * @return           Returns true if the results are correct. Returns false if the results
+ *                   are either incorrect or the target function is not supported.
  */
 bool benchmark(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose, bool test) {
     std::vector<int> evts;
@@ -148,18 +152,18 @@ bool benchmark(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose, bo
         }
 
         for (size_t k = 0; k < 16; k++) {
-          if (correctflags[k] != flags[k]) {
-            if (test) {
-               printf("bug:\n");
-               printf("expected : ");
-               print16(correctflags);
-               printf("got      : ");
-               print16(flags);
-               return false;
-            } else {
-               isok = false;
+            if (correctflags[k] != flags[k]) {
+                if (test) {
+                    printf("bug:\n");
+                    printf("expected : ");
+                    print16(correctflags);
+                    printf("got      : ");
+                    print16(flags);
+                    return false;
+                } else {
+                    isok = false;
+                }
             }
-          }
         }
         allresults.push_back(results);
     }
@@ -169,17 +173,18 @@ bool benchmark(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose, bo
     
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-                "instructions per 16-bit word %4.3f \n",
+               "instructions per 16-bit word %4.3f \n",
                 double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
         // first we display mins
         printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-                "cache ref., %8llu cache mis.\n",
+               "cache ref., %8llu cache mis.\n",
                 mins[0], mins[1], mins[2], mins[3], mins[4]);
         printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-                "cache ref., %8.1f cache mis.\n",
+               "cache ref., %8.1f cache mis.\n",
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
     } else {
         printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
+        // printf("%4.3f \n", double(mins[0]) / n);
     }
 
     return isok;
@@ -201,7 +206,7 @@ int main(int argc, char **argv) {
     while ((c = getopt(argc, argv, "vhn:i:")) != -1) {
         switch (c) {
         case 'n':
-            n = atol(optarg);
+            n = atoi(optarg);
             break;
         case 'v':
             verbose = true;
@@ -210,7 +215,7 @@ int main(int argc, char **argv) {
             print_usage(argv[0]);
             return EXIT_SUCCESS;
         case 'i':
-            iterations = atol(optarg);
+            iterations = atoi(optarg);
             break;
         default:
             abort();
@@ -221,11 +226,11 @@ int main(int argc, char **argv) {
     for (size_t k = 0; k < NUMBEROFFNC; k++) {
         printf("%-40s\t", ourfunctionsnames[k].c_str());
         fflush(NULL);
+        // std::cout << ourfunctionsnames[k] << "\t";
         bool isok = benchmark(n, iterations, ourfunctions[k], verbose, true);
         if (isok == false) {
             printf("Problem detected with %s.\n", ourfunctionsnames[k].c_str());
-            printf("%-40s\t", ourfunctionsnames[k].c_str());
-            benchmark(n, iterations, ourfunctions[k], verbose, false);
+            // printf("0\n");
         }
         if (verbose)
             printf("\n");

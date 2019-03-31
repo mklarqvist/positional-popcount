@@ -32,5 +32,5 @@
 *.app
 
 example
-fast_flag_stats
+bench
 instrumented_benchmark

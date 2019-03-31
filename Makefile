@@ -1,6 +1,6 @@
 ###################################################################
 # Copyright (c) 2019
-# Author(s): Marcus D. R. Klarqvist and Daniel Lemire
+# Author(s): Marcus D. R. Klarqvist, Wojciech Muła, and Daniel Lemire
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@ OPTFLAGS  := -O3 -march=native
 CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS)
 CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
 CPP_SOURCE = main.cpp
-C_SOURCE   = fast_flagstats.c example.c
+C_SOURCE   = pospopcnt.c example.c
 OBJECTS    = $(CPP_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
 
 # Default target
-all: fast_flag_stats
+all: bench
 
 # Generic rules
 %.o: %.c
@@ -33,27 +33,25 @@ all: fast_flag_stats
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS)-c -o $@ $<
 
-fast_flag_stats: fast_flagstats.o main.o
-	$(CXX) $(CPPFLAGS) fast_flagstats.c main.cpp -o fast_flag_stats
+bench: pospopcnt.o main.o
+	$(CXX) $(CPPFLAGS) pospopcnt.c main.cpp -o bench
 
 itest: instrumented_benchmark
 	$(CXX) --version
 	./instrumented_benchmark
-# running a benchmark as 'sudo' is a security issue and should never be necessary.
 
+instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c
+	$(CXX) $(CPPFLAGS) pospopcnt.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
 
-instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h fast_flagstats.h fast_flagstats.c
-	$(CXX) $(CPPFLAGS) fast_flagstats.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
+example: pospopcnt.o example.o
+	$(CC) $(CFLAGS) pospopcnt.c example.c -o example
 
-example: fast_flagstats.o example.o
-	$(CC) $(CFLAGS) fast_flagstats.c example.c -o example
-
-test: fast_flag_stats
+test: bench
 	$(CXX) --version
-	./fast_flag_stats
+	./bench
 
 clean:
 	rm -f $(OBJECTS)
-	rm -f fast_flag_stats example instrumented_benchmark
+	rm -f bench example instrumented_benchmark
 
 .PHONY: all clean test itest

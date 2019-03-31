@@ -4,7 +4,7 @@
 #include <cassert>//assert
 #include <cstring>//memset
 
-#include "fast_flagstats.h"
+#include "pospopcnt.h"
 
 inline void* aligned_malloc(size_t size, size_t align) {
     void* result;

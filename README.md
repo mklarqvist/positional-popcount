@@ -1,4 +1,4 @@
-# FastFlagStats
+# positional-popcount
 
 These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word
 
@@ -6,9 +6,9 @@ These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wi
 
 ### Usage
 
-Compile the test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`. For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
+Compile the test suite with: `make` and run `./bench`. The test suite require `c++11` whereas the example and functions require only `c99`. For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
 
-Include `fast_flagstats.h` and `fast_flagstats.c` in your project. Then use the wrapper function for `pospopcnt`:
+Include `pospopcnt.h` and `pospopcnt.c` in your project. Then use the wrapper function for `pospopcnt`:
 ```c
 pospopcnt_u16(datain, length, target_counters);
 ```
