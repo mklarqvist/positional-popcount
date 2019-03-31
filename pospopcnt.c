@@ -421,11 +421,11 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) 
 // By @aqrit (https://github.com/aqrit)
 // @see: https://gist.github.com/aqrit/cb52b2ac5b7d0dfe9319c09d27237bf3
 int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_counts) {
-    const __m128i zero        = _mm_setzero_si128();
-    const __m128i neg1        = _mm_cmpeq_epi8(zero, zero);
-    const __m128i mask_byte   = _mm_srli_epi16(neg1, 8);
-    const __m128i mask_lo_cnt = _mm_srli_epi16(neg1, 10);
-    const __m128i mask_bits   = _mm_set1_epi8(0x41); // 01000001
+    const __m128i zero = _mm_setzero_si128();
+    const __m128i mask_lo_byte = _mm_srli_epi16(_mm_cmpeq_epi8(zero, zero), 8);
+    const __m128i mask_lo_cnt  = _mm_srli_epi16(mask_lo_byte, 2);
+    const __m128i mask_bits_a  = _mm_set1_epi8(0x41);
+    const __m128i mask_bits_b  = _mm_add_epi8(mask_bits_a, mask_bits_a);
 
     __m128i counterA = zero;
     __m128i counterB = zero;
@@ -439,12 +439,12 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
         __m128i r3 = _mm_loadu_si128((__m128i*)&data[24]);
         __m128i r4, r5, r6, r7;
 
-        // shuffle LOBYTE of each WORD to the high QWORD of the OWORD
-        // shuffle HIBYTE of each WORD to the low QWORD of the OWORD
-        r4 = _mm_and_si128(mask_byte, r0);
-        r5 = _mm_and_si128(mask_byte, r1);
-        r6 = _mm_and_si128(mask_byte, r2);
-        r7 = _mm_and_si128(mask_byte, r3);
+        // seperate LOBYTE and HIBYTE of each WORD
+        // (emulate PSHUFB F,D,B,9,7,5,3,1, E,C,A,8,6,4,2,0)
+        r4 = _mm_and_si128(mask_lo_byte, r0);
+        r5 = _mm_and_si128(mask_lo_byte, r1);
+        r6 = _mm_and_si128(mask_lo_byte, r2);
+        r7 = _mm_and_si128(mask_lo_byte, r3);
         r0 = _mm_srli_epi16(r0, 8);
         r1 = _mm_srli_epi16(r1, 8);
         r2 = _mm_srli_epi16(r2, 8);
@@ -455,10 +455,10 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
         r3 = _mm_packus_epi16(r3, r7);
 
         // isolate bits to count
-        r4 = _mm_and_si128(mask_bits, r0);
-        r5 = _mm_and_si128(mask_bits, r1);
-        r6 = _mm_and_si128(mask_bits, r2);
-        r7 = _mm_and_si128(mask_bits, r3);
+        r4 = _mm_and_si128(mask_bits_a, r0);
+        r5 = _mm_and_si128(mask_bits_a, r1);
+        r6 = _mm_and_si128(mask_bits_a, r2);
+        r7 = _mm_and_si128(mask_bits_a, r3);
 
         // horizontal sum of qwords
         r4 = _mm_sad_epu8(r4, zero);
@@ -479,17 +479,11 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
         // accumulate
         counterA = _mm_add_epi32(counterA, r4);
 
-        // shift each byte right 1 and backfill with 1's
-        r0 = _mm_avg_epu8(r0, neg1);
-        r1 = _mm_avg_epu8(r1, neg1);
-        r2 = _mm_avg_epu8(r2, neg1);
-        r3 = _mm_avg_epu8(r3, neg1);
-
         // do it again...
-        r4 = _mm_and_si128(mask_bits, r0);
-        r5 = _mm_and_si128(mask_bits, r1);
-        r6 = _mm_and_si128(mask_bits, r2);
-        r7 = _mm_and_si128(mask_bits, r3);
+        r4 = _mm_and_si128(mask_bits_b, r0);
+        r5 = _mm_and_si128(mask_bits_b, r1);
+        r6 = _mm_and_si128(mask_bits_b, r2);
+        r7 = _mm_and_si128(mask_bits_b, r3);
 
         r4 = _mm_sad_epu8(r4, zero);
         r5 = _mm_sad_epu8(r5, zero);
@@ -500,31 +494,32 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
         r4 = _mm_add_epi16(r4,r6);
         r4 = _mm_add_epi16(r4,r7);
 
-        r5 = _mm_and_si128(mask_lo_cnt, r4);
-        r4 = _mm_srli_epi16(r4, 6);
+        r5 = _mm_avg_epu8(zero, r4); // shift right 1
+        r5 = _mm_and_si128(r5, mask_lo_cnt);
+        r4 = _mm_srli_epi16(r4, 7);
         r4 = _mm_packs_epi32(r4, r5);
 
         counterB = _mm_add_epi32(counterB, r4); // accumulate
 
-        // rotate
-        r4 = _mm_slli_epi16(r0, 13);
-        r5 = _mm_slli_epi16(r1, 13);
-        r6 = _mm_slli_epi16(r2, 13);
-        r7 = _mm_slli_epi16(r3, 13);
-        r0 = _mm_srli_epi16(r0, 3);
-        r1 = _mm_srli_epi16(r1, 3);
-        r2 = _mm_srli_epi16(r2, 3);
-        r3 = _mm_srli_epi16(r3, 3);
+        // rotate right 4
+        r4 = _mm_slli_epi16(r0, 12);
+        r5 = _mm_slli_epi16(r1, 12);
+        r6 = _mm_slli_epi16(r2, 12);
+        r7 = _mm_slli_epi16(r3, 12);
+        r0 = _mm_srli_epi16(r0, 4);
+        r1 = _mm_srli_epi16(r1, 4);
+        r2 = _mm_srli_epi16(r2, 4);
+        r3 = _mm_srli_epi16(r3, 4);
         r0 = _mm_or_si128(r0, r4);
         r1 = _mm_or_si128(r1, r5);
         r2 = _mm_or_si128(r2, r6);
         r3 = _mm_or_si128(r3, r7);
 
         // do it again...
-        r4 = _mm_and_si128(mask_bits, r0);
-        r5 = _mm_and_si128(mask_bits, r1);
-        r6 = _mm_and_si128(mask_bits, r2);
-        r7 = _mm_and_si128(mask_bits, r3);
+        r4 = _mm_and_si128(mask_bits_a, r0);
+        r5 = _mm_and_si128(mask_bits_a, r1);
+        r6 = _mm_and_si128(mask_bits_a, r2);
+        r7 = _mm_and_si128(mask_bits_a, r3);
 
         r4 = _mm_sad_epu8(r4, zero);
         r5 = _mm_sad_epu8(r5, zero);
@@ -541,16 +536,11 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
 
         counterC = _mm_add_epi32(counterC, r4); // accumulate
 
-        r0 = _mm_avg_epu8(r0, neg1);
-        r1 = _mm_avg_epu8(r1, neg1);
-        r2 = _mm_avg_epu8(r2, neg1);
-        r3 = _mm_avg_epu8(r3, neg1);
-
         // do it again...
-        r0 = _mm_and_si128(r0, mask_bits);
-        r1 = _mm_and_si128(r1, mask_bits);
-        r2 = _mm_and_si128(r2, mask_bits);
-        r3 = _mm_and_si128(r3, mask_bits);
+        r0 = _mm_and_si128(r0, mask_bits_b);
+        r1 = _mm_and_si128(r1, mask_bits_b);
+        r2 = _mm_and_si128(r2, mask_bits_b);
+        r3 = _mm_and_si128(r3, mask_bits_b);
 
         r0 = _mm_sad_epu8(r0, zero);
         r1 = _mm_sad_epu8(r1, zero);
@@ -561,8 +551,9 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
         r0 = _mm_add_epi16(r0,r2);
         r0 = _mm_add_epi16(r0,r3);
 
-        r1 = _mm_and_si128(mask_lo_cnt, r0);
-        r0 = _mm_srli_epi16(r0, 6);
+        r1 = _mm_avg_epu8(zero, r0);
+        r1 = _mm_and_si128(r1, mask_lo_cnt);
+        r0 = _mm_srli_epi16(r0, 7);
         r0 = _mm_packs_epi32(r0, r1);
 
         counterD = _mm_add_epi32(counterD, r0); // accumulate
