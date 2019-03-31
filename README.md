@@ -2,11 +2,11 @@
 
 These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word
 
-These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve ~7 GB/s (~0.7 CPU cycles / int) throughput (3.7 billion 16-bit integers / second or 58 billion one-hot vectors / second).
+These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >13 GB/s (~0.15 CPU cycles / int) throughput (7 billion 16-bit integers / second or 112 billion one-hot vectors / second).
 
 ### Usage
 
-Compile the test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`. If you run the test suite you **must** set the `MHZ` argument in `main.cpp` to the speed of your processor! For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
+Compile the test suite with: `make` and run `./fast_flag_stats`. The test suite require `c++11` whereas the example and functions require only `c99`. For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
 
 Include `fast_flagstats.h` and `fast_flagstats.c` in your project. Then use the wrapper function for `pospopcnt`:
 ```c
@@ -39,10 +39,6 @@ These functions were developed for [pil](https://github.com/mklarqvist/pil) but 
     - [Approach 6: Partial-sum accumulator and aggregator (AVX-512)](#approach-6-partial-sum-accumulator-and-aggregator-avx-512)
     - [Approach 7: Shift-mask accumulator [Muła] (SIMD)](#approach-7-shift-mask-accumulator-muła-simd)
   - [Results](#results)
-    - [Intel Xeon Skylake (AVX-512)](#intel-xeon-skylake-avx-512)
-    - [Intel Xeon Haswell (AVX-256)](#intel-xeon-haswell-avx-256)
-    - [Intel Ivy Bridge (AVX)](#intel-ivy-bridge-avx)
-  - [Reference systems information](#reference-systems-information)
   - [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific)
 
 ---
@@ -640,257 +636,80 @@ for (/**/; i < len; ++i) {
 
 ### Results
 
-We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average throughput in MB/s (1 MB = 1024b).
+We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average throughput in MB/s (1 MB = 1024b) or average number of CPU cycles per integer. There is no difference in throughput speed between the different distributions (now shown). Because of this we report only results for the distribution {1,65536}. The host architecture used is a 10 nm Cannon Lake [Core i3-8121U](https://ark.intel.com/content/www/us/en/ark/products/136863/intel-core-i3-8121u-processor-4m-cache-up-to-3-20-ghz.html), a 14 nm Sky Lake [Xeon W-2104](https://ark.intel.com/content/www/us/en/ark/products/125039/intel-xeon-w-2104-processor-8-25m-cache-3-20-ghz.html), and a 22 nm Haswell [Xeon E5-2697 v3](https://ark.intel.com/content/www/us/en/ark/products/81059/intel-xeon-processor-e5-2697-v3-35m-cache-2-60-ghz.html).
 
-#### Intel Xeon Skylake (AVX-512)
+Through in CPU cycles / 16-bit integer (lower is better):
 
-The reference system uses a Intel Xeon Skylake CPU @ 2.6 GHz. Throughput in MB/s (higher is better):
+| Method                             | Cannon Lake | Sky Lake | Haswell |
+|------------------------------------|-------------|----------|---------|
+| pospopcnt_u16_scalar_naive_nosimd  | 17.525      | 17.653   | 18.012  |
+| pospopcnt_u16_scalar_naive         | 2.058       | 3.014    | 3.769   |
+| pospopcnt_u16_scalar_partition     | 3.094       | 3.018    | 3.402   |
+| pospopcnt_u16_hist1x4              | 2.865       | 2.918    | 3.169   |
+| pospopcnt_u16_sse_single           | 3.614       | 3.829    | 4.277   |
+| pospopcnt_u16_sse_mula             | 2.082       | 1.629    | 2.139   |
+| pospopcnt_u16_sse_mula_unroll4     | 1.578       | 1.4      | 1.625   |
+| pospopcnt_u16_sse_mula_unroll8     | 1.433       | 1.351    | 1.544   |
+| pospopcnt_u16_sse_mula_unroll16    | 1.386       | 1.421    | 1.543   |
+| pospopcnt_u16_avx2_popcnt          | 2.406       | 2.437    | 3.012   |
+| pospopcnt_u16_avx2                 | 2.035       | 3.019    | 4.019   |
+| pospopcnt_u16_avx2_naive_counter   | 2.033       | 3.025    | 3.834   |
+| pospopcnt_u16_avx2_single          | 2.03        | 3.013    | 3.925   |
+| pospopcnt_u16_avx2_lemire          | 2.862       | 1.916    | 2.192   |
+| pospopcnt_u16_avx2_lemire2         | 1.695       | 1.127    | 1.469   |
+| pospopcnt_u16_avx2_mula            | 1.105       | 1.4      | 1.111   |
+| pospopcnt_u16_avx2_mula2           | 1.468       | 1.423    | 1.268   |
+| pospopcnt_u16_avx2_mula3           | 0.435       | 0.418    | 0.478   |
+| pospopcnt_u16_avx2_mula_unroll4    | 0.848       | 0.855    | 0.842   |
+| pospopcnt_u16_avx2_mula_unroll8    | 0.757       | 0.725    | 0.773   |
+| pospopcnt_u16_avx2_mula_unroll16   | 0.736       | 0.747    | 0.814   |
+| pospopcnt_u16_avx512               | 1.511       | 1.604    | -       |
+| pospopcnt_u16_avx512_popcnt32_mask | 0.819       | 1.421    | -       |
+| pospopcnt_u16_avx512_popcnt64_mask | 0.838       | 1.011    | -       |
+| pospopcnt_u16_avx512_popcnt        | 1.676       | 1.751    | -       |
+| pospopcnt_u16_avx512_mula          | 0.75        | 0.778    | -       |
+| pospopcnt_u16_avx512_mula_unroll4  | 0.623       | 0.579    | -       |
+| pospopcnt_u16_avx512_mula_unroll8  | 0.555       | 0.577    | -       |
+| pospopcnt_u16_avx2_mula3           | 0.434       | 0.417    | 0.479   |
+| pospopcnt_u16_avx512_mula3         | 0.288       | 0.304    | -       |
+| pospopcnt_u16_avx2_csa             | 0.258       | 0.28     | 0.327   |
+| pospopcnt_u16_avx512_csa           | **0.165**       | 0.191    | -       |
 
-| Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|----------------------|---------|---------|---------|---------|---------|---------|---------|---------|
-| Scalar naïve         | 2805.65 | 2756.28 | 2806.71 | 2808.16 | 2786.45 | 2808.72 | 2804.58 | 2792.36 |
-| Scalar partition     | 1308.84 | 1311.98 | 1402.56 | 1435    | 1797.03 | 1912.25 | 1917.16 | 1962.24 |
-| Hist1x4              | 1264.73 | 1307.86 | 1357.43 | 1367.89 | 2014.17 | 2135.63 | 2109.54 | 2170.56 |
-| SSE-4.1 interlaced pack-popcnt           | 1429.9  | 1402.51 | 1430.28 | 1402.59 | 1398.18 | 1420.15 | 1423.24 | 1400.03 |
-| SSE-4.1 Muła             | 2661.49 | 2612.78 | 2670.75 | 2620.91 | 2633.46 | 2639    | 2659.3  | 2634.51 |
-| SSE-4.1 Muła unrolled-4            | 3704.9  | 3735.7  | 3701.21 | 3658.3  | 3686.89 | 3659.84 | 3658.52 | 3650.64 |
-| SSE-4.1 Muła unrolled-8            | 3918.73 | 3917.98 | 3890.27 | 3891.26 | 3891.61 | 3859.21 | 3885.87 | 3892.99 |
-| SSE-4.1 Muła unrolled-16           | 3932.16 | 4008.64 | 3979.87 | 3937.13 | 3920.65 | 3928.13 | 3941.98 | 3953.28 |
-| AVX-2 accumulator                 | 3619.13 | 3643.25 | 3632.33 | 3543.53 | 3636.62 | 3621.6  | 3595.37 | 3605.44 |
-| AVX-2 pack-popcnt          | 2379.88 | 2395.88 | 2389.42 | 2386.99 | 2379.05 | 2398.23 | 2388.58 | 2391.92 |
-| AVX-2 interlaced pack-popcnt          | 1958.68 | 1935.88 | 1956.41 | 1942.11 | 1933.05 | 1947.29 | 1950.01 | 1934.35 |
-| AVX-2 accumulator naïve           | 3619.34 | 3643.3  | 3637.36 | 3525.18 | 3641.28 | 3597.78 | 3592.95 | 3618.17 |
-| AVX-2 Lemire          | 4257.26 | 4252.58 | 4258.34 | 4197.8  | 4242.69 | 4200.67 | 4179.82 | 4221.69 |
-| AVX-2 Lemire2         | 4436.06 | 4432.91 | 4413.86 | 4418.15 | 4443.94 | 4403.71 | 4375.1  | 4404.94 |
-| AVX-2 Muła            | 4357.32 | 4457.61 | 4428.08 | 4390.74 | 4419.83 | 4407.5  | 4370.61 | 4413.22 |
-| AVX-2 Muła unrolled-4           | 5439.47 | 5805.19 | 5610.29 | 5519.51 | 5721.24 | 5525.97 | 5515.82 | 5641.12 |
-| AVX-2 Muła unrolled-8           | 5783.56 | 6012.93 | 5734.33 | 5623.83 | 5910.72 | 5754.99 | 5712.83 | 5840.26 |
-| AVX-2 Muła unrolled-16          | 5656.18 | 5826.65 | 5647.29 | 5614.13 | 5764.72 | 5572.66 | 5549.68 | 5682.57 |
-| AVX-512 pack-popcnt        | 3329.5  | 3313.45 | 3330.31 | 3322.2  | 3279.32 | 3309.86 | 3308.45 | 3342.31 |
-| AVX-512 popcnt32 mask | 4721.69 | 4785.4  | 4588.68 | 4693.69 | 4737.47 | 4597.93 | 4650.84 | 4733.53 |
-| AVX-512 popcnt64 mask               | 4812.84 | 4965.19 | 4821.19 | 4791.98 | 4955.43 | 4752.94 | 4754.39 | 4876.91 |
-| AVX-512 shift-add accumulator | 3733.21 | 3727.23 | 3719.81 | 3683.83 | 3725.68 | 3679.73 | 3628.22 | 3699.64 |
-| AVX-512 Muła          | 5378.98 | 5469.05 | 5234.17 | 5495.86 | 5532.67 | 5479.31 | 5222.89 | 5269.21 |
-| AVX-512 Muła unrolled-4         | 6755.07 | 6745.95 | 6412.74 | 6829.13 | 6825.1  | 6717.08 | 6404.52 | 6507.1  |
-| AVX-512 Muła unrolled-8         | **6834.59** | **6793.59** | **6528.55** | **6916.25** | **6866.25** | **6736.37** | **6473.77** | **6646.93** |
+Throughput in MB/s (higher is better):
 
-Workload in CPU cycles / integer (lower is better):
 
-| Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|----------------------|----------|----------|----------|----------|----------|----------|----------|----------|
-| Scalar naïve         | 1.76754  | 1.7992   | 1.76687  | 1.76596  | 1.77972  | 1.76561  | 1.76822  | 1.77595  |
-| Scalar partition     | 3.78894  | 3.77987  | 3.53576  | 3.45582  | 2.75962  | 2.59333  | 2.58669  | 2.52727  |
-| Hist1x4              | 3.92108  | 3.79176  | 3.65331  | 3.62537  | 2.46211  | 2.32208  | 2.3508   | 2.28472  |
-| SSE-4.1 interlaced pack-popcnt           | 3.46815  | 3.53588  | 3.46723  | 3.53567  | 3.54683  | 3.49195  | 3.48437  | 3.54214  |
-| SSE-4.1 Muła             | 1.86328  | 1.89802  | 1.85682  | 1.89213  | 1.88312  | 1.87916  | 1.86481  | 1.88237  |
-| SSE-4.1 Muła unrolled-4            | 1.33853  | 1.32749  | 1.33986  | 1.35558  | 1.34507  | 1.35501  | 1.3555   | 1.35842  |
-| SSE-4.1 Muła unrolled-8            | 1.26549  | 1.26573  | 1.27475  | 1.27442  | 1.27431  | 1.28501  | 1.27619  | 1.27385  |
-| SSE-4.1 Muła unrolled-16           | 1.26117  | 1.2371   | 1.24605  | 1.25957  | 1.26487  | 1.26246  | 1.25802  | 1.25443  |
-| AVX-2 accumulator                 | 1.37025  | 1.36118  | 1.36527  | 1.39948  | 1.36366  | 1.36931  | 1.3793   | 1.37545  |
-| AVX-2 pack-popcnt          | 2.08376  | 2.06985  | 2.07545  | 2.07756  | 2.08449  | 2.06782  | 2.07617  | 2.07327  |
-| AVX-2 interlaced pack-popcnt          | 2.53186  | 2.56168  | 2.5348   | 2.55346  | 2.56544  | 2.54667  | 2.54312  | 2.5637   |
-| AVX-2 accumulator naïve           | 1.37017  | 1.36116  | 1.36338  | 1.40677  | 1.36191  | 1.37838  | 1.38023  | 1.37061  |
-| AVX-2 Lemire          | 1.16486  | 1.16614  | 1.16456  | 1.18136  | 1.16886  | 1.18055  | 1.18644  | 1.17467  |
-| AVX-2 Lemire2         | 1.11791  | 1.1187   | 1.12353  | 1.12244  | 1.11593  | 1.12612  | 1.13348  | 1.12581  |
-| AVX-2 Muła            | 1.13811  | 1.1125   | 1.11992  | 1.12945  | 1.12201  | 1.12515  | 1.13465  | 1.12369  |
-| AVX-2 Muła unrolled-4           | 0.91169  | 0.854253 | 0.88393  | 0.898469 | 0.866788 | 0.897419 | 0.89907  | 0.879099 |
-| AVX-2 Muła unrolled-8           | 0.857449 | 0.824741 | 0.864809 | 0.881803 | 0.839002 | 0.861705 | 0.868065 | 0.849124 |
-| AVX-2 Muła unrolled-16          | 0.876759 | 0.851107 | 0.87814  | 0.883327 | 0.860252 | 0.889899 | 0.893584 | 0.872687 |
-| AVX-512 pack-popcnt        | 1.48944  | 1.49666  | 1.48908  | 1.49272  | 1.51224  | 1.49828  | 1.49892  | 1.48373  |
-| AVX-512 popcnt32 mask | 1.05028  | 1.0363   | 1.08073  | 1.05655  | 1.04678  | 1.07855  | 1.06628  | 1.04765  |
-| AVX-512 popcnt64 mask               | 1.03039  | 0.998774 | 1.02861  | 1.03488  | 1.00074  | 1.04338  | 1.04306  | 1.01685  |
-| AVX-512 shift-add accumulator | 1.32838  | 1.33051  | 1.33316  | 1.34618  | 1.33106  | 1.34768  | 1.36681  | 1.34043  |
-| AVX-512 Muła          | 0.921942 | 0.906758 | 0.947448 | 0.902335 | 0.896332 | 0.90506  | 0.949494 | 0.941148 |
-| AVX-512 Muła unrolled-4         | 0.734131 | 0.735124 | 0.773321 | 0.72617  | 0.726599 | 0.738283 | 0.774314 | 0.762107 |
-| AVX-512 Muła unrolled-8         | **0.72559**  | **0.729968** | **0.759603** | **0.717023** | **0.722244** | **0.736169** | **0.76603**  | **0.746075** |
-
-The AVX-512 Muła unrolled-8 (approach 7) is ~2.5-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance profile indepedent of data entropy. We achieve an average throughput rate of ~3.6 billion FLAG values / second when AVX-512 is available.
-
-#### Intel Xeon Haswell (AVX-256)
-
-The reference system uses a Intel Xeon Haswell CPU @ 2.8 GHz. Throughput in MB/s (higher is better):
-
-| Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|------------------|---------|---------|---------|---------|---------|---------|---------|---------|
-| Scalar naïve     | 1249.64 | 1252.99 | 1217.65 | 1235.85 | 1264.64 | 1229.62 | 1268.97 | 1199.54 |
-| Scalar partition | 735.76  | 760.804 | 727.24  | 772.929 | 1305.81 | 1346.54 | 1362.07 | 1427.51 |
-| Hist1x4          | 819.808 | 838.266 | 831.704 | 845.315 | 1403.94 | 1462.8  | 1535.78 | 1539.54 |
-| SSE-4.1 interlaced pack-popcnt       | 1185.53 | 1209.15 | 1191.96 | 1189.94 | 1188.57 | 1160.03 | 1188.9  | 1173.87 |
-| SSE-4.1 Muła         | 2266.45 | 2335.94 | 2345.77 | 2346.45 | 2352.37 | 2283.44 | 2356.58 | 2284.79 |
-| SSE-4.1 Muła unrolled-4        | 2777.19 | 2808.28 | 2760.65 | 2824.2  | 2802.04 | 2743.29 | 2769.49 | 2827.6  |
-| SSE-4.1 Muła unrolled-8        | 3207.79 | 3265.11 | 3216.37 | 3312.06 | 3262.78 | 3165.2  | 3046.18 | 3222.98 |
-| SSE-4.1 Muła unrolled-16       | 3315.6  | 3356.53 | 3329.12 | 3365.62 | 3341.78 | 3271.96 | 3375.42 | 3325.82 |
-| AVX-2 accumulator naïve             | 3290.34 | 3352.53 | 3353.13 | 3347.02 | 3357.37 | 3194.14 | 3255.07 | 3322.7  |
-| AVX-2 pack-popcnt      | 1617.35 | 1636.68 | 1625.22 | 1660.91 | 1644.12 | 1615.75 | 1657.97 | 1645.03 |
-| AVX-2 interlaced pack-popcnt      | 1418.35 | 1457.56 | 1436.79 | 1465.96 | 1458.05 | 1420.54 | 1448.36 | 1452.47 |
-| AVX-2 accumulator naïve       | 2398.38 | 2461.53 | 2418.32 | 2450.2  | 2437.71 | 2422.74 | 2453.36 | 2442.3  |
-| AVX-2 Lemire      | 3124.77 | 3184.65 | 3202.8  | 3179.12 | 3151.64 | 3118.83 | 3186.25 | 3173.46 |
-| AVX-2 Lemire2     | 3226.5  | 3234.79 | 3258.07 | 3246.26 | 3213.48 | 3190.42 | 3231.79 | 3224.92 |
-| AVX-2 Muła        | 3569.23 | 3497.57 | 3486.35 | 3521.74 | 3518.61 | 3576.5  | 3560.18 | 3493.98 |
-| AVX-2 Muła unrolled-4       | 5109.84 | 5206.57 | 5075.19 | 5127.82 | 5166.87 | 5083.46 | 5199.64 | 5124.15 |
-| AVX-2 Muła unrolled-8       | **5897.98** | **5793.78** | **5865.32** | **5970.18** | **5610.54** | **5828.91** | **5968.62** | **5928.65** |
-| AVX-2 Muła unrolled-16      | 5394.25 | 5481.15 | 5444.64 | 5537.79 | 5511.56 | 5441.22 | 5517.94 | 5520.98 |
-
-Workload in CPU cycles / integer (lower is better):
-
-| Method                | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|------------------|----------|----------|----------|----------|----------|----------|----------|----------|
-| Scalar naïve     | 4.27369  | 4.26225  | 4.38595  | 4.32139  | 4.223    | 4.34328  | 4.20859  | 4.4522   |
-| Scalar partition | 7.25859  | 7.01965  | 7.34362  | 6.90953  | 4.08985  | 3.96614  | 3.92093  | 3.74119  |
-| Hist1x4          | 6.51442  | 6.37098  | 6.42125  | 6.31786  | 3.804    | 3.65093  | 3.47743  | 3.46894  |
-| SSE-4.1 interlaced pack-popcnt       | 4.5048   | 4.41679  | 4.4805   | 4.48809  | 4.49327  | 4.60384  | 4.49202  | 4.54954  |
-| SSE-4.1 Muła         | 2.35636  | 2.28626  | 2.27669  | 2.27603  | 2.27029  | 2.33883  | 2.26624  | 2.33745  |
-| SSE-4.1 Muła unrolled-4        | 1.92301  | 1.90173  | 1.93453  | 1.89101  | 1.90596  | 1.94678  | 1.92836  | 1.88873  |
-| SSE-4.1 Muła unrolled-8        | 1.66488  | 1.63565  | 1.66043  | 1.61246  | 1.63682  | 1.68728  | 1.7532   | 1.65703  |
-| SSE-4.1 Muła unrolled-16       | 1.61074  | 1.5911   | 1.6042   | 1.5868   | 1.59813  | 1.63223  | 1.5822   | 1.60579  |
-| AVX-2 accumulator naïve             | 1.62311  | 1.593    | 1.59271  | 1.59562  | 1.5907   | 1.67199  | 1.64069  | 1.6073   |
-| AVX-2 pack-popcnt      | 3.30205  | 3.26305  | 3.28605  | 3.21544  | 3.24829  | 3.30532  | 3.22115  | 3.24649  |
-| AVX-2 interlaced pack-popcnt      | 3.76535  | 3.66406  | 3.71702  | 3.64305  | 3.66282  | 3.75953  | 3.68731  | 3.6769   |
-| AVX-2 accumulator naïve       | 2.22675  | 2.16962  | 2.20838  | 2.17965  | 2.19082  | 2.20435  | 2.17684  | 2.1867   |
-| AVX-2 Lemire      | 1.70911  | 1.67697  | 1.66747  | 1.67989  | 1.69454  | 1.71237  | 1.67613  | 1.68289  |
-| AVX-2 Lemire2     | 1.65522  | 1.65098  | 1.63918  | 1.64515  | 1.66193  | 1.67394  | 1.65251  | 1.65603  |
-| AVX-2 Muła        | 1.49628  | 1.52694  | 1.53185  | 1.51646  | 1.51781  | 1.49324  | 1.50009  | 1.52851  |
-| AVX-2 Muła unrolled-4       | 1.04516  | 1.02574  | 1.05229  | 1.04149  | 1.03362  | 1.05058  | 1.0271   | 1.04224  |
-| AVX-2 Muła unrolled-8       | **0.905492** | **0.921777** | **0.910535** | **0.894541** | **0.951882** | **0.916222** | **0.894776** | **0.900808** |
-| AVX-2 Muła unrolled-16      | 0.990049 | 0.974352 | 0.980888 | 0.964387 | 0.968976 | 0.981504 | 0.967856 | 0.967324 |
-
-The AVX-2 Muła unrolled-8 accumulator (approach 7) is ~5-fold faster then auto-vectorization. Unexpectedly, all the SIMD algorithms have a uniform performance 
-profile indepedent of data entropy. We achieve an average throughput rate of ~3.1 billion FLAG values / second when AVX-256 is available.
-
-#### Intel Ivy Bridge (AVX)
-
-The reference system is a MacBook Air (2012) using an Intel Core i5-3427U CPU @ 1.80GHz. Throughput in MB/s (higher is better):
-
-| Method           | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|------------------|---------|---------|---------|---------|---------|---------|---------|---------|
-| Scalar naïve     | 726.794 | 815.608 | 816.682 | 839.78  | 855.888 | 848.907 | 844.767 | 854.564 |
-| Scalar partition | 722.505 | 691.519 | 679.515 | 722.76  | 1184.48 | 1167.57 | 1134.61 | 1224.93 |
-| Hist1x4          | 724.161 | 692.48  | 679.271 | 746.612 | 1334.28 | 1334.56 | 1350.59 | 1367.4  |
-| SSE-4.1 interlaced pack-popcnt       | 1022.54 | 1003.11 | 989.33  | 1021.07 | 1057.14 | 1047.27 | 1032.17 | 1058.03 |
-| SSE-4.1 Muła              | 1935.72 | 1961.71 | 1963.55 | 2071.69 | 2073.1  | 2019.7  | 1983.61 | 2093.92 |
-| SSE-4.1 Muła unrolled-4   | 2439.31 | 2336.41 | 2373.36 | 2485.46 | 2500.95 | 2525.73 | 2380.38 | 2496.23 |
-| SSE-4.1 Muła unrolled-8   | 2793.1  | 2686.94 | 2737.13 | 2776.02 | 2817.14 | 2785.25 | 2540.06 | 2953.62 |
-| SSE-4.1 Muła unrolled-16  | **2812.62** | **2772.29** | **2894.43** | **2919.36** | **2972.27** | **2986.87** | **2853.3**  | **3057.02** |
-
-Workload in CPU cycles / integer (lower is better):
-
-| Method           | [1,8]       | [1,16]      | [1,64]      | [1,256]     | [1,512]     | [1,1024]    | [1,4096]    | [1,65536]   |
-|------------------|---------|---------|---------|---------|---------|---------|---------|---------|
-| Scalar naïve     | 4.7238  | 4.20941 | 4.20387 | 4.08825 | 4.0113  | 4.04429 | 4.06411 | 4.01752 |
-| Scalar partition | 4.75184 | 4.96477 | 5.05247 | 4.75017 | 2.89851 | 2.94048 | 3.02591 | 2.80281 |
-| Hist1x4          | 4.74097 | 4.95787 | 5.05428 | 4.59841 | 2.5731  | 2.57255 | 2.54202 | 2.51078 |
-| SSE-4.1 interlaced pack-popcnt       | 3.35754 | 3.42258 | 3.47026 | 3.36239 | 3.24765 | 3.27826 | 3.32621 | 3.24494 |
-| SSE-4.1 Muła               | 1.77362 | 1.75012 | 1.74848 | 1.65722 | 1.65608 | 1.69987 | 1.7308  | 1.63962 |
-| SSE-4.1 Muła unrolled-4    | 1.40746 | 1.46945 | 1.44657 | 1.38133 | 1.37277 | 1.3593  | 1.4423  | 1.37537 |
-| SSE-4.1 Muła unrolled-8    | 1.22918 | 1.27774 | 1.25432 | 1.23674 | 1.21869 | 1.23265 | 1.35163 | 1.16238 |
-| SSE-4.1 Muła unrolled-16   | **1.22065** | **1.23841** | **1.18615** | **1.17602** | **1.15509** | **1.14944** | **1.20325** | **1.12306** |
-
-The SSE-4.1-based interlaced pack-popcnt (approach 7) is >3.8-fold faster then auto-vectorization. We achieve an average throughput rate of ~1.6 billion FLAG values / second when SSE4.1 is available.
-
-### Reference systems information
-
-Intel Xeon Skylake (AVX-512)
-
-```bash
-$ lscpu
-Architecture:          x86_64
-CPU op-mode(s):        32-bit, 64-bit
-Byte Order:            Little Endian
-CPU(s):                60
-On-line CPU(s) list:   0-59
-Thread(s) per core:    1
-Core(s) per socket:    1
-Socket(s):             60
-NUMA node(s):          1
-Vendor ID:             GenuineIntel
-CPU family:            6
-Model:                 85
-Model name:            Intel Xeon Processor (Skylake, IBRS)
-Stepping:              4
-CPU MHz:               2599.998
-BogoMIPS:              5199.99
-Hypervisor vendor:     KVM
-Virtualization type:   full
-L1d cache:             32K
-L1i cache:             32K
-L2 cache:              4096K
-L3 cache:              16384K
-NUMA node0 CPU(s):     0-59
-Flags:                 fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology eagerfpu pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch invpcid_single spec_ctrl ibpb_support fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm mpx avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 arat
-```
-
-```bash
-$ hostnamectl
-    Virtualization: kvm
-  Operating System: Red Hat Enterprise Linux
-       CPE OS Name: cpe:/o:redhat:enterprise_linux:7.4:GA:server
-            Kernel: Linux 3.10.0-693.21.1.el7.x86_64
-      Architecture: x86-64
-```
-
-Intel Xeon Haswell (AVX-256)
-
-```bash
-$ lscpu
-Architecture:        x86_64
-CPU op-mode(s):      32-bit, 64-bit
-Byte Order:          Little Endian
-CPU(s):              28
-On-line CPU(s) list: 0-27
-Thread(s) per core:  2
-Core(s) per socket:  14
-Socket(s):           1
-NUMA node(s):        1
-Vendor ID:           GenuineIntel
-CPU family:          6
-Model:               63
-Model name:          Genuine Intel(R) CPU @ 2.20GHz
-Stepping:            1
-CPU MHz:             1200.167
-CPU max MHz:         2800.0000
-CPU min MHz:         1200.0000
-BogoMIPS:            4400.30
-Virtualisation:      VT-x
-L1d cache:           32K
-L1i cache:           32K
-L2 cache:            256K
-L3 cache:            35840K
-NUMA node0 CPU(s):   0-27
-Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand lahf_lm abm cpuid_fault invpcid_single pti intel_ppin tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts
-```
-
-```bash
-$ hostnamectl
-  Operating System: Ubuntu 18.04.2 LTS
-            Kernel: Linux 4.15.0-46-generic
-      Architecture: x86-64
-```
-
-Intel Ivy Bridge (AVX)
-
-```bash
-$ sysctl -n machdep.cpu.brand_string
-Intel(R) Core(TM) i5-3427U CPU @ 1.80GHz
-```
-
-```bash
-$ system_profiler SPHardwareDataType
-Hardware:
-
-    Hardware Overview:
-
-      Model Name: MacBook Air
-      Model Identifier: MacBookAir5,2
-      Processor Name: Intel Core i5
-      Processor Speed: 1.8 GHz
-      Number of Processors: 1
-      Total Number of Cores: 2
-      L2 Cache (per Core): 256 KB
-      L3 Cache: 3 MB
-      Memory: 4 GB
-      Boot ROM Version: 253.0.0.0.0
-      SMC Version (system): 2.5f9
-```
+| Method                             | Cannon Lake | Sky Lake | Haswell |
+|------------------------------------|-------------|----------|---------|
+| pospopcnt_u16_scalar_naive         | **2914**        | 1991.23  | 1199.32 |
+| pospopcnt_u16_scalar_naive_nosimd  | **343.815**     | 338.44   | 277.776 |
+| pospopcnt_u16_scalar_partition     | 1956.75     | **1981.79**  | 1426.37 |
+| pospopcnt_u16_hist1x4              | **2111.27**     | 2043.05  | 1530.24 |
+| pospopcnt_u16_sse_single           | **1555.12**     | 1450.39  | 1164.48 |
+| pospopcnt_u16_sse_mula             | 2898.31     | **3571.13**  | 2251.13 |
+| pospopcnt_u16_sse_mula_unroll4     | 3809.71     | **3977.23**  | 2615.54 |
+| pospopcnt_u16_sse_mula_unroll8     | **4175.65**     | **4175.65**  | 3178.85 |
+| pospopcnt_u16_sse_mula_unroll16    | **4336.42**     | 3988.21  | 3105.81 |
+| pospopcnt_u16_avx2_popcnt          | 2531.83     | **2656.41**  | 1484.06 |
+| pospopcnt_u16_avx2                 | **5667.02**     | 5302.27  | 3241.47 |
+| pospopcnt_u16_avx2_naive_counter   | **4514.74**     | 4401.75  | 3206.32 |
+| pospopcnt_u16_avx2_single          | **2225.98**     | 2110.46  | 1370.07 |
+| pospopcnt_u16_avx2_lemire          | 2106.14     | **2982.25**  | 2210.18 |
+| pospopcnt_u16_avx2_lemire2         | 3486.65     | **4817.33**  | 3153.79 |
+| pospopcnt_u16_avx2_mula            | 5304.54     | **5431.91**  | 3364.81 |
+| pospopcnt_u16_avx2_mula_unroll4    | **6887.65**     | 6742.01  | 4955.8  |
+| pospopcnt_u16_avx2_mula_unroll8    | **7471.24**     | 6560.62  | 5698.94 |
+| pospopcnt_u16_avx2_mula_unroll16   | **7677.98**     | 6319.66  | 5094.4  |
+| pospopcnt_u16_avx2_mula3           | **10743**       | 8753.92  | 6895.74 |
+| pospopcnt_u16_avx2_csa             | **13340.7**     | 9334.56  | 7763.83 |
+| pospopcnt_u16_avx512               | **3999.74**     | 3474.67  | -       |
+| pospopcnt_u16_avx512_popcnt32_mask | **6867.81**     | 5397.26  | -       |
+| pospopcnt_u16_avx512_popcnt64_mask | **6535.26**     | 5476.15  | -       |
+| pospopcnt_u16_avx512_popcnt        | **3569.03**     | 3144.42  | -       |
+| pospopcnt_u16_avx512_mula          | **7454.02**     | 6865.88  | -       |
+| pospopcnt_u16_avx512_mula_unroll4  | **8407.34**     | 6928.66  | -       |
+| pospopcnt_u16_avx512_mula_unroll8  | **9685.61**     | 6978.24  | -       |
+| pospopcnt_u16_avx512_mula3         | **11343.3**     | 8145.35  | -       |
+| pospopcnt_u16_avx512_csa           | **13339.8**     | 9431.49  | -       |
 
 ## Instrumented tests (Linux specific)
 
