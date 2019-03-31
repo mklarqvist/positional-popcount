@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2019
-* Author(s): Marcus D. R. Klarqvist and Daniel Lemire
+* Author(s): Marcus D. R. Klarqvist, Wojciech Muła, and Daniel Lemire
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -46,34 +46,38 @@ extern "C" {
 #endif
 
 #if defined(__AVX512F__) && __AVX512F__ == 1
-#define SIMD_AVAILABLE  1
 #define SIMD_VERSION    6
 #define SIMD_ALIGNMENT  64
 #elif defined(__AVX2__) && __AVX2__ == 1
-#define SIMD_AVAILABLE  1
 #define SIMD_VERSION    5
 #define SIMD_ALIGNMENT  32
 #elif defined(__AVX__) && __AVX__ == 1
-#define SIMD_AVAILABLE  1
 #define SIMD_VERSION    4
 #define SIMD_ALIGNMENT  16
 #elif defined(__SSE4_1__) && __SSE4_1__ == 1
-#define SIMD_AVAILABLE  1
 #define SIMD_VERSION    3
 #define SIMD_ALIGNMENT  16
 #elif defined(__SSE2__) && __SSE2__ == 1
-#define SIMD_AVAILABLE  0 // unsupported version
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
 #elif defined(__SSE__) && __SSE__ == 1
-#define SIMD_AVAILABLE  0 // unsupported version
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
 #else
-#define SIMD_AVAILABLE  0
 #define SIMD_VERSION    0
 #define SIMD_ALIGNMENT  16
 #endif
+
+# if defined(__GNUC__)
+#    define PPOPCNT_INLINE static __inline __attribute__((unused))
+#  elif defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
+#    define PPOPCNT_INLINE static inline
+#  elif defined(_MSC_VER)
+#    define PPOPCNT_INLINE static __inline
+#  else
+     /* this version may generate warnings for unused static functions */
+#    define XXH_PUBLIC_API static
+# endif
 
 #ifdef _mm_popcnt_u64
 #define PIL_POPCOUNT _mm_popcnt_u64
@@ -90,6 +94,14 @@ extern "C" {
     A += PIL_POPCOUNT(_mm256_extract_epi64(B, 3)); \
 }
 #endif
+
+PPOPCNT_INLINE void CSA_AVX2(__m256i* __restrict__ h, __m256i* __restrict__ l, 
+                             __m256i a, __m256i b, __m256i c) 
+{
+     const __m256i u = _mm256_xor_si256(a, b);
+     *h = _mm256_or_si256(_mm256_and_si256(a, b), _mm256_and_si256(u, c));
+     *l = _mm256_xor_si256(u, c);
+}
 #endif // endif simd_version >= 5
 
 #if SIMD_VERSION >= 6
@@ -106,6 +118,14 @@ static inline __m512i avx512_popcount(const __m512i v) {
     const __m512i t2 = _mm512_add_epi8(t1 & m2, (_mm512_srli_epi16(t1, 2)  & m2));
     const __m512i t3 = _mm512_add_epi8(t2,       _mm512_srli_epi16(t2, 4)) & m4;
     return _mm512_sad_epu8(t3, _mm512_setzero_si512());
+}
+
+PPOPCNT_INLINE void CSA_AVX512(__m512i* __restrict__ h, __m512i* __restrict__ l, 
+                               __m512i a, __m512i b, __m512i c) 
+{
+     const __m512i u = _mm512_xor_si512(a, b);
+     *h = _mm512_or_si512(_mm512_and_si512(a, b), _mm512_and_si512(u, c));
+     *l = _mm512_xor_si512(u, c);
 }
 #endif // endif simd_version >= 6
 
@@ -132,16 +152,20 @@ typedef enum {
     PPOPCNT_AVX2_MULA_UR4,
     PPOPCNT_AVX2_MULA_UR8,
     PPOPCNT_AVX2_MULA_UR16,
+    PPOPCNT_AVX2_MULA3,
+    PPOPCNT_AVX2_CSA,
     PPOPCNT_AVX512,
     PPOPCNT_AVX512_MASK32,
     PPOPCNT_AVX512_MASK64,
     PPOPCNT_AVX512_POPCNT,
     PPOPCNT_AVX512_MULA,
     PPOPCNT_AVX512_MULA_UR4,
-    PPOPCNT_AVX512_MULA_UR8
+    PPOPCNT_AVX512_MULA_UR8,
+    PPOPCNT_AVX512_MULA3,
+    PPOPCNT_AVX512_CSA
 } PPOPCNT_U16_METHODS;
 
-#define PPOPCNT_NUMBER_METHODS 27
+#define PPOPCNT_NUMBER_METHODS 31
 
 static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16",
@@ -164,13 +188,17 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx2_mula_unroll4",
     "pospopcnt_u16_avx2_mula_unroll8",
     "pospopcnt_u16_avx2_mula_unroll16",
+    "pospopcnt_u16_avx2_mula3",
+    "pospopcnt_u16_avx2_csa",
     "pospopcnt_u16_avx512",
     "pospopcnt_u16_avx512_popcnt32_mask",
     "pospopcnt_u16_avx512_popcnt64_mask",
     "pospopcnt_u16_avx512_popcnt",
     "pospopcnt_u16_avx512_mula",
     "pospopcnt_u16_avx512_mula_unroll4",
-    "pospopcnt_u16_avx512_mula_unroll8"};
+    "pospopcnt_u16_avx512_mula_unroll8",
+    "pospopcnt_u16_avx512_mula3",
+    "pospopcnt_u16_avx512_csa",};
 
 /*------ Functions --------*/
 
@@ -195,6 +223,7 @@ int pospopcnt_u16_avx2_mula3(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_avx2_csa(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags);
@@ -202,6 +231,8 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
 int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
 int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_avx512_csa(const uint16_t* data, uint32_t n, uint32_t* flags);
 
 /*------ General functions --------*/
 

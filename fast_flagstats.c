@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2019
-* Author(s): Marcus D. R. Klarqvist and Daniel Lemire
+* Author(s): Marcus D. R. Klarqvist, Wojciech Muła, and Daniel Lemire
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -53,6 +53,8 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX2_MULA_UR4): return pospopcnt_u16_avx2_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR8): return pospopcnt_u16_avx2_mula_unroll8(data, n, flags);
     case(PPOPCNT_AVX2_MULA_UR16): return pospopcnt_u16_avx2_mula_unroll16(data, n, flags);
+    case(PPOPCNT_AVX2_MULA3): return pospopcnt_u16_avx2_mula3(data, n, flags);
+    case(PPOPCNT_AVX2_CSA): return pospopcnt_u16_avx2_csa(data, n, flags);
     case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, n, flags);
     case(PPOPCNT_AVX512_MASK32): return pospopcnt_u16_avx512_popcnt32_mask(data, n, flags);
     case(PPOPCNT_AVX512_MASK64): return pospopcnt_u16_avx512_popcnt64_mask(data, n, flags);
@@ -60,6 +62,8 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX512_MULA): return pospopcnt_u16_avx512_mula(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, n, flags);
     case(PPOPCNT_AVX512_MULA_UR8): return pospopcnt_u16_avx512_mula_unroll8(data, n, flags);
+    case(PPOPCNT_AVX512_MULA3): return pospopcnt_u16_avx512_mula3(data, n, flags);
+    case(PPOPCNT_AVX512_CSA): return pospopcnt_u16_avx512_csa(data, n, flags);
     }
     return 0;
 }
@@ -86,6 +90,8 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX2_MULA_UR4): return &pospopcnt_u16_avx2_mula_unroll4;
     case(PPOPCNT_AVX2_MULA_UR8): return &pospopcnt_u16_avx2_mula_unroll8;
     case(PPOPCNT_AVX2_MULA_UR16): return &pospopcnt_u16_avx2_mula_unroll16;
+    case(PPOPCNT_AVX2_MULA3): return &pospopcnt_u16_avx2_mula3;
+    case(PPOPCNT_AVX2_CSA): return &pospopcnt_u16_avx2_csa;
     case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
     case(PPOPCNT_AVX512_MASK32): return &pospopcnt_u16_avx512_popcnt32_mask;
     case(PPOPCNT_AVX512_MASK64): return &pospopcnt_u16_avx512_popcnt64_mask;
@@ -93,6 +99,8 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX512_MULA): return &pospopcnt_u16_avx512_mula;
     case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
     case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
+    case(PPOPCNT_AVX512_MULA3): return &pospopcnt_u16_avx512_mula3;
+    case(PPOPCNT_AVX512_CSA): return &pospopcnt_u16_avx512_csa;
     }
     return 0;
 }
@@ -158,10 +166,6 @@ int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags)
     }
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
-
-    //std::cerr << "avx2-popcnt=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
 
 #undef BLOCK
 #undef ITERATION
@@ -230,10 +234,6 @@ int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags) {
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "avx2=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
-
 #undef ITERATION
 #undef UPDATE
 
@@ -281,10 +281,6 @@ int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t*
     }
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
-
-    //std::cerr << "avx2-naive=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
 
 #undef UPDATE
 
@@ -352,10 +348,6 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags)
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "avx2-single=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
-
     return 0;
 }
 #else
@@ -422,10 +414,6 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags) 
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "sse-single=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
-
     return 0;
 }
 #else
@@ -442,10 +430,6 @@ int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t n, uint32_t
         }
     }
 
-    //std::cerr << "scalar-naive=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-
     return 0;
 }
 
@@ -457,10 +441,6 @@ int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags
             flags[j] += ((data[i] & (1 << j)) >> j);
         }
     }
-
-    //std::cerr << "scalar-naive=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
 
     return 0;
 }
@@ -485,10 +465,6 @@ int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t n, uint32_t* f
             flags[k+8] += ((i & (1 << k)) >> k) * high[i];
         }
     }
-
-    //std::cerr << "scalar-partition=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
 
     return 0;
 }
@@ -525,10 +501,6 @@ int pospopcnt_u16_hist1x4(const uint16_t* data, uint32_t n, uint32_t* flags) {
         }
     }
 
-    //std::cerr << "hist1x4=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-
     return 0;
 }
 
@@ -562,10 +534,6 @@ int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_
     }
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
-
-    //std::cerr << "avx512-popcnt-mask-32=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
 
 #undef BLOCK
 #undef UPDATE
@@ -605,10 +573,6 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_
     }
 
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
-
-    //std::cerr << "avx512-popcnt-mask=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
 
 #undef BLOCK
 #undef UP
@@ -678,10 +642,6 @@ int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flag
     
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "avx512-popcount=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
-
     return 0;
 }
 
@@ -731,10 +691,6 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags) {
  
     for (int i = 0; i < 16; ++i) flags[i] = out_counters[i];
 
-    //std::cerr << "avx512=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
-    //std::cerr << std::endl;
-
     return 0;
 }
 
@@ -768,7 +724,7 @@ int pospopcnt_u16_avx2_lemire(const uint16_t *array, uint32_t len, uint32_t *fla
     memset(startbuffer, 0, 32 * 2);
     memcpy(startbuffer + 16, array, 16 * 2);
     for (size_t i = 1; i < 16; i++) {
-      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i input = _mm256_loadu_si256((__m256i*)(startbuffer + i));
       __m256i m = _mm256_and_si256(input, bits);
       __m256i eq = _mm256_cmpeq_epi16(bits, m);
       count16 = _mm256_sub_epi16(count16, eq);
@@ -779,13 +735,13 @@ int pospopcnt_u16_avx2_lemire(const uint16_t *array, uint32_t len, uint32_t *fla
     memset(startbuffer, 0, 32 * 2);
     memcpy(startbuffer, array + len - 16, 16 * 2);
     for (size_t i = 1; i < 16; i++) {
-      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i input = _mm256_loadu_si256((__m256i*)(startbuffer + i));
       __m256i m = _mm256_and_si256(input, bits);
       __m256i eq = _mm256_cmpeq_epi16(bits, m);
       count16 = _mm256_sub_epi16(count16, eq);
     }
   }
-  _mm256_storeu_si256((__m256i *)buffer, count16);
+  _mm256_storeu_si256((__m256i*)buffer, count16);
   for (size_t k = 0; k < 16; k++) {
     flags[k] += buffer[k];
   }
@@ -798,13 +754,13 @@ int pospopcnt_u16_avx2_lemire(const uint16_t *array, uint32_t len, uint32_t *fla
     if (maxj + i + 16 >= len)
       maxj = len - i - 15;
     for (; j < maxj; j++) {
-      __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
+      __m256i input = _mm256_loadu_si256((__m256i*)(array + i + j));
       __m256i m = _mm256_and_si256(input, bits);
       __m256i eq = _mm256_cmpeq_epi16(bits, m);
       count16 = _mm256_sub_epi16(count16, eq);
     }
     i += j;
-    _mm256_storeu_si256((__m256i *)buffer, count16);
+    _mm256_storeu_si256((__m256i*)buffer, count16);
     for (size_t k = 0; k < 16; k++) {
       flags[k] += buffer[k];
     }
@@ -833,7 +789,7 @@ int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* fl
     memset(startbuffer, 0, 32 * 2);
     memcpy(startbuffer + 16, array, 16 * 2);
     for (size_t i = 1; i < 16; i++) {
-      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i input = _mm256_loadu_si256((__m256i*)(startbuffer + i));
       __m256i m = _mm256_and_si256(input, bits);
       __m256i eq = _mm256_cmpeq_epi16(bits, m);
       count16 = _mm256_sub_epi16(count16, eq);
@@ -844,13 +800,13 @@ int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* fl
     memset(startbuffer, 0, 32 * 2);
     memcpy(startbuffer, array + len - 16, 16 * 2);
     for (size_t i = 1; i < 16; i++) {
-      __m256i input = _mm256_loadu_si256((__m256i *)(startbuffer + i));
+      __m256i input = _mm256_loadu_si256((__m256i*)(startbuffer + i));
       __m256i m = _mm256_and_si256(input, bits);
       __m256i eq = _mm256_cmpeq_epi16(bits, m);
       count16 = _mm256_sub_epi16(count16, eq);
     }
   }
-  _mm256_storeu_si256((__m256i *)buffer, count16);
+  _mm256_storeu_si256((__m256i*)buffer, count16);
   for (size_t k = 0; k < 16; k++) {
     flags[k] += buffer[k];
   }
@@ -864,35 +820,35 @@ int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* fl
       maxj = len - i - 15;
     if (maxj > 8) {
       for (; j < maxj - 7; j += 8) {
-        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i input1 = _mm256_loadu_si256((__m256i*)(array + i + j));
         __m256i m1 = _mm256_and_si256(input1, bits);
         __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
         count16 = _mm256_sub_epi16(count16, eq1);
-        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i input2 = _mm256_loadu_si256((__m256i*)(array + i + j + 1));
         __m256i m2 = _mm256_and_si256(input2, bits);
         __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
         count16 = _mm256_sub_epi16(count16, eq2);
-        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i input3 = _mm256_loadu_si256((__m256i*)(array + i + j + 2));
         __m256i m3 = _mm256_and_si256(input3, bits);
         __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
         count16 = _mm256_sub_epi16(count16, eq3);
-        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i input4 = _mm256_loadu_si256((__m256i*)(array + i + j + 3));
         __m256i m4 = _mm256_and_si256(input4, bits);
         __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
         count16 = _mm256_sub_epi16(count16, eq4);
-        __m256i input5 = _mm256_loadu_si256((__m256i *)(array + i + j + 4));
+        __m256i input5 = _mm256_loadu_si256((__m256i*)(array + i + j + 4));
         __m256i m5 = _mm256_and_si256(input5, bits);
         __m256i eq5 = _mm256_cmpeq_epi16(bits, m5);
         count16 = _mm256_sub_epi16(count16, eq5);
-        __m256i input6 = _mm256_loadu_si256((__m256i *)(array + i + j + 5));
+        __m256i input6 = _mm256_loadu_si256((__m256i*)(array + i + j + 5));
         __m256i m6 = _mm256_and_si256(input6, bits);
         __m256i eq6 = _mm256_cmpeq_epi16(bits, m6);
         count16 = _mm256_sub_epi16(count16, eq6);
-        __m256i input7 = _mm256_loadu_si256((__m256i *)(array + i + j + 6));
+        __m256i input7 = _mm256_loadu_si256((__m256i*)(array + i + j + 6));
         __m256i m7 = _mm256_and_si256(input7, bits);
         __m256i eq7 = _mm256_cmpeq_epi16(bits, m7);
         count16 = _mm256_sub_epi16(count16, eq7);
-        __m256i input8 = _mm256_loadu_si256((__m256i *)(array + i + j + 7));
+        __m256i input8 = _mm256_loadu_si256((__m256i*)(array + i + j + 7));
         __m256i m8 = _mm256_and_si256(input8, bits);
         __m256i eq8 = _mm256_cmpeq_epi16(bits, m8);
         count16 = _mm256_sub_epi16(count16, eq8);
@@ -901,32 +857,32 @@ int pospopcnt_u16_avx2_lemire2(const uint16_t* array, uint32_t len, uint32_t* fl
 
     if (maxj > 4) {
       for (; j + 3 < maxj; j += 4) {
-        __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + j));
+        __m256i input1 = _mm256_loadu_si256((__m256i*)(array + i + j));
         __m256i m1 = _mm256_and_si256(input1, bits);
         __m256i eq1 = _mm256_cmpeq_epi16(bits, m1);
         count16 = _mm256_sub_epi16(count16, eq1);
-        __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + j + 1));
+        __m256i input2 = _mm256_loadu_si256((__m256i*)(array + i + j + 1));
         __m256i m2 = _mm256_and_si256(input2, bits);
         __m256i eq2 = _mm256_cmpeq_epi16(bits, m2);
         count16 = _mm256_sub_epi16(count16, eq2);
-        __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + j + 2));
+        __m256i input3 = _mm256_loadu_si256((__m256i*)(array + i + j + 2));
         __m256i m3 = _mm256_and_si256(input3, bits);
         __m256i eq3 = _mm256_cmpeq_epi16(bits, m3);
         count16 = _mm256_sub_epi16(count16, eq3);
-        __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + j + 3));
+        __m256i input4 = _mm256_loadu_si256((__m256i*)(array + i + j + 3));
         __m256i m4 = _mm256_and_si256(input4, bits);
         __m256i eq4 = _mm256_cmpeq_epi16(bits, m4);
         count16 = _mm256_sub_epi16(count16, eq4);
       }
     }
     for (; j < maxj; j++) {
-      __m256i input = _mm256_loadu_si256((__m256i *)(array + i + j));
+      __m256i input = _mm256_loadu_si256((__m256i*)(array + i + j));
       __m256i m = _mm256_and_si256(input, bits);
       __m256i eq = _mm256_cmpeq_epi16(bits, m);
       count16 = _mm256_sub_epi16(count16, eq);
     }
     i += j;
-    _mm256_storeu_si256((__m256i *)buffer, count16);
+    _mm256_storeu_si256((__m256i*)buffer, count16);
     for (size_t k = 0; k < 16; k++) {
       flags[k] += buffer[k];
     }
@@ -942,7 +898,7 @@ int pospopcnt_u16_avx2_mula2(const uint16_t* array, uint32_t len, uint32_t* flag
   }
 
   for (size_t i = 0; i + 16 <= len; i += 16) {
-    __m256i input = _mm256_loadu_si256((__m256i *)(array + i));
+    __m256i input = _mm256_loadu_si256((__m256i*)(array + i));
 
     for (int j = 0; j < 16; j++) {
       __m256i bit = _mm256_and_si256(input, _mm256_set1_epi16(1));
@@ -996,192 +952,215 @@ int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags
 }
 
 int pospopcnt_u16_avx2_mula3(const uint16_t* array, uint32_t len, uint32_t* flags) {
-  __m256i counters[16];
+    __m256i counters[16];
 
-  for (size_t i = 0; i < 16; i++) {
-    counters[i] = _mm256_setzero_si256();
-  }
+    for (size_t i = 0; i < 16; i++) {
+        counters[i] = _mm256_setzero_si256();
+    }
 
-  const __m256i mask1bit  = _mm256_set1_epi16(0x5555);
-  const __m256i mask2bits = _mm256_set1_epi16(0x3333);
-  const __m256i mask4bits = _mm256_set1_epi16(0x0f0f);
-  const __m256i mask8bits = _mm256_set1_epi16(0x00ff);
+    const __m256i mask1bit = _mm256_set1_epi16(0x5555); // 0101010101010101
+    const __m256i mask2bit = _mm256_set1_epi16(0x3333); // 0011001100110011
+    const __m256i mask4bit = _mm256_set1_epi16(0x0f0f); // 1111000011110000
+    const __m256i mask8bit = _mm256_set1_epi16(0x00ff); // 0000000011111111
+    
+    const uint32_t n_cycles = len / (4096 * (16*16));
+    const uint32_t n_total  = len / (16*16);
+    uint16_t tmp[16];
 
-  for (size_t i = 0; i + 16*16 <= len; i += 16*16) {
-    __m256i input0 = _mm256_loadu_si256((__m256i *)(array + i + 0x0*16));
-    __m256i input1 = _mm256_loadu_si256((__m256i *)(array + i + 0x1*16));
-    __m256i input2 = _mm256_loadu_si256((__m256i *)(array + i + 0x2*16));
-    __m256i input3 = _mm256_loadu_si256((__m256i *)(array + i + 0x3*16));
-    __m256i input4 = _mm256_loadu_si256((__m256i *)(array + i + 0x4*16));
-    __m256i input5 = _mm256_loadu_si256((__m256i *)(array + i + 0x5*16));
-    __m256i input6 = _mm256_loadu_si256((__m256i *)(array + i + 0x6*16));
-    __m256i input7 = _mm256_loadu_si256((__m256i *)(array + i + 0x7*16));
-    __m256i input8 = _mm256_loadu_si256((__m256i *)(array + i + 0x8*16));
-    __m256i input9 = _mm256_loadu_si256((__m256i *)(array + i + 0x9*16));
-    __m256i inputa = _mm256_loadu_si256((__m256i *)(array + i + 0xa*16));
-    __m256i inputb = _mm256_loadu_si256((__m256i *)(array + i + 0xb*16));
-    __m256i inputc = _mm256_loadu_si256((__m256i *)(array + i + 0xc*16));
-    __m256i inputd = _mm256_loadu_si256((__m256i *)(array + i + 0xd*16));
-    __m256i inpute = _mm256_loadu_si256((__m256i *)(array + i + 0xe*16));
-    __m256i inputf = _mm256_loadu_si256((__m256i *)(array + i + 0xf*16));
+/*------ Macros --------*/
+#define LL(i,p,k)  const __m256i sum##p##k##_##i##bit_even = _mm256_add_epi8(input##p & mask##i##bit, input##k & mask##i##bit);
+#define LO(i,p,k)  const __m256i sum##p##k##_##i##bit_odd  = _mm256_add_epi8(_mm256_srli_epi16(input##p, i) & mask##i##bit, _mm256_srli_epi16(input##k, i) & mask##i##bit);
 
-    // 1 bit -> 2-bit sums
-    const __m256i sum01_1bit_even = _mm256_add_epi8(input0 & mask1bit, input1 & mask1bit);
-    const __m256i sum23_1bit_even = _mm256_add_epi8(input2 & mask1bit, input3 & mask1bit);
-    const __m256i sum45_1bit_even = _mm256_add_epi8(input4 & mask1bit, input5 & mask1bit);
-    const __m256i sum67_1bit_even = _mm256_add_epi8(input6 & mask1bit, input7 & mask1bit);
-    const __m256i sum89_1bit_even = _mm256_add_epi8(input8 & mask1bit, input9 & mask1bit);
-    const __m256i sumab_1bit_even = _mm256_add_epi8(inputa & mask1bit, inputb & mask1bit);
-    const __m256i sumcd_1bit_even = _mm256_add_epi8(inputc & mask1bit, inputd & mask1bit);
-    const __m256i sumef_1bit_even = _mm256_add_epi8(inpute & mask1bit, inputf & mask1bit);
+#define LBLOCK(i)                                 \
+    LL(i,0,1) LL(i,2,3)   LL(i,4,5)   LL(i,6,7)   \
+    LL(i,8,9) LL(i,10,11) LL(i,12,13) LL(i,14,15) \
+    LO(i,0,1) LO(i,2,3)   LO(i,4,5)   LO(i,6,7)   \
+    LO(i,8,9) LO(i,10,11) LO(i,12,13) LO(i,14,15)
 
-    const __m256i sum01_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(input0, 1) & mask1bit, _mm256_srli_epi16(input1, 1) & mask1bit);
-    const __m256i sum23_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(input2, 1) & mask1bit, _mm256_srli_epi16(input3, 1) & mask1bit);
-    const __m256i sum45_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(input4, 1) & mask1bit, _mm256_srli_epi16(input5, 1) & mask1bit);
-    const __m256i sum67_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(input6, 1) & mask1bit, _mm256_srli_epi16(input7, 1) & mask1bit);
-    const __m256i sum89_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(input8, 1) & mask1bit, _mm256_srli_epi16(input9, 1) & mask1bit);
-    const __m256i sumab_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(inputa, 1) & mask1bit, _mm256_srli_epi16(inputb, 1) & mask1bit);
-    const __m256i sumcd_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(inputc, 1) & mask1bit, _mm256_srli_epi16(inputd, 1) & mask1bit);
-    const __m256i sumef_1bit_odd = _mm256_add_epi8(_mm256_srli_epi16(inpute, 1) & mask1bit, _mm256_srli_epi16(inputf, 1) & mask1bit);
+#define EVEN(b,i,k,p) input##i = sum##k##p##_##b##bit_even;
+#define ODD(b,i,k,p)  input##i = sum##k##p##_##b##bit_odd;
 
-    // 2-bit -> 4 bit sums
-    input0 = sum01_1bit_even;
-    input1 = sum23_1bit_even;
-    input2 = sum45_1bit_even;
-    input3 = sum67_1bit_even;
-    input4 = sum89_1bit_even;
-    input5 = sumab_1bit_even;
-    input6 = sumcd_1bit_even;
-    input7 = sumef_1bit_even;
+#define UPDATE(i)                                                  \
+    EVEN(i,0,0,1) EVEN(i,1,2,3)   EVEN(i,2,4,5)   EVEN(i,3,6,7)    \
+    EVEN(i,4,8,9) EVEN(i,5,10,11) EVEN(i,6,12,13) EVEN(i,7,14,15)  \
+     ODD(i,8,0,1)  ODD(i,9,2,3)    ODD(i,10,4,5)   ODD(i,11,6,7)   \
+     ODD(i,12,8,9) ODD(i,13,10,11) ODD(i,14,12,13) ODD(i,15,14,15) \
 
-    input8 = sum01_1bit_odd;
-    input9 = sum23_1bit_odd;
-    inputa = sum45_1bit_odd;
-    inputb = sum67_1bit_odd;
-    inputc = sum89_1bit_odd;
-    inputd = sumab_1bit_odd;
-    inpute = sumcd_1bit_odd;
-    inputf = sumef_1bit_odd;
+#define UE(i,p,k) counters[i] = _mm256_add_epi16(counters[i], sum##p##k##_8bit_even);
+#define UO(i,p,k) counters[i] = _mm256_add_epi16(counters[i], sum##p##k##_8bit_odd);
 
-    const __m256i sum01_2bits_even = _mm256_add_epi8(input0 & mask2bits, input1 & mask2bits);
-    const __m256i sum23_2bits_even = _mm256_add_epi8(input2 & mask2bits, input3 & mask2bits);
-    const __m256i sum45_2bits_even = _mm256_add_epi8(input4 & mask2bits, input5 & mask2bits);
-    const __m256i sum67_2bits_even = _mm256_add_epi8(input6 & mask2bits, input7 & mask2bits);
-    const __m256i sum89_2bits_even = _mm256_add_epi8(input8 & mask2bits, input9 & mask2bits);
-    const __m256i sumab_2bits_even = _mm256_add_epi8(inputa & mask2bits, inputb & mask2bits);
-    const __m256i sumcd_2bits_even = _mm256_add_epi8(inputc & mask2bits, inputd & mask2bits);
-    const __m256i sumef_2bits_even = _mm256_add_epi8(inpute & mask2bits, inputf & mask2bits);
+/*------ Start --------*/
+#define L(p) __m256i input##p = _mm256_loadu_si256((__m256i*)(array + i*4096*256 + j*256 + p*16));
+    size_t i = 0;
+    for (/**/; i < n_cycles; ++i) {
+        for (int j = 0; j < 4096; ++j) {
+            // Load 16 registers.
+            L(0)  L(1)  L(2)  L(3)  
+            L(4)  L(5)  L(6)  L(7) 
+            L(8)  L(9)  L(10) L(11) 
+            L(12) L(13) L(14) L(15)
 
-    const __m256i sum01_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input0, 2) & mask2bits, _mm256_srli_epi16(input1, 2) & mask2bits);
-    const __m256i sum23_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input2, 2) & mask2bits, _mm256_srli_epi16(input3, 2) & mask2bits);
-    const __m256i sum45_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input4, 2) & mask2bits, _mm256_srli_epi16(input5, 2) & mask2bits);
-    const __m256i sum67_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input6, 2) & mask2bits, _mm256_srli_epi16(input7, 2) & mask2bits);
-    const __m256i sum89_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input8, 2) & mask2bits, _mm256_srli_epi16(input9, 2) & mask2bits);
-    const __m256i sumab_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(inputa, 2) & mask2bits, _mm256_srli_epi16(inputb, 2) & mask2bits);
-    const __m256i sumcd_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(inputc, 2) & mask2bits, _mm256_srli_epi16(inputd, 2) & mask2bits);
-    const __m256i sumef_2bits_odd = _mm256_add_epi8(_mm256_srli_epi16(inpute, 2) & mask2bits, _mm256_srli_epi16(inputf, 2) & mask2bits);
+            // Perform updates for bits {1,2,4,8}.
+            LBLOCK(1) UPDATE(1)
+            LBLOCK(2) UPDATE(2)
+            LBLOCK(4) UPDATE(4)
+            LBLOCK(8) UPDATE(8)
 
-    // 4-bit -> 8-bit sums
-    input0 = sum01_2bits_even;
-    input1 = sum23_2bits_even;
-    input2 = sum45_2bits_even;
-    input3 = sum67_2bits_even;
-    input4 = sum89_2bits_even;
-    input5 = sumab_2bits_even;
-    input6 = sumcd_2bits_even;
-    input7 = sumef_2bits_even;
+            // Update accumulators.
+            UE( 0,0,1) UE( 1, 2, 3) UE( 2, 4, 5) UE( 3, 6, 7)  
+            UE( 4,8,9) UE( 5,10,11) UE( 6,12,13) UE( 7,14,15) 
+            UO( 8,0,1) UO( 9, 2, 3) UO(10, 4, 5) UO(11, 6, 7) 
+            UO(12,8,9) UO(13,10,11) UO(14,12,13) UO(15,14,15)
+        }
 
-    input8 = sum01_2bits_odd;
-    input9 = sum23_2bits_odd;
-    inputa = sum45_2bits_odd;
-    inputb = sum67_2bits_odd;
-    inputc = sum89_2bits_odd;
-    inputd = sumab_2bits_odd;
-    inpute = sumcd_2bits_odd;
-    inputf = sumef_2bits_odd;
+        // Update.
+        for (size_t i = 0; i < 16; i++) {
+            _mm256_storeu_si256((__m256i*)tmp, counters[i]);
+            for (int j = 0; j < 16; j++)
+                flags[i] += tmp[j];
+        }
+        // Reset.
+        for (size_t i = 0; i < 16; i++) {
+            counters[i] = _mm256_setzero_si256();
+        }
+    }
+#undef L
+#define L(p) __m256i input##p = _mm256_loadu_si256((__m256i*)(array + i*256 + p*16));
+    i *= 4096;
+    for (/**/; i < n_total; ++i) {
+        // Load 16 registers.
+        L(0)  L(1)  L(2)  L(3)  
+        L(4)  L(5)  L(6)  L(7) 
+        L(8)  L(9)  L(10) L(11) 
+        L(12) L(13) L(14) L(15)
 
-    const __m256i sum01_4bits_even = _mm256_add_epi8(input0 & mask4bits, input1 & mask4bits);
-    const __m256i sum23_4bits_even = _mm256_add_epi8(input2 & mask4bits, input3 & mask4bits);
-    const __m256i sum45_4bits_even = _mm256_add_epi8(input4 & mask4bits, input5 & mask4bits);
-    const __m256i sum67_4bits_even = _mm256_add_epi8(input6 & mask4bits, input7 & mask4bits);
-    const __m256i sum89_4bits_even = _mm256_add_epi8(input8 & mask4bits, input9 & mask4bits);
-    const __m256i sumab_4bits_even = _mm256_add_epi8(inputa & mask4bits, inputb & mask4bits);
-    const __m256i sumcd_4bits_even = _mm256_add_epi8(inputc & mask4bits, inputd & mask4bits);
-    const __m256i sumef_4bits_even = _mm256_add_epi8(inpute & mask4bits, inputf & mask4bits);
+        // Perform updates for bits {1,2,4,8}.
+        LBLOCK(1) UPDATE(1)
+        LBLOCK(2) UPDATE(2)
+        LBLOCK(4) UPDATE(4)
+        LBLOCK(8) UPDATE(8)
 
-    const __m256i sum01_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input0, 4) & mask4bits, _mm256_srli_epi16(input1, 4) & mask4bits);
-    const __m256i sum23_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input2, 4) & mask4bits, _mm256_srli_epi16(input3, 4) & mask4bits);
-    const __m256i sum45_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input4, 4) & mask4bits, _mm256_srli_epi16(input5, 4) & mask4bits);
-    const __m256i sum67_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input6, 4) & mask4bits, _mm256_srli_epi16(input7, 4) & mask4bits);
-    const __m256i sum89_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(input8, 4) & mask4bits, _mm256_srli_epi16(input9, 4) & mask4bits);
-    const __m256i sumab_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(inputa, 4) & mask4bits, _mm256_srli_epi16(inputb, 4) & mask4bits);
-    const __m256i sumcd_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(inputc, 4) & mask4bits, _mm256_srli_epi16(inputd, 4) & mask4bits);
-    const __m256i sumef_4bits_odd = _mm256_add_epi8(_mm256_srli_epi16(inpute, 4) & mask4bits, _mm256_srli_epi16(inputf, 4) & mask4bits);
+        // Update accumulators.
+        UE( 0,0,1) UE( 1, 2, 3) UE( 2, 4, 5) UE( 3, 6, 7)  
+        UE( 4,8,9) UE( 5,10,11) UE( 6,12,13) UE( 7,14,15) 
+        UO( 8,0,1) UO( 9, 2, 3) UO(10, 4, 5) UO(11, 6, 7) 
+        UO(12,8,9) UO(13,10,11) UO(14,12,13) UO(15,14,15)
+    }
 
-    // 8-bit -> 16-bit sums
-    input0 = sum01_4bits_even;
-    input1 = sum23_4bits_even;
-    input2 = sum45_4bits_even;
-    input3 = sum67_4bits_even;
-    input4 = sum89_4bits_even;
-    input5 = sumab_4bits_even;
-    input6 = sumcd_4bits_even;
-    input7 = sumef_4bits_even;
+    i *= 256;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
 
-    input8 = sum01_4bits_odd;
-    input9 = sum23_4bits_odd;
-    inputa = sum45_4bits_odd;
-    inputb = sum67_4bits_odd;
-    inputc = sum89_4bits_odd;
-    inputd = sumab_4bits_odd;
-    inpute = sumcd_4bits_odd;
-    inputf = sumef_4bits_odd;
+#undef L
+#undef UPDATE
+#undef ODD
+#undef EVEN
+#undef LBLOCK
+#undef LL
+#undef LO
+#undef UO
+#undef UE
 
-    const __m256i sum01_8bits_even = _mm256_add_epi16(input0 & mask8bits, input1 & mask8bits);
-    const __m256i sum23_8bits_even = _mm256_add_epi16(input2 & mask8bits, input3 & mask8bits);
-    const __m256i sum45_8bits_even = _mm256_add_epi16(input4 & mask8bits, input5 & mask8bits);
-    const __m256i sum67_8bits_even = _mm256_add_epi16(input6 & mask8bits, input7 & mask8bits);
-    const __m256i sum89_8bits_even = _mm256_add_epi16(input8 & mask8bits, input9 & mask8bits);
-    const __m256i sumab_8bits_even = _mm256_add_epi16(inputa & mask8bits, inputb & mask8bits);
-    const __m256i sumcd_8bits_even = _mm256_add_epi16(inputc & mask8bits, inputd & mask8bits);
-    const __m256i sumef_8bits_even = _mm256_add_epi16(inpute & mask8bits, inputf & mask8bits);
+    for (size_t i = 0; i < 16; i++) {
+        _mm256_storeu_si256((__m256i*)tmp, counters[i]);
+        for (int j = 0; j < 16; j++)
+            flags[i] += tmp[j];
+    }
+    return 0;
+}
 
-    const __m256i sum01_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(input0, 8) & mask8bits, _mm256_srli_epi16(input1, 8) & mask8bits);
-    const __m256i sum23_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(input2, 8) & mask8bits, _mm256_srli_epi16(input3, 8) & mask8bits);
-    const __m256i sum45_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(input4, 8) & mask8bits, _mm256_srli_epi16(input5, 8) & mask8bits);
-    const __m256i sum67_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(input6, 8) & mask8bits, _mm256_srli_epi16(input7, 8) & mask8bits);
-    const __m256i sum89_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(input8, 8) & mask8bits, _mm256_srli_epi16(input9, 8) & mask8bits);
-    const __m256i sumab_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(inputa, 8) & mask8bits, _mm256_srli_epi16(inputb, 8) & mask8bits);
-    const __m256i sumcd_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(inputc, 8) & mask8bits, _mm256_srli_epi16(inputd, 8) & mask8bits);
-    const __m256i sumef_8bits_odd = _mm256_add_epi16(_mm256_srli_epi16(inpute, 8) & mask8bits, _mm256_srli_epi16(inputf, 8) & mask8bits);
+int pospopcnt_u16_avx2_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    //for (size_t i = 0; i < 16; i++) flags[i] = 0;
+    for (uint32_t i = len - (len % (16 * 16)); i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+    const __m256i*data = (const __m256i*)array;
+    size_t size = len / 16;
+    __m256i ones  = _mm256_setzero_si256();
+    __m256i twos  = _mm256_setzero_si256();
+    __m256i fours = _mm256_setzero_si256();
+    __m256i eights   = _mm256_setzero_si256();
+    __m256i sixteens = _mm256_setzero_si256();
+    __m256i twosA, twosB, foursA, foursB, eightsA, eightsB;
 
-    counters[0x0] = _mm256_add_epi16(counters[0x0], sum01_8bits_even);
-    counters[0x1] = _mm256_add_epi16(counters[0x1], sum23_8bits_even);
-    counters[0x2] = _mm256_add_epi16(counters[0x2], sum45_8bits_even);
-    counters[0x3] = _mm256_add_epi16(counters[0x3], sum67_8bits_even);
-    counters[0x4] = _mm256_add_epi16(counters[0x4], sum89_8bits_even);
-    counters[0x5] = _mm256_add_epi16(counters[0x5], sumab_8bits_even);
-    counters[0x6] = _mm256_add_epi16(counters[0x6], sumcd_8bits_even);
-    counters[0x7] = _mm256_add_epi16(counters[0x7], sumef_8bits_even);
+    const uint64_t limit = size - size % 16;
+    uint64_t i = 0;
 
-    counters[0x8] = _mm256_add_epi16(counters[0x8], sum01_8bits_odd);
-    counters[0x9] = _mm256_add_epi16(counters[0x9], sum23_8bits_odd);
-    counters[0xa] = _mm256_add_epi16(counters[0xa], sum45_8bits_odd);
-    counters[0xb] = _mm256_add_epi16(counters[0xb], sum67_8bits_odd);
-    counters[0xc] = _mm256_add_epi16(counters[0xc], sum89_8bits_odd);
-    counters[0xd] = _mm256_add_epi16(counters[0xd], sumab_8bits_odd);
-    counters[0xe] = _mm256_add_epi16(counters[0xe], sumcd_8bits_odd);
-    counters[0xf] = _mm256_add_epi16(counters[0xf], sumef_8bits_odd);
-  }
+    uint16_t buffer[16];
 
-  uint16_t tmp[16];
-  for (size_t i = 0; i < 16; i++) {
-    _mm256_storeu_si256((__m256i*)tmp, counters[i]);
-    flags[i] = 0;
-    for (int j=0; j < 16; j++)
-      flags[i] += tmp[j];
-  }
-  return 0;
+    // uint16_t x = 0;
+    while (i < limit) {
+        __m256i counter[16];
+        for (size_t i = 0; i < 16; i++) {
+            counter[i] = _mm256_setzero_si256();
+        }
+
+        size_t thislimit = limit;
+        if (thislimit - i >= (1 << 16))
+            thislimit = i + (1 << 16) - 1;
+
+        for (/**/; i < thislimit; i += 16) {
+            CSA_AVX2(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 0), _mm256_lddqu_si256(data + i + 1));
+            CSA_AVX2(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 2), _mm256_lddqu_si256(data + i + 3));
+            CSA_AVX2(&foursA, &twos, twos, twosA, twosB);
+            CSA_AVX2(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 4), _mm256_lddqu_si256(data + i + 5));
+            CSA_AVX2(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 6), _mm256_lddqu_si256(data + i + 7));
+            CSA_AVX2(&foursB, &twos, twos, twosA, twosB);
+            CSA_AVX2(&eightsA, &fours, fours, foursA, foursB);
+            CSA_AVX2(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 8),  _mm256_lddqu_si256(data + i + 9));
+            CSA_AVX2(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 10), _mm256_lddqu_si256(data + i + 11));
+            CSA_AVX2(&foursA, &twos, twos, twosA, twosB);
+            CSA_AVX2(&twosA, &ones, ones, _mm256_lddqu_si256(data + i + 12), _mm256_lddqu_si256(data + i + 13));
+            CSA_AVX2(&twosB, &ones, ones, _mm256_lddqu_si256(data + i + 14), _mm256_lddqu_si256(data + i + 15));
+            CSA_AVX2(&foursB, &twos, twos, twosA, twosB);
+            CSA_AVX2(&eightsB, &fours, fours, foursA, foursB);
+            CSA_AVX2(&sixteens, &eights, eights, eightsA, eightsB);
+
+            for (size_t i = 0; i < 16; i++) {
+                counter[i] = _mm256_add_epi16(counter[i], _mm256_and_si256(sixteens, _mm256_set1_epi16(1)));
+                sixteens   = _mm256_srli_epi16(sixteens, 1);
+            }
+        }
+        
+        for (size_t i = 0; i < 16; i++) {
+            _mm256_storeu_si256((__m256i*)buffer, counter[i]);
+            for (size_t z = 0; z < 16; z++) {
+                flags[i] += buffer[z] * 16;
+            }
+        }
+    }
+
+    _mm256_storeu_si256((__m256i*)buffer, ones);
+    for (size_t i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm256_storeu_si256((__m256i*)buffer, twos);
+    for (size_t i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm256_storeu_si256((__m256i*)buffer, fours);
+    for (size_t i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm256_storeu_si256((__m256i*)buffer, eights);
+    for (size_t i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    return 0;
 }
 
 int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* array, uint32_t len, uint32_t* flags) {
@@ -1236,10 +1215,6 @@ int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* array, uint32_t len, uint32_
 #undef A
 #undef P0
 #undef P
-
-    //std::cerr << "mula-unroll4=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
     return 0;
 }
@@ -1308,10 +1283,6 @@ int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* array, uint32_t len, uint32_
 #undef P0
 #undef P
 
-    //std::cerr << "mula-unroll8=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-    
     return 0;
 }
 
@@ -1394,10 +1365,6 @@ int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* array, uint32_t len, uint32
             flags[j] += ((array[i] & (1 << j)) >> j);
         }
     }
-
-    //std::cerr << "mula-unroll16=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
     return 0;
 }
@@ -1409,6 +1376,7 @@ int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t n, uint32_t* flags) {
 int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_mula3(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
 #if SIMD_VERSION >= 3
@@ -1438,10 +1406,6 @@ int pospopcnt_u16_sse_mula(const uint16_t* array, uint32_t len, uint32_t* flags)
             flags[j] += ((array[i] & (1 << j)) >> j);
         }
     }
-
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
     return 0;
 }
@@ -1500,10 +1464,6 @@ int pospopcnt_u16_sse_mula_unroll4(const uint16_t* array, uint32_t len, uint32_t
 #undef A
 #undef P0
 #undef P
-
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
     return 0;
 }
@@ -1574,10 +1534,6 @@ int pospopcnt_u16_sse_mula_unroll8(const uint16_t* array, uint32_t len, uint32_t
 #undef P0
 #undef P
 
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-    
     return 0;
 }
 
@@ -1663,10 +1619,6 @@ int pospopcnt_u16_sse_mula_unroll16(const uint16_t* array, uint32_t len, uint32_
 #undef A
 #undef P0
 #undef P
-
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
     return 0;
 }
@@ -1675,6 +1627,7 @@ int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags) { 
 int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx2_csa(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 #endif
 
 #if SIMD_VERSION >= 6
@@ -1684,8 +1637,8 @@ int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flag
 
     size_t i = 0;
     for (/**/; i + 2 <= n_cycles; i += 2) {
-        __m512i v0 = _mm512_loadu_si512(data_vectors+i);// don't assume alignment
-        __m512i v1 = _mm512_loadu_si512(data_vectors+i+1);// don't assume alignment
+        __m512i v0 = _mm512_loadu_si512(data_vectors+i);
+        __m512i v1 = _mm512_loadu_si512(data_vectors+i+1);
 
         __m512i input0 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v1, 8));
         __m512i input1 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v1, 8));
@@ -1705,10 +1658,6 @@ int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flag
         }
     }
 
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-    
     return 0;
 }
 
@@ -1766,10 +1715,6 @@ int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32
 #undef A
 #undef P0
 #undef P
-
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
     return 0;
 }
@@ -1839,15 +1784,226 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32
 #undef A
 #undef P0
 #undef P
-
-    //std::cerr << "mula=";
-    //for (int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
     
+    return 0;
+}
+
+int pospopcnt_u16_avx512_mula3(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    __m512i counters[16];
+
+    for (size_t i = 0; i < 16; i++) {
+        counters[i] = _mm512_setzero_si512();
+    }
+
+    const __m512i mask1bit = _mm512_set1_epi16(0x5555); // 0101010101010101
+    const __m512i mask2bit = _mm512_set1_epi16(0x3333); // 0011001100110011
+    const __m512i mask4bit = _mm512_set1_epi16(0x0f0f); // 1111000011110000
+    const __m512i mask8bit = _mm512_set1_epi16(0x00ff); // 0000000011111111
+    
+    const uint32_t n_cycles = len / (2048 * (16*32));
+    const uint32_t n_total  = len / (16*32);
+    uint16_t tmp[32];
+
+/*------ Macros --------*/
+#define LL(i,p,k)  const __m512i sum##p##k##_##i##bit_even = _mm512_add_epi8(input##p & mask##i##bit, input##k & mask##i##bit);
+#define LO(i,p,k)  const __m512i sum##p##k##_##i##bit_odd  = _mm512_add_epi8(_mm512_srli_epi16(input##p, i) & mask##i##bit, _mm512_srli_epi16(input##k, i) & mask##i##bit);
+
+#define LBLOCK(i)                                 \
+    LL(i,0,1) LL(i,2,3)   LL(i,4,5)   LL(i,6,7)   \
+    LL(i,8,9) LL(i,10,11) LL(i,12,13) LL(i,14,15) \
+    LO(i,0,1) LO(i,2,3)   LO(i,4,5)   LO(i,6,7)   \
+    LO(i,8,9) LO(i,10,11) LO(i,12,13) LO(i,14,15)
+
+#define EVEN(b,i,k,p) input##i = sum##k##p##_##b##bit_even;
+#define ODD(b,i,k,p)  input##i = sum##k##p##_##b##bit_odd;
+
+#define UPDATE(i)                                                  \
+    EVEN(i,0,0,1) EVEN(i,1,2,3)   EVEN(i,2,4,5)   EVEN(i,3,6,7)    \
+    EVEN(i,4,8,9) EVEN(i,5,10,11) EVEN(i,6,12,13) EVEN(i,7,14,15)  \
+     ODD(i,8,0,1)  ODD(i,9,2,3)    ODD(i,10,4,5)   ODD(i,11,6,7)   \
+     ODD(i,12,8,9) ODD(i,13,10,11) ODD(i,14,12,13) ODD(i,15,14,15) \
+
+#define UE(i,p,k) counters[i] = _mm512_add_epi16(counters[i], sum##p##k##_8bit_even);
+#define UO(i,p,k) counters[i] = _mm512_add_epi16(counters[i], sum##p##k##_8bit_odd);
+
+/*------ Start --------*/
+#define L(p) __m512i input##p = _mm512_loadu_si512((__m512i*)(array + i*2048*512 + j*512 + p*32));
+    size_t i = 0;
+    for (/**/; i < n_cycles; ++i) {
+        for (int j = 0; j < 2048; ++j) {
+            // Load 16 registers.
+            L(0)  L(1)  L(2)  L(3)  
+            L(4)  L(5)  L(6)  L(7) 
+            L(8)  L(9)  L(10) L(11) 
+            L(12) L(13) L(14) L(15)
+
+            // Perform updates for bits {1,2,4,8}.
+            LBLOCK(1) UPDATE(1)
+            LBLOCK(2) UPDATE(2)
+            LBLOCK(4) UPDATE(4)
+            LBLOCK(8) UPDATE(8)
+
+            // Update accumulators.
+            UE( 0,0,1) UE( 1, 2, 3) UE( 2, 4, 5) UE( 3, 6, 7)  
+            UE( 4,8,9) UE( 5,10,11) UE( 6,12,13) UE( 7,14,15) 
+            UO( 8,0,1) UO( 9, 2, 3) UO(10, 4, 5) UO(11, 6, 7) 
+            UO(12,8,9) UO(13,10,11) UO(14,12,13) UO(15,14,15)
+        }
+
+        // Update.
+        for (size_t i = 0; i < 16; i++) {
+            _mm512_storeu_si512((__m512i*)tmp, counters[i]);
+            for (int j = 0; j < 32; j++) flags[i] += tmp[j];
+        }
+        // Reset.
+        for (size_t i = 0; i < 16; i++) {
+            counters[i] = _mm512_setzero_si512();
+        }
+    }
+#undef L
+#define L(p) __m512i input##p = _mm512_loadu_si512((__m512i*)(array + i*512 + p*32));
+    i *= 2048;
+    for (/**/; i < n_total; ++i) {
+        // Load 16 registers.
+        L(0)  L(1)  L(2)  L(3)  
+        L(4)  L(5)  L(6)  L(7) 
+        L(8)  L(9)  L(10) L(11) 
+        L(12) L(13) L(14) L(15)
+
+        // Perform updates for bits {1,2,4,8}.
+        LBLOCK(1) UPDATE(1)
+        LBLOCK(2) UPDATE(2)
+        LBLOCK(4) UPDATE(4)
+        LBLOCK(8) UPDATE(8)
+
+        // Update accumulators.
+        UE( 0,0,1) UE( 1, 2, 3) UE( 2, 4, 5) UE( 3, 6, 7)  
+        UE( 4,8,9) UE( 5,10,11) UE( 6,12,13) UE( 7,14,15) 
+        UO( 8,0,1) UO( 9, 2, 3) UO(10, 4, 5) UO(11, 6, 7) 
+        UO(12,8,9) UO(13,10,11) UO(14,12,13) UO(15,14,15)
+    }
+
+    i *= 512;
+    for (/**/; i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+#undef L
+#undef UPDATE
+#undef ODD
+#undef EVEN
+#undef LBLOCK
+#undef LL
+#undef LO
+#undef UO
+#undef UE
+
+    for (size_t i = 0; i < 16; i++) {
+        _mm512_storeu_si512((__m512i*)tmp, counters[i]);
+        for (int j = 0; j < 32; j++) flags[i] += tmp[j];
+    }
+    return 0;
+}
+
+int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    //for (size_t i = 0; i < 16; i++) flags[i] = 0;
+    for (uint32_t i = len - (len % (32 * 16)); i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    const __m512i* data = (const __m512i*)array;
+    __m512i ones  = _mm512_setzero_si512();
+    __m512i twos  = _mm512_setzero_si512();
+    __m512i fours = _mm512_setzero_si512();
+    __m512i eights   = _mm512_setzero_si512();
+    __m512i sixteens = _mm512_setzero_si512();
+    __m512i twosA, twosB, foursA, foursB, eightsA, eightsB;
+
+    const size_t size = len / 32;
+    const uint64_t limit = size - size % 16;
+
+    uint16_t buffer[32];
+
+    // uint16_t x = 0;
+    uint64_t i = 0;
+    while (i < limit) {
+        __m512i counter[16];
+        for (size_t i = 0; i < 16; i++) {
+            counter[i] = _mm512_setzero_si512();
+        }
+
+        size_t thislimit = limit;
+        if (thislimit - i >= (1 << 16))
+            thislimit = i + (1 << 16) - 1;
+
+        for (/**/; i < thislimit; i += 16) {
+            CSA_AVX512(&twosA, &ones, ones, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
+            CSA_AVX512(&twosB, &ones, ones, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
+            CSA_AVX512(&foursA, &twos, twos, twosA, twosB);
+            CSA_AVX512(&twosA, &ones, ones, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
+            CSA_AVX512(&twosB, &ones, ones, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
+            CSA_AVX512(&foursB, &twos, twos, twosA, twosB);
+            CSA_AVX512(&eightsA, &fours, fours, foursA, foursB);
+            CSA_AVX512(&twosA, &ones, ones, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
+            CSA_AVX512(&twosB, &ones, ones, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
+            CSA_AVX512(&foursA, &twos, twos, twosA, twosB);
+            CSA_AVX512(&twosA, &ones, ones, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
+            CSA_AVX512(&twosB, &ones, ones, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
+            CSA_AVX512(&foursB, &twos, twos, twosA, twosB);
+            CSA_AVX512(&eightsB, &fours, fours, foursA, foursB);
+            CSA_AVX512(&sixteens, &eights, eights, eightsA, eightsB);
+
+            for (size_t i = 0; i < 16; i++) {
+                counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(sixteens, _mm512_set1_epi16(1)));
+                sixteens   = _mm512_srli_epi16(sixteens, 1);
+            }
+        }
+        
+        for (size_t i = 0; i < 16; i++) {
+            _mm512_storeu_si512((__m512i*)buffer, counter[i]);
+            for (size_t z = 0; z < 32; z++) {
+                flags[i] += buffer[z] * 16;
+            }
+        }
+    }
+
+    _mm512_storeu_si512((__m512i*)buffer, ones);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 1 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm512_storeu_si512((__m512i*)buffer, twos);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    
+    _mm512_storeu_si512((__m512i*)buffer, fours);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm512_storeu_si512((__m512i*)buffer, eights);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
     return 0;
 }
 #else
 int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t n, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
 #endif
