@@ -38,7 +38,9 @@ fast_flag_stats: fast_flagstats.o main.o
 
 itest: instrumented_benchmark
 	$(CXX) --version
-	sudo ./instrumented_benchmark
+	./instrumented_benchmark
+# running a benchmark as 'sudo' is a security issue and should never be necessary.
+
 
 instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h fast_flagstats.h fast_flagstats.c
 	$(CXX) $(CPPFLAGS) fast_flagstats.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
