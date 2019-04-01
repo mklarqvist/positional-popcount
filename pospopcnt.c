@@ -573,28 +573,37 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
     _mm_storeu_si128((__m128i*)&flag_counts[8], counter_BA98);
     _mm_storeu_si128((__m128i*)&flag_counts[12], counter_FEDC);
 
-
     // scalar tail loop
-    for (int i = n & 31; i != 0; i--) {
-        uint16_t x = *data++;
-        flag_counts[0] += x & 1;
-        flag_counts[1] += (x >> 1) & 0x01;
-        flag_counts[2] += (x >> 2) & 0x01;
-        flag_counts[3] += (x >> 3) & 0x01;
-        flag_counts[4] += (x >> 4) & 0x01;
-        flag_counts[5] += (x >> 5) & 0x01;
-        flag_counts[6] += (x >> 6) & 0x01;
-        flag_counts[7] += (x >> 7) & 0x01;
-        x >>= 8;
-        flag_counts[8]  += x & 1;
-        flag_counts[9]  += (x >> 1) & 0x01;
-        flag_counts[10] += (x >> 2) & 0x01;
-        flag_counts[11] += (x >> 3) & 0x01;
-        flag_counts[12] += (x >> 4) & 0x01;
-        flag_counts[13] += (x >> 5) & 0x01;
-        flag_counts[14] += (x >> 6) & 0x01;
-        flag_counts[15] += (x >> 7) & 0x01;
+    uint64_t countsA = 0;
+    uint64_t countsB = 0;
+    for (int i = n & 31; i != 0; i--)
+    {
+        // zero-extend a bit to 8-bits then accumulate
+        // (emulate pdep)
+        const uint64_t mask_01 = UINT64_C(0x0101010101010101);
+        const uint64_t magic = UINT64_C(0x0000040010004001); // 1+(1<<14)+(1<<28)+(1<<42)
+        uint64_t x = *data++;
+        countsA += ((x & 0x5555) * magic) & mask_01;
+        countsB += (((x >> 1) & 0x5555) * magic) & mask_01;
     }
+
+    // transpose then store counters
+    flag_counts[0]  += countsA & 0xFF;
+    flag_counts[8]  += (countsA >> 8) & 0xFF;
+    flag_counts[2]  += (countsA >> 16) & 0xFF;
+    flag_counts[10] += (countsA >> 24) & 0xFF;
+    flag_counts[4]  += (countsA >> 32) & 0xFF;
+    flag_counts[12] += (countsA >> 40) & 0xFF;
+    flag_counts[6]  += (countsA >> 48) & 0xFF;
+    flag_counts[14] += (countsA >> 56) & 0xFF;
+    flag_counts[1]  += countsB & 0xFF;
+    flag_counts[9]  += (countsB >> 8) & 0xFF;
+    flag_counts[3]  += (countsB >> 16) & 0xFF;
+    flag_counts[11] += (countsB >> 24) & 0xFF;
+    flag_counts[5]  += (countsB >> 32) & 0xFF;
+    flag_counts[13] += (countsB >> 40) & 0xFF;
+    flag_counts[7]  += (countsB >> 48) & 0xFF;
+    flag_counts[15] += (countsB >> 56) & 0xFF;
 
     return 0;
 }
