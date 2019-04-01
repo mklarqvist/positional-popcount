@@ -142,9 +142,8 @@ PPOPCNT_INLINE void POSPOPCNT_CSA_AVX512(__m512i* __restrict__ h,
                                          __m512i* __restrict__ l, 
                                          __m512i b, __m512i c) 
 {
-     const __m512i u = _mm512_xor_si512(*l, b);
-     *h = _mm512_or_si512(*l & b, u & c);
-     *l = _mm512_xor_si512(u, c);
+     *h = _mm512_ternarylogic_epi32(c, b, *l, 0xe8);
+     *l = _mm512_ternarylogic_epi32(c, b, *l, 0x96);
 }
 #endif // endif simd_version >= 6
 

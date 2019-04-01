@@ -15,6 +15,7 @@
 
 #include "pospopcnt.h"
 #include "linux-perf-events.h"
+#include "popcnt.h"
 
 typedef int (*pospopcnt16)(const uint16_t*, uint32_t, uint32_t*);
 
@@ -190,6 +191,57 @@ bool benchmark(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose, bo
     return isok;
 }
 
+void measurepopcnt(uint16_t n, uint32_t iterations, bool verbose) {
+    std::vector<int> evts;
+    std::vector<uint16_t> vdata(n);
+    evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
+    evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
+    evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
+    evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
+    evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
+    std::vector<unsigned long long> results; // tmp buffer
+    std::vector< std::vector<unsigned long long> > allresults;
+    results.resize(evts.size());
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 0xFFFF);
+
+    n = vdata.size() / (512 / 16) * (512/16);
+    for (uint32_t i = 0; i < iterations; i++) {
+        for (size_t k = 0; k < vdata.size(); k++) {
+            vdata[k] = dis(gen); // random init.
+        }
+        uint64_t expected = popcnt_harley_seal((const __m512i*) vdata.data(), vdata.size() / (512 / 16));       
+        unified.start();
+        uint64_t measured = popcnt_harley_seal((const __m512i*) vdata.data(), vdata.size() / (512 / 16));
+        unified.end(results);
+        assert(measured == expected);
+        allresults.push_back(results);
+    }
+
+    std::vector<unsigned long long> mins = computemins(allresults);
+    std::vector<double> avg = computeavgs(allresults);
+    printf("%-40s\t","avx512popcnt");    
+    if (verbose) {
+        printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+                "instructions per 16-bit word %4.3f \n",
+                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
+        // first we display mins
+        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+                "cache ref., %8llu cache mis.\n",
+                mins[0], mins[1], mins[2], mins[3], mins[4]);
+        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+                "cache ref., %8.1f cache mis.\n",
+                avg[0], avg[1], avg[2], avg[3], avg[4]);
+    } else {
+        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
+    }
+
+     
+}
+
 static void print_usage(char *command) {
     printf(" Try %s -n 100000 -i 15 -v \n", command);
     printf("-n is the number of 16-bit words \n");
@@ -235,7 +287,7 @@ int main(int argc, char **argv) {
         if (verbose)
             printf("\n");
     }
-
+    measurepopcnt(n, iterations, verbose);
     if (!verbose)
         printf("Try -v to get more details.\n");
 
