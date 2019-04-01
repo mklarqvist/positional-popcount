@@ -582,7 +582,7 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
             // zero-extend a bit to 8-bits then accumulate
             // (emulate pdep)
             const uint64_t mask_01 = UINT64_C(0x0101010101010101);
-            const uint64_t magic = UINT64_C(0x0000040010004001); // 1+(1<<14)+(x<<28)+(x<<42)
+            const uint64_t magic = UINT64_C(0x0000040010004001); // 1+(1<<14)+(1<<28)+(1<<42)
             uint64_t x = *data++;
             countsA += ((x & 0x5555) * magic) & mask_01;
             countsB += (((x >> 1) & 0x5555) * magic) & mask_01;
