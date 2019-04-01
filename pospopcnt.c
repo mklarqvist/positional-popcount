@@ -586,7 +586,7 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flag_count
             uint64_t x = *data++;
             countsA += ((x & 0x5555) * magic) & mask_01;
             countsB += (((x >> 1) & 0x5555) * magic) & mask_01;
-        } while(--tail);
+        } while (--tail);
 
         // transpose then store counters
         flag_counts[0]  += countsA & 0xFF;
