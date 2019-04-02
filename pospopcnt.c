@@ -576,7 +576,7 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flag_cou
     _mm_storeu_si128((__m128i*)&flag_counts[12], counter_FEDC);
 
     // scalar tail loop
-    int tail = n & 31;
+    int tail = len & 31;
     if (tail != 0) {
         uint64_t countsA = 0;
         uint64_t countsB = 0;
