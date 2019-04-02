@@ -246,7 +246,7 @@ static void print_usage(char *command) {
 
 int main(int argc, char **argv) {
     size_t n = 10000000;
-    size_t iterations = 100;
+    size_t iterations = 0; 
     bool verbose = false;
     int c;
 
@@ -276,10 +276,14 @@ int main(int argc, char **argv) {
        printf("setting iterations to %u \n", UINT32_MAX);
        iterations = UINT32_MAX;
     }
+    if(iterations == 0) {
+      if(n < 1000000) iterations = 100;
+      else iterations = 10;
+    }
     printf("n = %zu \n", n);
     printf("iterations = %zu \n", iterations);
-    if((iterations == 0)||(n == 0)) {
-       printf("neither iterations nor n can be zero.\n");
+    if(n == 0) {
+       printf("n cannot be zero.\n");
        return EXIT_FAILURE;
     }
     
