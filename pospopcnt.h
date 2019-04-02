@@ -152,7 +152,7 @@ PPOPCNT_INLINE void POSPOPCNT_CSA_AVX2(__m256i* __restrict__ h,
 }
 #endif // endif simd_version >= 5
 
-#if SIMD_VERSION >= 6
+#if POSPOPCNT_SIMD_VERSION >= 6
 // By Wojciech Muła
 // @see https://github.com/WojciechMula/sse-popcount/blob/master/popcnt-avx512-harley-seal.cpp#L3
 // @see https://arxiv.org/abs/1611.07612
