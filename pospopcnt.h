@@ -169,7 +169,7 @@ static inline __m512i avx512_popcount(const __m512i v) {
 }
 
 // 512i-version of pospopcnt_csa_AVX2
-PPOPCNT_INLINE void pospopcnt_csa_avx52(__m512i* __restrict__ h, 
+PPOPCNT_INLINE void pospopcnt_csa_avx512(__m512i* __restrict__ h, 
                                         __m512i* __restrict__ l, 
                                         __m512i b, __m512i c) 
 {
