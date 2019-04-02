@@ -2186,7 +2186,7 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
         sum[0xf] = _mm512_add_epi64(sum[0xf], _mm512_srli_epi32(sum_bf, 4));
     }
 
-    for (int j; j < 16; j++) {
+    for (int j = 0; j < 16; j++) {
         const __m128i dq0 = _mm512_extracti32x4_epi32(sum[j], 0);
         const __m128i dq1 = _mm512_extracti32x4_epi32(sum[j], 1);
         const __m128i dq2 = _mm512_extracti32x4_epi32(sum[j], 2);
