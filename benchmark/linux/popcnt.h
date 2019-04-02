@@ -2,6 +2,7 @@
 #define POPCNT
 #include <x86intrin.h>
 
+#if POSPOPCNT_SIMD_VERSION >= 5
 static __m256i avx2_popcount(const __m256i vec) {
 
       const __m256i lookup = _mm256_setr_epi8(
@@ -25,7 +26,16 @@ static __m256i avx2_popcount(const __m256i vec) {
 
       return _mm256_add_epi8(popcnt1, popcnt2);
 }
+static uint64_t avx2_sum_epu64(const __m256i v) {
+    
+    return _mm256_extract_epi64(v, 0)
+         + _mm256_extract_epi64(v, 1)
+         + _mm256_extract_epi64(v, 2)
+         + _mm256_extract_epi64(v, 3);
+}
+#endif
 
+#if POSPOPCNT_SIMD_VERSION >= 6
 static __m256i popcount(const __m512i v)
 {
     const __m256i lo = _mm512_extracti64x4_epi64(v, 0);
@@ -34,16 +44,6 @@ static __m256i popcount(const __m512i v)
 
     return _mm256_sad_epu8(s, _mm256_setzero_si256());
 }
-
-
-static uint64_t avx2_sum_epu64(const __m256i v) {
-    
-    return _mm256_extract_epi64(v, 0)
-         + _mm256_extract_epi64(v, 1)
-         + _mm256_extract_epi64(v, 2)
-         + _mm256_extract_epi64(v, 3);
-}
-
 
 static void CSA(__m512i* h, __m512i* l, __m512i a, __m512i b, __m512i c) {
 
@@ -99,5 +99,6 @@ static uint64_t popcnt_harley_seal(const __m512i* data, const uint64_t size)
 
   return avx2_sum_epu64(total);
 }
+#endif
 
 #endif

@@ -34,7 +34,7 @@ all: bench
 	$(CXX) $(CPPFLAGS)-c -o $@ $<
 
 bench: pospopcnt.o main.o
-	$(CXX) $(CPPFLAGS) -ffast-math pospopcnt.c main.cpp -o bench
+	$(CXX) $(CPPFLAGS) pospopcnt.c main.cpp -o bench
 
 itest: instrumented_benchmark
 	$(CXX) --version
