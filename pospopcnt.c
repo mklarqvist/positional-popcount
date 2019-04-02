@@ -2345,6 +2345,7 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
     __m512i v8  = _mm512_setzero_si512();
     __m512i v16 = _mm512_setzero_si512();
     __m512i twosA, twosB, foursA, foursB, eightsA, eightsB;
+    __m512i one = _mm512_set1_epi16(1);
 
     const size_t size = len / 32;
     const uint64_t limit = size - size % 16;
@@ -2363,65 +2364,81 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
             thislimit = i + (1 << 16) - 1;
 
         for (/**/; i < thislimit; i += 16) {
-            counter[0] = _mm512_add_epi16(counter[0], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosA,    &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
-            counter[1] = _mm512_add_epi16(counter[1], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosB,    &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
-            counter[2] = _mm512_add_epi16(counter[2], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&foursA,   &v2, twosA, twosB);
-            counter[3] = _mm512_add_epi16(counter[3], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosA,    &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
-            counter[4] = _mm512_add_epi16(counter[4], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosB,    &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
-            counter[5] = _mm512_add_epi16(counter[5], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&foursB,   &v2, twosA, twosB);
-            counter[6] = _mm512_add_epi16(counter[6], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&eightsA,  &v4, foursA, foursB);
-            counter[7] = _mm512_add_epi16(counter[7], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosA,    &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
-            counter[8] = _mm512_add_epi16(counter[8], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosB,    &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
-            counter[9] = _mm512_add_epi16(counter[9], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&foursA,   &v2, twosA, twosB);
-            counter[10] = _mm512_add_epi16(counter[10], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosA,    &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
-            counter[11] = _mm512_add_epi16(counter[11], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&twosB,    &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
-            counter[12] = _mm512_add_epi16(counter[12], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&foursB,   &v2, twosA, twosB);
-            counter[13] = _mm512_add_epi16(counter[13], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            counter[14] = _mm512_add_epi16(counter[14], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-            pospopcnt_csa_avx512(&eightsB,  &v4, foursA, foursB);
-            counter[15] = _mm512_add_epi16(counter[15], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            pospopcnt_csa_avx512(&v16,      &v8, eightsA, eightsB);
+#define U(pos) {                     \
+    counter[pos] = _mm512_add_epi16(counter[pos], _mm512_and_si512(v16, _mm512_set1_epi16(1))); \
+    v16 = _mm512_srli_epi16(v16, 1); \
+}
+            U(0)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
+            U(1)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
+            U(2)
+            pospopcnt_csa_avx512(&foursA, &v2, twosA, twosB);
+            U(3)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
+            U(4)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
+            U(5)
+            pospopcnt_csa_avx512(&foursB, &v2, twosA, twosB);
+            U(6)
+            pospopcnt_csa_avx512(&eightsA,&v4, foursA, foursB);
+            U(7)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
+            U(8)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
+            U(9)
+            pospopcnt_csa_avx512(&foursA, &v2, twosA, twosB);
+            U(10)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
+            U(11)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
+            U(12)
+            pospopcnt_csa_avx512(&foursB, &v2, twosA, twosB);
+            U(13)
+            U(14)
+            pospopcnt_csa_avx512(&eightsB,&v4, foursA, foursB);
+            U(15)
+            pospopcnt_csa_avx512(&v16,    &v8, eightsA, eightsB);
+#undef U
         }
 
-        // update the counters after the last iteration
+       // update the counters after the last iteration
         for (size_t i = 0; i < 16; i++) {
-            counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
+            counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, one));
             v16 = _mm512_srli_epi16(v16, 1);
         }
         
-        for (size_t i = 0; i < 16; i++) {
-            _mm512_storeu_si512((__m512i*)buffer, counter[i]);
-            for (size_t z = 0; z < 32; z++) {
-                flags[i] += 16 * (uint32_t)buffer[z];
-            }
+        for (size_t i = 0; i < 16; i += 2) {
+            __m512i shuffle_lo = _mm512_setr_epi32(0x06040200, 0x0e0c0a08, 0x16141210, 0x1e1c1a18, // 00000110 00000100 00000010 00000000
+                                                   0x26242220, 0x2e2c2a28, 0x36343230, 0x3e3c3a38,
+                                                   0x46444240, 0x4e4c4a48, 0x56545250, 0x5e5c5a58,
+                                                   0x66646260, 0x6e6c6a68, 0x76747270, 0x7e7c7a78);
+            __m512i shuffle_hi = _mm512_setr_epi32(0x07050301, 0x0f0d0b09, 0x17151311, 0x1f1d1b19,
+                                                   0x27252321, 0x2f2d2b29, 0x37353331, 0x3f3d3b39,
+                                                   0x47454341, 0x4f4d4b49, 0x57555351, 0x5f5d5b59,
+                                                   0x67656361, 0x6f6d6b69, 0x77757371, 0x7f7d7b79);
+            // Move **lower bytes** from 16-bit counters, so bytes 0..31 of
+            // results are from counter[i] and 32..63 from counter[i+1]
+            __m512i lo_bytes = _mm512_permutex2var_epi8(counter[i], shuffle_lo, counter[i + 1]);
+
+            // Likewise, move **higher bytes**
+            __m512i hi_bytes = _mm512_permutex2var_epi8(counter[i], shuffle_hi, counter[i + 1]);
+
+            // Sum the lower bytes: now each 64-bit word holds sum of 8 bytes
+            __m512i sum_lo = _mm512_sad_epu8(lo_bytes, _mm512_setzero_si512());
+
+            // Likewise sum the higher bytes
+            __m512i sum_hi = _mm512_sad_epu8(hi_bytes, _mm512_setzero_si512());
+
+            // Calculate final sums --- the sum of higher bytes has to be multiplied by 256
+            __m512i sum = _mm512_add_epi64(sum_lo, _mm512_slli_epi64(sum_hi, 8));
+
+            // Since _mm512_extractXXX are slow, we use a buffer, which is likely cached
+            uint64_t buf64[8];
+            _mm512_storeu_si512((__m512i*)buf64, _mm512_slli_epi32(sum, 4));
+
+            flags[i + 0] += buf64[0] + buf64[1] + buf64[2] + buf64[3];
+            flags[i + 1] += buf64[4] + buf64[5] + buf64[6] + buf64[7];
         }
     }
 
