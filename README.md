@@ -638,7 +638,7 @@ for (/**/; i < len; ++i) {
 
 We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with the arguments [{1,8},{1,16},{1,64},{1,256},{1,512},{1,1024},{1,4096},{1,65536}] for 20 repetitions using a single core. Numbers represent the average throughput in MB/s (1 MB = 1024b) or average number of CPU cycles per integer. There is no difference in throughput speed between the different distributions (now shown). Because of this we report only results for the distribution {1,65536}. The host architecture used is a 10 nm Cannon Lake [Core i3-8121U](https://ark.intel.com/content/www/us/en/ark/products/136863/intel-core-i3-8121u-processor-4m-cache-up-to-3-20-ghz.html), a 14 nm Sky Lake [Xeon W-2104](https://ark.intel.com/content/www/us/en/ark/products/125039/intel-xeon-w-2104-processor-8-25m-cache-3-20-ghz.html), and a 22 nm Haswell [Xeon E5-2697 v3](https://ark.intel.com/content/www/us/en/ark/products/81059/intel-xeon-processor-e5-2697-v3-35m-cache-2-60-ghz.html).
 
-Through in CPU cycles / 16-bit integer (lower is better):
+Throughput in CPU cycles / 16-bit integer (lower is better):
 
 | Method                             | Cannon Lake | Sky Lake | Haswell |
 |------------------------------------|-------------|----------|---------|

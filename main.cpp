@@ -115,7 +115,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     std::mt19937 eng(rd()); // seed the generator
 
     // Memory align input data.
-    uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), SIMD_ALIGNMENT);
+    uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
 
     std::vector<bench_unit> units(64);
 

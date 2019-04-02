@@ -1,5 +1,8 @@
 #ifdef __linux__
 
+/* ****************************
+*  Definitions
+******************************/
 #include <cassert>
 #include <cinttypes>
 #include <cstdio>
@@ -17,51 +20,6 @@
 #include "linux-perf-events.h"
 #include "popcnt.h"
 
-typedef int (*pospopcnt16)(const uint16_t*, uint32_t, uint32_t*);
-
-#define NUMBEROFFNC 33
-pospopcnt16 ourfunctions[NUMBEROFFNC] = {
-  pospopcnt_u16_scalar_naive_nosimd,  pospopcnt_u16_scalar_naive,
-  pospopcnt_u16_scalar_partition,     pospopcnt_u16_hist1x4,
-  pospopcnt_u16_sse_single,           pospopcnt_u16_sse_mula,
-  pospopcnt_u16_sse_mula_unroll4,     pospopcnt_u16_sse_mula_unroll8,
-  pospopcnt_u16_sse_mula_unroll16,    pospopcnt_u16_sse_sad,
-  pospopcnt_u16_avx2_popcnt,
-  pospopcnt_u16_avx2,                 pospopcnt_u16_avx2_naive_counter,
-  pospopcnt_u16_avx2_single,          pospopcnt_u16_avx2_lemire,
-  pospopcnt_u16_avx2_lemire2,         pospopcnt_u16_avx2_mula,
-  pospopcnt_u16_avx2_mula2,           
-  pospopcnt_u16_avx2_mula_unroll4,    pospopcnt_u16_avx2_mula_unroll8,
-  pospopcnt_u16_avx2_mula_unroll16,   pospopcnt_u16_avx512,
-  pospopcnt_u16_avx512_popcnt32_mask, pospopcnt_u16_avx512_popcnt64_mask,
-  pospopcnt_u16_avx512_popcnt,        pospopcnt_u16_avx512_mula,
-  pospopcnt_u16_avx512_mula_unroll4,  pospopcnt_u16_avx512_mula_unroll8,
-  pospopcnt_u16_avx2_mula3,           pospopcnt_u16_avx512_mula3,
-  pospopcnt_u16_avx2_csa,             pospopcnt_u16_avx512_csa, 
-  pospopcnt_u16_avx512_mula2          
-};
-
-std::string ourfunctionsnames[NUMBEROFFNC] = {
-  "pospopcnt_u16_scalar_naive_nosimd",  "pospopcnt_u16_scalar_naive",
-  "pospopcnt_u16_scalar_partition",     "pospopcnt_u16_hist1x4",
-  "pospopcnt_u16_sse_single",           "pospopcnt_u16_sse_mula",
-  "pospopcnt_u16_sse_mula_unroll4",     "pospopcnt_u16_sse_mula_unroll8",
-  "pospopcnt_u16_sse_mula_unroll16",    "pospopcnt_u16_sse_sad",
-  "pospopcnt_u16_avx2_popcnt",
-  "pospopcnt_u16_avx2",                 "pospopcnt_u16_avx2_naive_counter",
-  "pospopcnt_u16_avx2_single",          "pospopcnt_u16_avx2_lemire",
-  "pospopcnt_u16_avx2_lemire2",         "pospopcnt_u16_avx2_mula",
-  "pospopcnt_u16_avx2_mula2",           
-  "pospopcnt_u16_avx2_mula_unroll4",    "pospopcnt_u16_avx2_mula_unroll8",
-  "pospopcnt_u16_avx2_mula_unroll16",   "pospopcnt_u16_avx512",
-  "pospopcnt_u16_avx512_popcnt32_mask", "pospopcnt_u16_avx512_popcnt64_mask",
-  "pospopcnt_u16_avx512_popcnt",        "pospopcnt_u16_avx512_mula",
-  "pospopcnt_u16_avx512_mula_unroll4",  "pospopcnt_u16_avx512_mula_unroll8",
-  "pospopcnt_u16_avx2_mula3",           "pospopcnt_u16_avx512_mula3",
-  "pospopcnt_u16_avx2_csa",             "pospopcnt_u16_avx512_csa", 
-  "pospopcnt_u16_avx512_mula2"         
-};
-
 void print16(uint32_t *flags) {
     for (int k = 0; k < 16; k++)
         printf(" %8u ", flags[k]);
@@ -69,7 +27,7 @@ void print16(uint32_t *flags) {
 }
 
 std::vector<unsigned long long>
-computemins(std::vector< std::vector<unsigned long long> > allresults) {
+compute_mins(std::vector< std::vector<unsigned long long> > allresults) {
     if (allresults.size() == 0)
         return std::vector<unsigned long long>();
     
@@ -86,7 +44,7 @@ computemins(std::vector< std::vector<unsigned long long> > allresults) {
 }
 
 std::vector<double>
-computeavgs(std::vector< std::vector<unsigned long long> > allresults) {
+compute_averages(std::vector< std::vector<unsigned long long> > allresults) {
     if (allresults.size() == 0)
         return std::vector<double>();
     
@@ -116,7 +74,7 @@ computeavgs(std::vector< std::vector<unsigned long long> > allresults) {
  * @return           Returns true if the results are correct. Returns false if the results
  *                   are either incorrect or the target function is not supported.
  */
-bool benchmark(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose, bool test) {
+bool benchmark(uint16_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
@@ -169,8 +127,8 @@ bool benchmark(uint16_t n, uint32_t iterations, pospopcnt16 fn, bool verbose, bo
         allresults.push_back(results);
     }
 
-    std::vector<unsigned long long> mins = computemins(allresults);
-    std::vector<double> avg = computeavgs(allresults);
+    std::vector<unsigned long long> mins = compute_mins(allresults);
+    std::vector<double> avg = compute_averages(allresults);
     
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
@@ -275,13 +233,13 @@ int main(int argc, char **argv) {
     }
     printf("n = %zu \n", n);
     
-    for (size_t k = 0; k < NUMBEROFFNC; k++) {
-        printf("%-40s\t", ourfunctionsnames[k].c_str());
+    for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
+        printf("%-40s\t", pospopcnt_u16_method_names[k].c_str());
         fflush(NULL);
-        // std::cout << ourfunctionsnames[k] << "\t";
-        bool isok = benchmark(n, iterations, ourfunctions[k], verbose, true);
+        // std::cout << pospopcnt_u16_method_names[k] << "\t";
+        bool isok = benchmark(n, iterations, PPOPCNT_U16_METHODS[k], verbose, true);
         if (isok == false) {
-            printf("Problem detected with %s.\n", ourfunctionsnames[k].c_str());
+            printf("Problem detected with %s.\n", pospopcnt_u16_method_names[k].c_str());
             // printf("0\n");
         }
         if (verbose)
@@ -293,8 +251,6 @@ int main(int argc, char **argv) {
 
     return EXIT_SUCCESS;
 }
-
-///////////// THE END /////////////////
 #else //  __linux__
 
 #include <stdio.h>

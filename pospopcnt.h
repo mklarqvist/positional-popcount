@@ -15,16 +15,32 @@
 * specific language governing permissions and limitations
 * under the License.
 */
-#ifndef POSPOPCNT_H_
-#define POSPOPCNT_H_
-
-#include <stdint.h> //types
+/*
+ * Notice taken from the positional-popcount website 
+ * (https://github.com/mklarqvist/positional-popcount):
+ * 
+ * These functions compute the novel "positional population count" 
+ * (pospopcnt) statistics using fast SIMD instructions. Given a stream
+ * of k-bit words, we seek to count the number of set bits in positions 
+ * 0, 1, 2, ..., k-1. This problem is a generalization of the 
+ * population-count problem where we count the sum total of set bits 
+ * in a k-bit word.
+*/
+#ifndef POSPOPCNT_H_2359235897293
+#define POSPOPCNT_H_2359235897293
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*------ SIMD definitions --------*/
+/* ****************************
+*  Definitions
+******************************/
+#include <stdint.h> //types
+
+/* ****************************
+*  SIMD definitions
+******************************/
 #if defined(_MSC_VER)
      /* Microsoft C/C++-compatible compiler */
      #include <intrin.h>
@@ -46,26 +62,26 @@ extern "C" {
 #endif
 
 #if defined(__AVX512F__) && __AVX512F__ == 1
-#define SIMD_VERSION    6
-#define SIMD_ALIGNMENT  64
+#define POSPOPCNT_SIMD_VERSION    6
+#define POSPOPCNT_SIMD_ALIGNMENT  64
 #elif defined(__AVX2__) && __AVX2__ == 1
-#define SIMD_VERSION    5
-#define SIMD_ALIGNMENT  32
+#define POSPOPCNT_SIMD_VERSION    5
+#define POSPOPCNT_SIMD_ALIGNMENT  32
 #elif defined(__AVX__) && __AVX__ == 1
-#define SIMD_VERSION    4
-#define SIMD_ALIGNMENT  16
+#define POSPOPCNT_SIMD_VERSION    4
+#define POSPOPCNT_SIMD_ALIGNMENT  16
 #elif defined(__SSE4_1__) && __SSE4_1__ == 1
-#define SIMD_VERSION    3
-#define SIMD_ALIGNMENT  16
+#define POSPOPCNT_SIMD_VERSION    3
+#define POSPOPCNT_SIMD_ALIGNMENT  16
 #elif defined(__SSE2__) && __SSE2__ == 1
-#define SIMD_VERSION    0
-#define SIMD_ALIGNMENT  16
+#define POSPOPCNT_SIMD_VERSION    0
+#define POSPOPCNT_SIMD_ALIGNMENT  16
 #elif defined(__SSE__) && __SSE__ == 1
-#define SIMD_VERSION    0
-#define SIMD_ALIGNMENT  16
+#define POSPOPCNT_SIMD_VERSION    0
+#define POSPOPCNT_SIMD_ALIGNMENT  16
 #else
-#define SIMD_VERSION    0
-#define SIMD_ALIGNMENT  16
+#define POSPOPCNT_SIMD_VERSION    0
+#define POSPOPCNT_SIMD_ALIGNMENT  16
 #endif
 
 # if defined(__GNUC__)
@@ -76,7 +92,7 @@ extern "C" {
 #    define PPOPCNT_INLINE static __inline
 #  else
      /* this version may generate warnings for unused static functions */
-#    define XXH_PUBLIC_API static
+#    define PPOPCNT_INLINE static
 # endif
 
 #ifdef _mm_popcnt_u64
@@ -85,7 +101,38 @@ extern "C" {
 #define PIL_POPCOUNT __builtin_popcountll
 #endif
 
-#if SIMD_VERSION >= 5
+#if POSPOPCNT_SIMD_VERSION >= 3
+
+/**
+ * Carry-save adder update step.
+ * @see https://en.wikipedia.org/wiki/Carry-save_adder#Technical_details
+ * 
+ * Steps:
+ * 1)  U = *L ⊕ B
+ * 2) *H = (*L ^ B) | (U ^ C)
+ * 3) *L = *L ⊕ B ⊕ C = U ⊕ C
+ * 
+ * B and C are 16-bit staggered registers such that &C - &B = 1.
+ * 
+ * Example usage:
+ * POSPOPCNT_CSA_SSE(&twosA, &v1, _mm_loadu_si128(data + i + 0), _mm_loadu_si128(data + i + 1));
+ * 
+ * @param h 
+ * @param l 
+ * @param b 
+ * @param c  
+ */
+PPOPCNT_INLINE void POSPOPCNT_CSA_SSE(__m128i* __restrict__ h, 
+                                      __m128i* __restrict__ l, 
+                                      const __m128i b, const __m128i c) 
+{
+     const __m128i u = _mm_xor_si128(*l, b);
+     *h = _mm_or_si128(*l & b, u & c); // shift carry (sc_i).
+     *l = _mm_xor_si128(u, c); // partial sum (ps).
+}
+#endif
+
+#if POSPOPCNT_SIMD_VERSION >= 5
 #ifndef PIL_POPCOUNT_AVX2
 #define PIL_POPCOUNT_AVX2(A, B) {                  \
     A += PIL_POPCOUNT(_mm256_extract_epi64(B, 0)); \
@@ -95,22 +142,6 @@ extern "C" {
 }
 #endif
 
-/**
- * Steps:
- * 1)  U = *L ⊕ B
- * 2) *H = (*L ^ B) | (U ^ C)
- * 3) *L = *L ⊕ B ⊕ C = U ⊕ C
- * 
- * B and C are 16-bit staggered registers such that &C - &B = 1.
- * 
- * CSA_AVX512(&twosA, &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
- * 
- * @param h 
- * @param l 
- * @param b 
- * @param c 
- * @return PPOPCNT_INLINE CSA_AVX2 
- */
 PPOPCNT_INLINE void POSPOPCNT_CSA_AVX2(__m256i* __restrict__ h, 
                                        __m256i* __restrict__ l, 
                                        const __m256i b, const __m256i c) 
@@ -127,9 +158,9 @@ PPOPCNT_INLINE void POSPOPCNT_CSA_AVX2(__m256i* __restrict__ h,
 // @see https://arxiv.org/abs/1611.07612
 __attribute__((always_inline))
 static inline __m512i avx512_popcount(const __m512i v) {
-    const __m512i m1 = _mm512_set1_epi8(0x55);
-    const __m512i m2 = _mm512_set1_epi8(0x33);
-    const __m512i m4 = _mm512_set1_epi8(0x0F);
+    const __m512i m1 = _mm512_set1_epi8(0x55); // 01010101
+    const __m512i m2 = _mm512_set1_epi8(0x33); // 00110011
+    const __m512i m4 = _mm512_set1_epi8(0x0F); // 00001111
 
     const __m512i t1 = _mm512_sub_epi8(v,       (_mm512_srli_epi16(v,  1)  & m1));
     const __m512i t2 = _mm512_add_epi8(t1 & m2, (_mm512_srli_epi16(t1, 2)  & m2));
@@ -147,58 +178,46 @@ PPOPCNT_INLINE void POSPOPCNT_CSA_AVX512(__m512i* __restrict__ h,
 }
 #endif // endif simd_version >= 6
 
-/*------ Function enums --------*/
+/* ****************************
+*  Support definitions
+******************************/
+
+#define PPOPCNT_NUMBER_METHODS 34
 
 typedef enum {
-    PPOPCNT_AUTO,
-    PPOPCNT_SCALAR,
-    PPOPCNT_SCALAR_NOSIMD,
-    PPOPCNT_SCALAR_PARTITION,
-    PPOPCNT_SCALAR_HIST1X4,
-    PPOPCNT_SSE_SINGLE,
-    PPOPCNT_SSE_MULA,
-    PPOPCNT_SSE_MULA_UR4,
-    PPOPCNT_SSE_MULA_UR8,
-    PPOPCNT_SSE_MULA_UR16,
-    PPOPCNT_SSE_SAD,
+    PPOPCNT_AUTO,           PPOPCNT_SCALAR,
+    PPOPCNT_SCALAR_NOSIMD,  PPOPCNT_SCALAR_PARTITION,
+    PPOPCNT_SCALAR_HIST1X4, PPOPCNT_SSE_SINGLE,
+    PPOPCNT_SSE_MULA,       PPOPCNT_SSE_MULA_UR4,
+    PPOPCNT_SSE_MULA_UR8,   PPOPCNT_SSE_MULA_UR16,
+    PPOPCNT_SSE_SAD,        PPOPCNT_SSE_CSA,
     PPOPCNT_AVX2_POPCNT,
-    PPOPCNT_AVX2,
-    PPOPCNT_AVX2_POPCNT_NAIVE,
-    PPOPCNT_AVX2_SINGLE,
-    PPOPCNT_AVX2_LEMIRE1,
-    PPOPCNT_AVX2_LEMIRE2,
-    PPOPCNT_AVX2_MULA,
-    PPOPCNT_AVX2_MULA_UR4,
-    PPOPCNT_AVX2_MULA_UR8,
-    PPOPCNT_AVX2_MULA_UR16,
-    PPOPCNT_AVX2_MULA3,
-    PPOPCNT_AVX2_CSA,
-    PPOPCNT_AVX512,
-    PPOPCNT_AVX512_MASK32,
-    PPOPCNT_AVX512_MASK64,
-    PPOPCNT_AVX512_POPCNT,
-    PPOPCNT_AVX512_MULA,
-    PPOPCNT_AVX512_MULA_UR4,
-    PPOPCNT_AVX512_MULA_UR8,
-    PPOPCNT_AVX512_MULA2,
-    PPOPCNT_AVX512_MULA3,
+    PPOPCNT_AVX2,           PPOPCNT_AVX2_POPCNT_NAIVE,
+    PPOPCNT_AVX2_SINGLE,    PPOPCNT_AVX2_LEMIRE1,
+    PPOPCNT_AVX2_LEMIRE2,   PPOPCNT_AVX2_MULA,
+    PPOPCNT_AVX2_MULA_UR4,  PPOPCNT_AVX2_MULA_UR8,
+    PPOPCNT_AVX2_MULA_UR16, PPOPCNT_AVX2_MULA3,
+    PPOPCNT_AVX2_CSA,       PPOPCNT_AVX512,
+    PPOPCNT_AVX512_MASK32,  PPOPCNT_AVX512_MASK64,
+    PPOPCNT_AVX512_POPCNT,  PPOPCNT_AVX512_MULA,
+    PPOPCNT_AVX512_MULA_UR4,PPOPCNT_AVX512_MULA_UR8,
+    PPOPCNT_AVX512_MULA2,   PPOPCNT_AVX512_MULA3,
     PPOPCNT_AVX512_CSA
 } PPOPCNT_U16_METHODS;
-
-#define PPOPCNT_NUMBER_METHODS 33
 
 static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16",
     "pospopcnt_u16_scalar_naive",
     "pospopcnt_u16_scalar_naive_nosimd",
     "pospopcnt_u16_scalar_partition",
-    "pospopcnt_u16_hist1x4",
+    "pospopcnt_u16_scalar_hist1x4",
     "pospopcnt_u16_sse_single",
     "pospopcnt_u16_sse_mula",
     "pospopcnt_u16_sse_mula_unroll4",
     "pospopcnt_u16_sse_mula_unroll8",
     "pospopcnt_u16_sse_mula_unroll16",
     "pospopcnt_u16_sse2_sad",
+    "pospopcnt_u16_sse2_csa",
     "pospopcnt_u16_avx2_popcnt",
     "pospopcnt_u16_avx2",
     "pospopcnt_u16_avx2_naive_counter",
@@ -222,83 +241,52 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx512_mula3",
     "pospopcnt_u16_avx512_csa"};
 
-/*------ Functions --------*/
-
-int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_hist1x4(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_sse_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_lemire(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_lemire2(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_mula2(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_mula3(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx2_csa(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t n, uint32_t* flags);
-int pospopcnt_u16_avx512_csa(const uint16_t* data, uint32_t n, uint32_t* flags);
-
-/*------ General functions --------*/
+/*-**********************************************************************
+*  This section contains the higher level functions for computing the
+*  positional population count. 
+*
+************************************************************************/
 
 // Function pointer definition.
-typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t n, uint32_t* flags);
+typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t len, uint32_t* flags);
 
 /**
- * @brief Default function for computing the positional popcnt statistics. Redirects to the best available algorithm during compilation time.
+ * @brief Default function for computing the positional popcnt statistics. 
+ *        Redirects to the best available algorithm during compilation time.
  * 
  * Example usage:
  * 
- * pospopcnt_u16(data, n, flags);
+ * pospopcnt_u16(data, len, flags);
  * 
  * @param data  Input uint16_t data.
- * @param n     Length of input data.
+ * @param len   Number of input integers.
  * @param flags Output target flags.
  * @return int  Returns 0.
  */
-int pospopcnt_u16(const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags);
 
 /**
  * @brief Execute the target ppopcnt function with the argument data.
  * 
  * Example usage:
  * 
- * pospopcnt_u16_method(PPOPCNT_AVX2_MULA_UR8, data, n, flags);
+ * pospopcnt_u16_method(PPOPCNT_AVX2_MULA_UR8, data, len, flags);
  * 
  * @param method Target function (PPOPCNT_U16_METHODS).
  * @param data   Input uint16_t data.
- * @param n      Length of input data.
+ * @param len    Number of input integers.
  * @param flags  Output target flags.
  * @return int   Returns 0.
  */
-int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t n, uint32_t* flags);
+int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t len, uint32_t* flags);
 
 /**
  * @brief Retrieve the target pospopcnt_u16_method pointer.
  * 
  * Example usage:
  * 
- * pospopcnt_u16_method_type f = get_pospopcnt_u16_method(PPOPCNT_AVX2_MULA_UR8);
- * (*f)(data, n, flags);
+ * pospopcnt_u16_method_type f = get_pospopcnt_u16_method(PPOPCNT_AVX2_CSA);
+ * (*f)(data, len, flags);
  * 
  * @param method                     Target function (PPOPCNT_U16_METHODS).
  * @return pospopcnt_u16_method_type Returns the target function pointer.
@@ -306,8 +294,56 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
 pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method);
 
 
+/*-**********************************************************************
+*  This section contains declarations for individual pospopcnt subroutines.
+*
+*  Declarations for pospopcnt_u16_* functions parameterized by the input
+*  stream of 16-bit integers (data), the number of integers (len), and
+*  the output counter destination (flags). The output counter destination
+*  must be pre-allocated to sixteen 32-bit integers and initiated to zero
+*  before calling pospopcnt_u16_* the first time.
+*
+*  Function names are prefixed by its target instruction set: 
+*  [scalar, sse, avx2, avx512]. For example, pospopcnt_u16_avx2_csa.
+************************************************************************/
+
+int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_mula_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_lemire(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_lemire2(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_mula2(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_mula3(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* POSPOPCNT_H_ */
+#endif /* POSPOPCNT_H_2359235897293 */
