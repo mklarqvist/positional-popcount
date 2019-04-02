@@ -115,14 +115,14 @@ extern "C" {
  * B and C are 16-bit staggered registers such that &C - &B = 1.
  * 
  * Example usage:
- * POSPOPCNT_CSA_SSE(&twosA, &v1, _mm_loadu_si128(data + i + 0), _mm_loadu_si128(data + i + 1));
+ * pospopcnt_csa_sse(&twosA, &v1, _mm_loadu_si128(data + i + 0), _mm_loadu_si128(data + i + 1));
  * 
  * @param h 
  * @param l 
  * @param b 
  * @param c  
  */
-PPOPCNT_INLINE void POSPOPCNT_CSA_SSE(__m128i* __restrict__ h, 
+PPOPCNT_INLINE void pospopcnt_csa_sse(__m128i* __restrict__ h, 
                                       __m128i* __restrict__ l, 
                                       const __m128i b, const __m128i c) 
 {
@@ -142,7 +142,7 @@ PPOPCNT_INLINE void POSPOPCNT_CSA_SSE(__m128i* __restrict__ h,
 }
 #endif
 
-PPOPCNT_INLINE void POSPOPCNT_CSA_AVX2(__m256i* __restrict__ h, 
+PPOPCNT_INLINE void pospopcnt_csa_avx2(__m256i* __restrict__ h, 
                                        __m256i* __restrict__ l, 
                                        const __m256i b, const __m256i c) 
 {
@@ -168,13 +168,13 @@ static inline __m512i avx512_popcount(const __m512i v) {
     return _mm512_sad_epu8(t3, _mm512_setzero_si512());
 }
 
-// 512i-version of POSPOPCNT_CSA_AVX2
-PPOPCNT_INLINE void POSPOPCNT_CSA_AVX512(__m512i* __restrict__ h, 
-                                         __m512i* __restrict__ l, 
-                                         __m512i b, __m512i c) 
+// 512i-version of pospopcnt_csa_AVX2
+PPOPCNT_INLINE void pospopcnt_csa_avx52(__m512i* __restrict__ h, 
+                                        __m512i* __restrict__ l, 
+                                        __m512i b, __m512i c) 
 {
-     *h = _mm512_ternarylogic_epi32(c, b, *l, 0xe8);
-     *l = _mm512_ternarylogic_epi32(c, b, *l, 0x96);
+     *h = _mm512_ternarylogic_epi32(c, b, *l, 0xE8); // 11101000
+     *l = _mm512_ternarylogic_epi32(c, b, *l, 0x96); // 10010110
 }
 #endif // endif simd_version >= 6
 
