@@ -109,7 +109,7 @@ compute_averages(std::vector< std::vector<unsigned long long> > allresults) {
  * @return           Returns true if the results are correct. Returns false if the results
  *                   are either incorrect or the target function is not supported.
  */
-bool benchmark(uint16_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
+bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
@@ -185,7 +185,7 @@ bool benchmark(uint16_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
 }
 
 #if POSPOPCNT_SIMD_VERSION >= 6
-void measurepopcnt(uint16_t n, uint32_t iterations, bool verbose) {
+void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
@@ -246,14 +246,14 @@ static void print_usage(char *command) {
 
 int main(int argc, char **argv) {
     size_t n = 10000000;
-    size_t iterations = 100;
+    size_t iterations = 0; 
     bool verbose = false;
     int c;
 
     while ((c = getopt(argc, argv, "vhn:i:")) != -1) {
         switch (c) {
         case 'n':
-            n = atoi(optarg);
+            n = atoll(optarg);// we want atoll and not atoi to make sure we can the full value.
             break;
         case 'v':
             verbose = true;
@@ -268,16 +268,31 @@ int main(int argc, char **argv) {
             abort();
         }
     }
+    if(n > UINT32_MAX) {
+       printf("setting n to %u \n", UINT32_MAX);
+       n = UINT32_MAX;
+    }
+    if(iterations > UINT32_MAX) {
+       printf("setting iterations to %u \n", UINT32_MAX);
+       iterations = UINT32_MAX;
+    }
+    if(iterations == 0) {
+      if(n < 1000000) iterations = 100;
+      else iterations = 10;
+    }
     printf("n = %zu \n", n);
+    printf("iterations = %zu \n", iterations);
+    if(n == 0) {
+       printf("n cannot be zero.\n");
+       return EXIT_FAILURE;
+    }
     
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
         printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);
-        // std::cout << pospopcnt_u16_method_names[k] << "\t";
         bool isok = benchmark(n, iterations, pospopcnt_u16_methods[k], verbose, true);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[k]);
-            // printf("0\n");
         }
         if (verbose)
             printf("\n");
