@@ -1,8 +1,30 @@
 # positional-popcount
 
-These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word
+These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word.
 
-These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >16 GB/s (~0.15 CPU cycles / int) throughput (7 billion 16-bit integers / second or 112 billion one-hot vectors / second).
+These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >16 GB/s (~0.125 CPU cycles / int) throughput (8.4 billion 16-bit integers / second or 134 billion one-hot vectors / second).
+
+### Speedup
+
+This benchmark shows the speedup of the 4 `pospopcnt` algorithms used on x86 CPUs compared to the efficient auto-vectorization of `pospopcnt_u16_scalar_naive` for different array sizes (in number of 2-byte values). See [Results](#results) for additional information.
+
+| Algorithm       | 32   | 128  | 512   | 2048  | 8192  | 16384 | 32768 |
+|--------------|------|------|-------|-------|-------|-------|-------|
+| SSE_SAD      | **5.74** | **5.02** | 3.2   | 2.36  | 2.11  | 2.09  | 2.06  |
+| SSE_MULA_UR8 | 3.96 | 3.88 | 2.35  | 1.67  | 1.49  | 1.47  | 1.45  |
+| AVX512_MULA3 | 0.76 | 0.9  | **4.07**  | **5.31**  | 6.73  | 6.94  | 7.25  |
+| AVX512_CSA   | 0.53 | 0.65 | 2     | 4.64  | **10.65** | **13.35** | **16.77** |
+
+Compared to a naive unvectorized solution (`pospopcnt_u16_scalar_naive_nosimd`):
+
+| Method       | 32    | 128   | 512    | 2048   | 8192  | 16384  | 32768  |
+|--------------|-------|-------|--------|--------|-------|--------|--------|
+| SSE_SAD      | **5.67**  | **10.54** | 14.93  | 16.64  | 17.21 | 17.39  | 17.38  |
+| SSE_MULA_UR8 | 3.91  | 8.15  | 10.96  | 11.77  | 12.15 | 12.22  | 12.22  |
+| AVX512_MULA3 | 0.75  | 1.89  | **18.98**  | **37.39**  | 54.8  | 57.78  | 61.06  |
+| AVX512_CSA   | 0.52  | 1.37  | 9.34   | 32.63  | **86.66** | **111.16** | **141.32** |
+
+The host architecture used is a 10 nm Cannon Lake [Core i3-8121U](https://ark.intel.com/content/www/us/en/ark/products/136863/intel-core-i3-8121u-processor-4m-cache-up-to-3-20-ghz.html) with gcc (GCC) 7.3.1 20180303 (Red Hat 7.3.1-5).
 
 ### Usage
 
