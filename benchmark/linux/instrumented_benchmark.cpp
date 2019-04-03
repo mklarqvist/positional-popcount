@@ -235,7 +235,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
                 "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0] / 4, double(mins[0]) / n / 4, double(mins[1]) / n / 4);
+                double(mins[1]) / mins[0], double(mins[0]) / n / 4, double(mins[1]) / n / 4);
         // first we display mins
         printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
                 "cache ref., %8llu cache mis.\n",

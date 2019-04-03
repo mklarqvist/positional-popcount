@@ -660,40 +660,41 @@ We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with
 
 Throughput in CPU cycles / 16-bit integer (lower is better):
 
-| Method                             | Cannon Lake | Sky Lake | Haswell |
+| Algorithm                          | Cannon Lake | Sky Lake | Haswell |
 |------------------------------------|-------------|----------|---------|
-| pospopcnt_u16_scalar_naive_nosimd  | 17.525      | 17.653   | 18.012  |
-| pospopcnt_u16_scalar_naive         | 2.058       | 3.014    | 3.769   |
-| pospopcnt_u16_scalar_partition     | 3.094       | 3.018    | 3.402   |
-| pospopcnt_u16_hist1x4              | 2.865       | 2.918    | 3.169   |
-| pospopcnt_u16_sse_single           | 3.614       | 3.829    | 4.277   |
-| pospopcnt_u16_sse_mula             | 2.082       | 1.629    | 2.139   |
-| pospopcnt_u16_sse_mula_unroll4     | 1.578       | 1.4      | 1.625   |
-| pospopcnt_u16_sse_mula_unroll8     | 1.433       | 1.351    | 1.544   |
-| pospopcnt_u16_sse_mula_unroll16    | 1.386       | 1.421    | 1.543   |
-| pospopcnt_u16_avx2_popcnt          | 2.406       | 2.437    | 3.012   |
-| pospopcnt_u16_avx2                 | 2.035       | 3.019    | 4.019   |
-| pospopcnt_u16_avx2_naive_counter   | 2.033       | 3.025    | 3.834   |
-| pospopcnt_u16_avx2_single          | 2.03        | 3.013    | 3.925   |
-| pospopcnt_u16_avx2_lemire          | 2.862       | 1.916    | 2.192   |
-| pospopcnt_u16_avx2_lemire2         | 1.695       | 1.127    | 1.469   |
-| pospopcnt_u16_avx2_mula            | 1.105       | 1.4      | 1.111   |
-| pospopcnt_u16_avx2_mula2           | 1.468       | 1.423    | 1.268   |
-| pospopcnt_u16_avx2_mula3           | 0.435       | 0.418    | 0.478   |
-| pospopcnt_u16_avx2_mula_unroll4    | 0.848       | 0.855    | 0.842   |
-| pospopcnt_u16_avx2_mula_unroll8    | 0.757       | 0.725    | 0.773   |
-| pospopcnt_u16_avx2_mula_unroll16   | 0.736       | 0.747    | 0.814   |
-| pospopcnt_u16_avx512               | 1.511       | 1.604    | -       |
-| pospopcnt_u16_avx512_popcnt32_mask | 0.819       | 1.421    | -       |
-| pospopcnt_u16_avx512_popcnt64_mask | 0.838       | 1.011    | -       |
-| pospopcnt_u16_avx512_popcnt        | 1.676       | 1.751    | -       |
-| pospopcnt_u16_avx512_mula          | 0.75        | 0.778    | -       |
-| pospopcnt_u16_avx512_mula_unroll4  | 0.623       | 0.579    | -       |
-| pospopcnt_u16_avx512_mula_unroll8  | 0.555       | 0.577    | -       |
-| pospopcnt_u16_avx2_mula3           | 0.434       | 0.417    | 0.479   |
-| pospopcnt_u16_avx512_mula3         | 0.288       | 0.304    | -       |
-| pospopcnt_u16_avx2_csa             | 0.258       | 0.28     | 0.327   |
-| pospopcnt_u16_avx512_csa           | **0.165**       | 0.191    | -       |
+| pospopcnt_u16_scalar_naive         | 2.061       | 3.045    | 4.066   |
+| pospopcnt_u16_scalar_naive_nosimd  | 17.539      | 17.958   | 18.033  |
+| pospopcnt_u16_scalar_partition     | 3.09        | 3.065    | 3.405   |
+| pospopcnt_u16_scalar_hist1x4       | 2.857       | 2.971    | 3.156   |
+| pospopcnt_u16_sse_single           | 3.888       | 4.036    | 4.312   |
+| pospopcnt_u16_sse_mula             | 2.084       | 1.71     | 2.152   |
+| pospopcnt_u16_sse_mula_unroll4     | 1.591       | 1.495    | 1.676   |
+| pospopcnt_u16_sse_mula_unroll8     | 1.459       | 1.428    | 1.505   |
+| pospopcnt_u16_sse_mula_unroll16    | 1.417       | 1.494    | 1.541   |
+| pospopcnt_u16_sse2_sad             | 1.073       | 1.095    | 1.361   |
+| pospopcnt_u16_sse2_csa             | 0.643       | 0.568    | 0.424   |
+| pospopcnt_u16_avx2_popcnt          | 2.431       | 2.463    | 3.155   |
+| pospopcnt_u16_avx2                 | 1.155       | 1.233    | 1.629   |
+| pospopcnt_u16_avx2_naive_counter   | 1.388       | 1.501    | 1.641   |
+| pospopcnt_u16_avx2_single          | 2.716       | 2.964    | 3.586   |
+| pospopcnt_u16_avx2_lemire          | 2.869       | 1.99     | 2.19    |
+| pospopcnt_u16_avx2_lemire2         | 1.731       | 1.214    | 1.496   |
+| pospopcnt_u16_avx2_mula            | 1.163       | 1.153    | 1.275   |
+| pospopcnt_u16_avx2_mula_unroll4    | 0.969       | 0.904    | 0.876   |
+| pospopcnt_u16_avx2_mula_unroll8    | 0.888       | 0.88     | 0.776   |
+| pospopcnt_u16_avx2_mula_unroll16   | 0.829       | 0.924    | 0.816   |
+| pospopcnt_u16_avx2_mula3           | 0.651       | 0.668    | 0.5     |
+| pospopcnt_u16_avx2_csa             | 0.542       | 0.475    | 0.316   |
+| pospopcnt_u16_avx512               | 1.52        | 1.654    | -       |
+| pospopcnt_u16_avx512_popcnt32_mask | 1.042       | 1.465    | -       |
+| pospopcnt_u16_avx512_popcnt64_mask | 1.058       | 1.146    | -       |
+| pospopcnt_u16_avx512_popcnt        | 1.695       | 1.79     | -       |
+| pospopcnt_u16_avx512_mula          | 1.014       | 0.98     | -       |
+| pospopcnt_u16_avx512_mula_unroll4  | 0.859       | 0.789    | -       |
+| pospopcnt_u16_avx512_mula_unroll8  | 0.694       | 0.772    | -       |
+| pospopcnt_u16_avx512_mula2         | 0.754       | 0.682    | -       |
+| pospopcnt_u16_avx512_mula3         | 0.554       | 0.629    | -       |
+| pospopcnt_u16_avx512_csa           | 0.488       | 0.453    | -       |
 
 Throughput in MB/s (higher is better):
 
@@ -722,16 +723,16 @@ Throughput in MB/s (higher is better):
 | pospopcnt_u16_avx2_mula_unroll16   | **7614.47**     | 6592.75  | 6005.51 |
 | pospopcnt_u16_avx2_mula3           | **10901.6**     | 9316.41  | 9295.07 |
 | pospopcnt_u16_avx2_csa             | 14196.9     | 11280.1  | **15494.3** |
-| pospopcnt_u16_avx512               | **3929.03**     | 3475.55  | 0       |
-| pospopcnt_u16_avx512_popcnt32_mask | **6586.83**     | 5460.8   | 0       |
-| pospopcnt_u16_avx512_popcnt64_mask | **6739.99**     | 5587.01  | 0       |
-| pospopcnt_u16_avx512_popcnt        | **3504.8**      | 3078.9   | 0       |
-| pospopcnt_u16_avx512_mula          | 6565.97     | **6930.77 ** | 0       |
-| pospopcnt_u16_avx512_mula_unroll4  | **8055.02**     | 7151.4   | 0       |
-| pospopcnt_u16_avx512_mula_unroll8  | **9560.17**     | 7238.51  | 0       |
-| pospopcnt_u16_avx512_mula2         | **9388.87**     | 8012.72  | 0       |
-| pospopcnt_u16_avx512_mula3         | **11355.3**     | 8983.79  | 0       |
-| pospopcnt_u16_avx512_csa           | **16437**       | 12441.1  | 0       |
+| pospopcnt_u16_avx512               | **3929.03**     | 3475.55  | -       |
+| pospopcnt_u16_avx512_popcnt32_mask | **6586.83**     | 5460.8   | -       |
+| pospopcnt_u16_avx512_popcnt64_mask | **6739.99**     | 5587.01  | -       |
+| pospopcnt_u16_avx512_popcnt        | **3504.8**      | 3078.9   | -       |
+| pospopcnt_u16_avx512_mula          | 6565.97     | **6930.77** | -       |
+| pospopcnt_u16_avx512_mula_unroll4  | **8055.02**     | 7151.4   | -       |
+| pospopcnt_u16_avx512_mula_unroll8  | **9560.17**     | 7238.51  | -       |
+| pospopcnt_u16_avx512_mula2         | **9388.87**     | 8012.72  | -       |
+| pospopcnt_u16_avx512_mula3         | **11355.3**     | 8983.79  | -       |
+| pospopcnt_u16_avx512_csa           | **16437**       | 12441.1  | -       |
 
 ## Instrumented tests (Linux specific)
 
