@@ -235,7 +235,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
                 "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
+                double(mins[1]) / mins[0] / 4, double(mins[0]) / n / 4, double(mins[1]) / n / 4);
         // first we display mins
         printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
                 "cache ref., %8llu cache mis.\n",
@@ -244,10 +244,8 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
                 "cache ref., %8.1f cache mis.\n",
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
     } else {
-        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
-    }
-
-     
+        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n / 4);
+    }     
 }
 
 static void print_usage(char *command) {
@@ -266,7 +264,7 @@ int main(int argc, char **argv) {
     while ((c = getopt(argc, argv, "vhn:i:")) != -1) {
         switch (c) {
         case 'n':
-            n = atoll(optarg);// we want atoll and not atoi to make sure we can the full value.
+            n = atoll(optarg);
             break;
         case 'v':
             verbose = true;
@@ -281,14 +279,17 @@ int main(int argc, char **argv) {
             abort();
         }
     }
+
     if(n > UINT32_MAX) {
        printf("setting n to %u \n", UINT32_MAX);
        n = UINT32_MAX;
     }
+
     if(iterations > UINT32_MAX) {
        printf("setting iterations to %u \n", UINT32_MAX);
        iterations = UINT32_MAX;
     }
+
     if(iterations == 0) {
       if(n < 1000000) iterations = 100;
       else iterations = 10;
@@ -312,8 +313,6 @@ int main(int argc, char **argv) {
         if (verbose)
             printf("\n");
     }
-
-    
 
     if (!verbose)
         printf("Try -v to get more details.\n");
