@@ -2,7 +2,7 @@
 
 These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word
 
-These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >13 GB/s (~0.15 CPU cycles / int) throughput (7 billion 16-bit integers / second or 112 billion one-hot vectors / second).
+These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >16 GB/s (~0.15 CPU cycles / int) throughput (7 billion 16-bit integers / second or 112 billion one-hot vectors / second).
 
 ### Usage
 

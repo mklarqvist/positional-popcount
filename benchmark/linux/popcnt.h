@@ -3,35 +3,116 @@
 #include <x86intrin.h>
 
 #if POSPOPCNT_SIMD_VERSION >= 5
-static __m256i avx2_popcount(const __m256i vec) {
+static inline void CSA256(__m256i* h, __m256i* l, __m256i a, __m256i b, __m256i c)
+{
+  __m256i u = _mm256_xor_si256(a, b);
+  *h = _mm256_or_si256(_mm256_and_si256(a, b), _mm256_and_si256(u, c));
+  *l = _mm256_xor_si256(u, c);
+}
 
-  const __m256i lookup = _mm256_setr_epi8(
-      /* 0 */ 0, /* 1 */ 1, /* 2 */ 1, /* 3 */ 2,
-      /* 4 */ 1, /* 5 */ 2, /* 6 */ 2, /* 7 */ 3,
-      /* 8 */ 1, /* 9 */ 2, /* a */ 2, /* b */ 3,
-      /* c */ 2, /* d */ 3, /* e */ 3, /* f */ 4,
-
-      /* 0 */ 0, /* 1 */ 1, /* 2 */ 1, /* 3 */ 2,
-      /* 4 */ 1, /* 5 */ 2, /* 6 */ 2, /* 7 */ 3,
-      /* 8 */ 1, /* 9 */ 2, /* a */ 2, /* b */ 3,
-      /* c */ 2, /* d */ 3, /* e */ 3, /* f */ 4
+static inline __m256i popcnt256(__m256i v)
+{
+  __m256i lookup1 = _mm256_setr_epi8(
+      4, 5, 5, 6, 5, 6, 6, 7,
+      5, 6, 6, 7, 6, 7, 7, 8,
+      4, 5, 5, 6, 5, 6, 6, 7,
+      5, 6, 6, 7, 6, 7, 7, 8
   );
 
-  const __m256i low_mask = _mm256_set1_epi8(0x0f);
+  __m256i lookup2 = _mm256_setr_epi8(
+      4, 3, 3, 2, 3, 2, 2, 1,
+      3, 2, 2, 1, 2, 1, 1, 0,
+      4, 3, 3, 2, 3, 2, 2, 1,
+      3, 2, 2, 1, 2, 1, 1, 0
+  );
 
-  const __m256i lo  = _mm256_and_si256(vec, low_mask);
-  const __m256i hi  = _mm256_and_si256(_mm256_srli_epi16(vec, 4), low_mask);
-  const __m256i popcnt1 = _mm256_shuffle_epi8(lookup, lo);
-  const __m256i popcnt2 = _mm256_shuffle_epi8(lookup, hi);
+  __m256i low_mask = _mm256_set1_epi8(0x0f);
+  __m256i lo = _mm256_and_si256(v, low_mask);
+  __m256i hi = _mm256_and_si256(_mm256_srli_epi16(v, 4), low_mask);
+  __m256i popcnt1 = _mm256_shuffle_epi8(lookup1, lo);
+  __m256i popcnt2 = _mm256_shuffle_epi8(lookup2, hi);
 
-  return _mm256_add_epi8(popcnt1, popcnt2);
+  return _mm256_sad_epu8(popcnt1, popcnt2);
+}
+
+static inline uint64_t popcnt_avx2(const __m256i* data, uint64_t size) {
+    __m256i cnt = _mm256_setzero_si256();
+    __m256i ones = _mm256_setzero_si256();
+    __m256i twos = _mm256_setzero_si256();
+    __m256i fours = _mm256_setzero_si256();
+    __m256i eights = _mm256_setzero_si256();
+    __m256i sixteens = _mm256_setzero_si256();
+    __m256i twosA, twosB, foursA, foursB, eightsA, eightsB;
+
+    uint64_t i = 0;
+    uint64_t limit = size - size % 16;
+    uint64_t* cnt64;
+
+    for (/**/; i < limit; i += 16) {
+        CSA256(&twosA, &ones, ones, data[i+0], data[i+1]);
+        CSA256(&twosB, &ones, ones, data[i+2], data[i+3]);
+        CSA256(&foursA, &twos, twos, twosA, twosB);
+        CSA256(&twosA, &ones, ones, data[i+4], data[i+5]);
+        CSA256(&twosB, &ones, ones, data[i+6], data[i+7]);
+        CSA256(&foursB, &twos, twos, twosA, twosB);
+        CSA256(&eightsA, &fours, fours, foursA, foursB);
+        CSA256(&twosA, &ones, ones, data[i+8], data[i+9]);
+        CSA256(&twosB, &ones, ones, data[i+10], data[i+11]);
+        CSA256(&foursA, &twos, twos, twosA, twosB);
+        CSA256(&twosA, &ones, ones, data[i+12], data[i+13]);
+        CSA256(&twosB, &ones, ones, data[i+14], data[i+15]);
+        CSA256(&foursB, &twos, twos, twosA, twosB);
+        CSA256(&eightsB, &fours, fours, foursA, foursB);
+        CSA256(&sixteens, &eights, eights, eightsA, eightsB);
+
+        cnt = _mm256_add_epi64(cnt, popcnt256(sixteens));
+    }
+
+    cnt = _mm256_slli_epi64(cnt, 4);
+    cnt = _mm256_add_epi64(cnt, _mm256_slli_epi64(popcnt256(eights), 3));
+    cnt = _mm256_add_epi64(cnt, _mm256_slli_epi64(popcnt256(fours), 2));
+    cnt = _mm256_add_epi64(cnt, _mm256_slli_epi64(popcnt256(twos), 1));
+    cnt = _mm256_add_epi64(cnt, popcnt256(ones));
+
+    for(/**/; i < limit; ++i)
+        cnt = _mm256_add_epi64(cnt, popcnt256(data[i]));
+
+    cnt64 = (uint64_t*)&cnt;
+
+    return cnt64[0] +
+            cnt64[1] +
+            cnt64[2] +
+            cnt64[3];
+}
+
+static __m256i avx2_popcount(const __m256i vec) {
+    const __m256i lookup = _mm256_setr_epi8(
+        /* 0 */ 0, /* 1 */ 1, /* 2 */ 1, /* 3 */ 2,
+        /* 4 */ 1, /* 5 */ 2, /* 6 */ 2, /* 7 */ 3,
+        /* 8 */ 1, /* 9 */ 2, /* a */ 2, /* b */ 3,
+        /* c */ 2, /* d */ 3, /* e */ 3, /* f */ 4,
+
+        /* 0 */ 0, /* 1 */ 1, /* 2 */ 1, /* 3 */ 2,
+        /* 4 */ 1, /* 5 */ 2, /* 6 */ 2, /* 7 */ 3,
+        /* 8 */ 1, /* 9 */ 2, /* a */ 2, /* b */ 3,
+        /* c */ 2, /* d */ 3, /* e */ 3, /* f */ 4
+    );
+
+    const __m256i low_mask = _mm256_set1_epi8(0x0f);
+
+    const __m256i lo  = _mm256_and_si256(vec, low_mask);
+    const __m256i hi  = _mm256_and_si256(_mm256_srli_epi16(vec, 4), low_mask);
+    const __m256i popcnt1 = _mm256_shuffle_epi8(lookup, lo);
+    const __m256i popcnt2 = _mm256_shuffle_epi8(lookup, hi);
+
+    return _mm256_add_epi8(popcnt1, popcnt2);
 }
 
 static uint64_t avx2_sum_epu64(const __m256i v) {
     return _mm256_extract_epi64(v, 0)
-         + _mm256_extract_epi64(v, 1)
-         + _mm256_extract_epi64(v, 2)
-         + _mm256_extract_epi64(v, 3);
+            + _mm256_extract_epi64(v, 1)
+            + _mm256_extract_epi64(v, 2)
+            + _mm256_extract_epi64(v, 3);
 }
 #endif
 

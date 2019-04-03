@@ -184,7 +184,6 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     return isok;
 }
 
-#if POSPOPCNT_SIMD_VERSION >= 6
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
@@ -202,22 +201,37 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, 0xFFFF);
 
-    n = vdata.size() / (512 / 16) * (512/16);
+#if POSPOPCNT_SIMD_VERSION >= 6    
+    n = vdata.size() / (512 / 16) * (512 / 16);
+#elif POSPOPCNT_SIMD_VERSION >= 5
+    n = vdata.size() / (256 / 16) * (256 / 16);
+#endif
     for (uint32_t i = 0; i < iterations; i++) {
         for (size_t k = 0; k < vdata.size(); k++) {
             vdata[k] = dis(gen); // random init.
         }
+#if POSPOPCNT_SIMD_VERSION >= 6        
         uint64_t expected = popcnt_harley_seal((const __m512i*) vdata.data(), vdata.size() / (512 / 16));       
         unified.start();
         uint64_t measured = popcnt_harley_seal((const __m512i*) vdata.data(), vdata.size() / (512 / 16));
         unified.end(results);
+#elif POSPOPCNT_SIMD_VERSION >= 5
+        uint64_t expected = popcnt_avx2((const __m256i*) vdata.data(), vdata.size() / (256 / 16));
+        unified.start();
+        uint64_t measured = popcnt_avx2((const __m256i*) vdata.data(), vdata.size() / (256 / 16));
+        unified.end(results);
+#endif
         assert(measured == expected);
         allresults.push_back(results);
     }
 
     std::vector<unsigned long long> mins = compute_mins(allresults);
     std::vector<double> avg = compute_averages(allresults);
+#if POSPOPCNT_SIMD_VERSION >= 6 
     printf("%-40s\t","avx512popcnt");    
+#elif POSPOPCNT_SIMD_VERSION >= 5
+    printf("%-40s\t","avx256popcnt");  
+#endif
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
                 "instructions per 16-bit word %4.3f \n",
@@ -235,7 +249,6 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
 
      
 }
-#endif
 
 static void print_usage(char *command) {
     printf(" Try %s -n 100000 -i 15 -v \n", command);
@@ -286,6 +299,8 @@ int main(int argc, char **argv) {
        printf("n cannot be zero.\n");
        return EXIT_FAILURE;
     }
+
+    measurepopcnt(n, iterations, verbose);
     
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
         printf("%-40s\t", pospopcnt_u16_method_names[k]);
@@ -297,9 +312,9 @@ int main(int argc, char **argv) {
         if (verbose)
             printf("\n");
     }
-#if POSPOPCNT_SIMD_VERSION >= 6
-    measurepopcnt(n, iterations, verbose);
-#endif
+
+    
+
     if (!verbose)
         printf("Try -v to get more details.\n");
 
