@@ -22,9 +22,14 @@
 
 int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #if POSPOPCNT_SIMD_VERSION >= 6
-    return(pospopcnt_u16_avx512_csa(data, len, flags));
+    if (len < 32) return(pospopcnt_u16_sse_sad(data, len, flags)); // small
+    else if (len < 512) return(pospopcnt_u16_sse_mula_unroll8(data, len, flags)); // medium
+    else if (len < 4096) return(pospopcnt_u16_avx512_mula3(data, len, flags)); // medium3
+    else return(pospopcnt_u16_avx512_csa(data, len, flags));
 #elif POSPOPCNT_SIMD_VERSION >= 5
-    return(pospopcnt_u16_avx2_csa(data, len, flags));
+    if (len < 128) return(pospopcnt_u16_sse_sad(data, len, flags)); // small
+    else if (len < 1024) return(pospopcnt_u16_avx2_mula_unroll8(data, len, flags)); // medium
+    else return(pospopcnt_u16_avx2_csa(data, len, flags)); // large
 #elif POSPOPCNT_SIMD_VERSION >= 3
     return(pospopcnt_u16_sse_csa(data, len, flags));
 #else
@@ -2402,6 +2407,7 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
 #undef U
         }
 
+#if defined(__AVX512VBMI__) && __AVX512VBMI__ == 1
        // update the counters after the last iteration
         for (size_t i = 0; i < 16; i++) {
             counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, one));
@@ -2440,6 +2446,20 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
             flags[i + 0] += buf64[0] + buf64[1] + buf64[2] + buf64[3];
             flags[i + 1] += buf64[4] + buf64[5] + buf64[6] + buf64[7];
         }
+#else
+// update the counters after the last iteration
+        for (size_t i = 0; i < 16; i++) {
+            counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
+            v16 = _mm512_srli_epi16(v16, 1);
+        }
+        
+        for (size_t i = 0; i < 16; i++) {
+            _mm512_storeu_si512((__m512i*)buffer, counter[i]);
+            for (size_t z = 0; z < 32; z++) {
+                flags[i] += 16 * (uint32_t)buffer[z];
+            }
+        }
+#endif
     }
 
     _mm512_storeu_si512((__m512i*)buffer, v1);

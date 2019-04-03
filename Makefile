@@ -40,7 +40,7 @@ itest: instrumented_benchmark
 	$(CXX) --version
 	./instrumented_benchmark
 
-instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c
+instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c benchmark/linux/instrumented_benchmark.cpp benchmark/linux/popcnt.h
 	$(CXX) $(CPPFLAGS) pospopcnt.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
 
 example: pospopcnt.o example.o

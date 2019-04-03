@@ -1,8 +1,28 @@
 # positional-popcount
 
-These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word
+These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word.
 
-These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >13 GB/s (~0.15 CPU cycles / int) throughput (7 billion 16-bit integers / second or 112 billion one-hot vectors / second).
+These functions can be applied to any packed [1-hot](https://en.wikipedia.org/wiki/One-hot) 16-bit primitive, for example in machine learning/deep learning. Using large registers (AVX-512), we can achieve >16 GB/s (~0.125 CPU cycles / int) throughput (8.4 billion 16-bit integers / second or 134 billion one-hot vectors / second).
+
+### Speedup
+
+This benchmark shows the speedup of the 3 `pospopcnt` algorithms used on x86 CPUs compared to the efficient auto-vectorization of `pospopcnt_u16_scalar_naive` for different array sizes (in number of 2-byte values). See [Results](#results) for additional information.
+
+| Algorithm       | 32   | 128  | 512   | 2048  | 8192  | 16384 | 32768 |
+|--------------|------|------|-------|-------|-------|-------|-------|
+| SSE_SAD      | **5.74** | **5.02** | 3.2   | 2.36  | 2.11  | 2.09  | 2.06  |
+| AVX512_MULA3 | 0.76 | 0.9  | **4.07**  | **5.31**  | 6.73  | 6.94  | 7.25  |
+| AVX512_CSA   | 0.53 | 0.65 | 2     | 4.64  | **10.65** | **13.35** | **16.77** |
+
+Compared to a naive unvectorized solution (`pospopcnt_u16_scalar_naive_nosimd`):
+
+| Method       | 32    | 128   | 512    | 2048   | 8192  | 16384  | 32768  |
+|--------------|-------|-------|--------|--------|-------|--------|--------|
+| SSE_SAD      | **5.67**  | **10.54** | 14.93  | 16.64  | 17.21 | 17.39  | 17.38  |
+| AVX512_MULA3 | 0.75  | 1.89  | **18.98**  | **37.39**  | 54.8  | 57.78  | 61.06  |
+| AVX512_CSA   | 0.52  | 1.37  | 9.34   | 32.63  | **86.66** | **111.16** | **141.32** |
+
+The host architecture used is a 10 nm Cannon Lake [Core i3-8121U](https://ark.intel.com/content/www/us/en/ark/products/136863/intel-core-i3-8121u-processor-4m-cache-up-to-3-20-ghz.html) with gcc (GCC) 7.3.1 20180303 (Red Hat 7.3.1-5).
 
 ### Usage
 
@@ -640,76 +660,79 @@ We simulated 100 million FLAG fields using a uniform distrubtion U(min,max) with
 
 Throughput in CPU cycles / 16-bit integer (lower is better):
 
-| Method                             | Cannon Lake | Sky Lake | Haswell |
+| Algorithm                          | Cannon Lake | Sky Lake | Haswell |
 |------------------------------------|-------------|----------|---------|
-| pospopcnt_u16_scalar_naive_nosimd  | 17.525      | 17.653   | 18.012  |
-| pospopcnt_u16_scalar_naive         | 2.058       | 3.014    | 3.769   |
-| pospopcnt_u16_scalar_partition     | 3.094       | 3.018    | 3.402   |
-| pospopcnt_u16_hist1x4              | 2.865       | 2.918    | 3.169   |
-| pospopcnt_u16_sse_single           | 3.614       | 3.829    | 4.277   |
-| pospopcnt_u16_sse_mula             | 2.082       | 1.629    | 2.139   |
-| pospopcnt_u16_sse_mula_unroll4     | 1.578       | 1.4      | 1.625   |
-| pospopcnt_u16_sse_mula_unroll8     | 1.433       | 1.351    | 1.544   |
-| pospopcnt_u16_sse_mula_unroll16    | 1.386       | 1.421    | 1.543   |
-| pospopcnt_u16_avx2_popcnt          | 2.406       | 2.437    | 3.012   |
-| pospopcnt_u16_avx2                 | 2.035       | 3.019    | 4.019   |
-| pospopcnt_u16_avx2_naive_counter   | 2.033       | 3.025    | 3.834   |
-| pospopcnt_u16_avx2_single          | 2.03        | 3.013    | 3.925   |
-| pospopcnt_u16_avx2_lemire          | 2.862       | 1.916    | 2.192   |
-| pospopcnt_u16_avx2_lemire2         | 1.695       | 1.127    | 1.469   |
-| pospopcnt_u16_avx2_mula            | 1.105       | 1.4      | 1.111   |
-| pospopcnt_u16_avx2_mula2           | 1.468       | 1.423    | 1.268   |
-| pospopcnt_u16_avx2_mula3           | 0.435       | 0.418    | 0.478   |
-| pospopcnt_u16_avx2_mula_unroll4    | 0.848       | 0.855    | 0.842   |
-| pospopcnt_u16_avx2_mula_unroll8    | 0.757       | 0.725    | 0.773   |
-| pospopcnt_u16_avx2_mula_unroll16   | 0.736       | 0.747    | 0.814   |
-| pospopcnt_u16_avx512               | 1.511       | 1.604    | -       |
-| pospopcnt_u16_avx512_popcnt32_mask | 0.819       | 1.421    | -       |
-| pospopcnt_u16_avx512_popcnt64_mask | 0.838       | 1.011    | -       |
-| pospopcnt_u16_avx512_popcnt        | 1.676       | 1.751    | -       |
-| pospopcnt_u16_avx512_mula          | 0.75        | 0.778    | -       |
-| pospopcnt_u16_avx512_mula_unroll4  | 0.623       | 0.579    | -       |
-| pospopcnt_u16_avx512_mula_unroll8  | 0.555       | 0.577    | -       |
-| pospopcnt_u16_avx2_mula3           | 0.434       | 0.417    | 0.479   |
-| pospopcnt_u16_avx512_mula3         | 0.288       | 0.304    | -       |
-| pospopcnt_u16_avx2_csa             | 0.258       | 0.28     | 0.327   |
-| pospopcnt_u16_avx512_csa           | **0.165**       | 0.191    | -       |
+| pospopcnt_u16_scalar_naive         | 2.061       | 3.045    | 4.066   |
+| pospopcnt_u16_scalar_naive_nosimd  | 17.539      | 17.958   | 18.033  |
+| pospopcnt_u16_scalar_partition     | 3.09        | 3.065    | 3.405   |
+| pospopcnt_u16_scalar_hist1x4       | 2.857       | 2.971    | 3.156   |
+| pospopcnt_u16_sse_single           | 3.888       | 4.036    | 4.312   |
+| pospopcnt_u16_sse_mula             | 2.084       | 1.71     | 2.152   |
+| pospopcnt_u16_sse_mula_unroll4     | 1.591       | 1.495    | 1.676   |
+| pospopcnt_u16_sse_mula_unroll8     | 1.459       | 1.428    | 1.505   |
+| pospopcnt_u16_sse_mula_unroll16    | 1.417       | 1.494    | 1.541   |
+| pospopcnt_u16_sse2_sad             | 1.073       | 1.095    | 1.361   |
+| pospopcnt_u16_sse2_csa             | 0.643       | 0.568    | 0.424   |
+| pospopcnt_u16_avx2_popcnt          | 2.431       | 2.463    | 3.155   |
+| pospopcnt_u16_avx2                 | 1.155       | 1.233    | 1.629   |
+| pospopcnt_u16_avx2_naive_counter   | 1.388       | 1.501    | 1.641   |
+| pospopcnt_u16_avx2_single          | 2.716       | 2.964    | 3.586   |
+| pospopcnt_u16_avx2_lemire          | 2.869       | 1.99     | 2.19    |
+| pospopcnt_u16_avx2_lemire2         | 1.731       | 1.214    | 1.496   |
+| pospopcnt_u16_avx2_mula            | 1.163       | 1.153    | 1.275   |
+| pospopcnt_u16_avx2_mula_unroll4    | 0.969       | 0.904    | 0.876   |
+| pospopcnt_u16_avx2_mula_unroll8    | 0.888       | 0.88     | 0.776   |
+| pospopcnt_u16_avx2_mula_unroll16   | 0.829       | 0.924    | 0.816   |
+| pospopcnt_u16_avx2_mula3           | 0.651       | 0.668    | 0.5     |
+| pospopcnt_u16_avx2_csa             | 0.542       | 0.475    | 0.316   |
+| pospopcnt_u16_avx512               | 1.52        | 1.654    | -       |
+| pospopcnt_u16_avx512_popcnt32_mask | 1.042       | 1.465    | -       |
+| pospopcnt_u16_avx512_popcnt64_mask | 1.058       | 1.146    | -       |
+| pospopcnt_u16_avx512_popcnt        | 1.695       | 1.79     | -       |
+| pospopcnt_u16_avx512_mula          | 1.014       | 0.98     | -       |
+| pospopcnt_u16_avx512_mula_unroll4  | 0.859       | 0.789    | -       |
+| pospopcnt_u16_avx512_mula_unroll8  | 0.694       | 0.772    | -       |
+| pospopcnt_u16_avx512_mula2         | 0.754       | 0.682    | -       |
+| pospopcnt_u16_avx512_mula3         | 0.554       | 0.629    | -       |
+| pospopcnt_u16_avx512_csa           | 0.488       | 0.453    | -       |
 
 Throughput in MB/s (higher is better):
 
-
-| Method                             | Cannon Lake | Sky Lake | Haswell |
+| Algorithm                          | Cannon Lake | Sky Lake | Haswell |
 |------------------------------------|-------------|----------|---------|
-| pospopcnt_u16_scalar_naive         | **2914**        | 1991.23  | 1199.32 |
-| pospopcnt_u16_scalar_naive_nosimd  | **343.815**     | 338.44   | 277.776 |
-| pospopcnt_u16_scalar_partition     | 1956.75     | **1981.79**  | 1426.37 |
-| pospopcnt_u16_hist1x4              | **2111.27**     | 2043.05  | 1530.24 |
-| pospopcnt_u16_sse_single           | **1555.12**     | 1450.39  | 1164.48 |
-| pospopcnt_u16_sse_mula             | 2898.31     | **3571.13**  | 2251.13 |
-| pospopcnt_u16_sse_mula_unroll4     | 3809.71     | **3977.23**  | 2615.54 |
-| pospopcnt_u16_sse_mula_unroll8     | **4175.65**     | **4175.65**  | 3178.85 |
-| pospopcnt_u16_sse_mula_unroll16    | **4336.42**     | 3988.21  | 3105.81 |
-| pospopcnt_u16_avx2_popcnt          | 2531.83     | **2656.41**  | 1484.06 |
-| pospopcnt_u16_avx2                 | **5667.02**     | 5302.27  | 3241.47 |
-| pospopcnt_u16_avx2_naive_counter   | **4514.74**     | 4401.75  | 3206.32 |
-| pospopcnt_u16_avx2_single          | **2225.98**     | 2110.46  | 1370.07 |
-| pospopcnt_u16_avx2_lemire          | 2106.14     | **2982.25**  | 2210.18 |
-| pospopcnt_u16_avx2_lemire2         | 3486.65     | **4817.33**  | 3153.79 |
-| pospopcnt_u16_avx2_mula            | 5304.54     | **5431.91**  | 3364.81 |
-| pospopcnt_u16_avx2_mula_unroll4    | **6887.65**     | 6742.01  | 4955.8  |
-| pospopcnt_u16_avx2_mula_unroll8    | **7471.24**     | 6560.62  | 5698.94 |
-| pospopcnt_u16_avx2_mula_unroll16   | **7677.98**     | 6319.66  | 5094.4  |
-| pospopcnt_u16_avx2_mula3           | **10743**       | 8753.92  | 6895.74 |
-| pospopcnt_u16_avx2_csa             | **13340.7**     | 9334.56  | 7763.83 |
-| pospopcnt_u16_avx512               | **3999.74**     | 3474.67  | -       |
-| pospopcnt_u16_avx512_popcnt32_mask | **6867.81**     | 5397.26  | -       |
-| pospopcnt_u16_avx512_popcnt64_mask | **6535.26**     | 5476.15  | -       |
-| pospopcnt_u16_avx512_popcnt        | **3569.03**     | 3144.42  | -       |
-| pospopcnt_u16_avx512_mula          | **7454.02**     | 6865.88  | -       |
-| pospopcnt_u16_avx512_mula_unroll4  | **8407.34**     | 6928.66  | -       |
-| pospopcnt_u16_avx512_mula_unroll8  | **9685.61**     | 6978.24  | -       |
-| pospopcnt_u16_avx512_mula3         | **11343.3**     | 8145.35  | -       |
-| pospopcnt_u16_avx512_csa           | **13339.8**     | 9431.49  | -       |
+| pospopcnt_u16_scalar_naive         | **2855.31**     | 1988.6   | 1141.51 |
+| pospopcnt_u16_scalar_naive_nosimd  | 326.381     | **337.654**  | 269.845 |
+| pospopcnt_u16_scalar_partition     | 1879.44     | **1979.75**  | 1363.66 |
+| pospopcnt_u16_scalar_hist1x4       | 2015.88     | **2033.72**  | 1594.51 |
+| pospopcnt_u16_sse_single           | **1508.57**     | 1456.84  | 1156.74 |
+| pospopcnt_u16_sse_mula             | 2840.6      | **3485.52**  | 2342.6  |
+| pospopcnt_u16_sse_mula_unroll4     | 3708.2      | **4043.73**  | 2860.88 |
+| pospopcnt_u16_sse_mula_unroll8     | 4007.71     | **4197.79**  | 3215.9  |
+| pospopcnt_u16_sse_mula_unroll16    | **4089.86**     | 4051.38  | 3320.59 |
+| pospopcnt_u16_sse2_sad             | **5441.64**     | 5422.76  | 3589.29 |
+| pospopcnt_u16_sse2_csa             | **10802.2**     | 10229.8  | 10794.3 |
+| pospopcnt_u16_avx2_popcnt          | 2442.47     | **2689.55**  | 1506.48 |
+| pospopcnt_u16_avx2                 | **5162.67**     | 4708.57  | 1135.6  |
+| pospopcnt_u16_avx2_naive_counter   | **4266.14**     | 3969.01  | 1126.54 |
+| pospopcnt_u16_avx2_single          | **2182.57**     | 2086.88  | 1420    |
+| pospopcnt_u16_avx2_lemire          | 2065.53     | **3011.9**   | 2272.55 |
+| pospopcnt_u16_avx2_lemire2         | 3409.39     | **4837.06**  | 3449.72 |
+| pospopcnt_u16_avx2_mula            | 5083.96     | **5519.11**  | 3847.79 |
+| pospopcnt_u16_avx2_mula_unroll4    | 6606.68     | **6840.79**  | 5499.85 |
+| pospopcnt_u16_avx2_mula_unroll8    | **7276.9**      | 6907.68  | 6445.92 |
+| pospopcnt_u16_avx2_mula_unroll16   | **7614.47**     | 6592.75  | 6005.51 |
+| pospopcnt_u16_avx2_mula3           | **10901.6**     | 9316.41  | 9295.07 |
+| pospopcnt_u16_avx2_csa             | 14196.9     | 11280.1  | **15494.3** |
+| pospopcnt_u16_avx512               | **3929.03**     | 3475.55  | -       |
+| pospopcnt_u16_avx512_popcnt32_mask | **6586.83**     | 5460.8   | -       |
+| pospopcnt_u16_avx512_popcnt64_mask | **6739.99**     | 5587.01  | -       |
+| pospopcnt_u16_avx512_popcnt        | **3504.8**      | 3078.9   | -       |
+| pospopcnt_u16_avx512_mula          | 6565.97     | **6930.77** | -       |
+| pospopcnt_u16_avx512_mula_unroll4  | **8055.02**     | 7151.4   | -       |
+| pospopcnt_u16_avx512_mula_unroll8  | **9560.17**     | 7238.51  | -       |
+| pospopcnt_u16_avx512_mula2         | **9388.87**     | 8012.72  | -       |
+| pospopcnt_u16_avx512_mula3         | **11355.3**     | 8983.79  | -       |
+| pospopcnt_u16_avx512_csa           | **16437**       | 12441.1  | -       |
 
 ## Instrumented tests (Linux specific)
 
