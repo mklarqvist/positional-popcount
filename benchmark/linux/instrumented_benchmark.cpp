@@ -301,6 +301,15 @@ int main(int argc, char **argv) {
        return EXIT_FAILURE;
     }
 
+    size_t array_in_bytes = sizeof(uint16_t) * n;
+    if(array_in_bytes < 1024) {
+      printf("array size: %zu B\n", array_in_bytes);
+    } else if (array_in_bytes < 1024 * 1024) {
+      printf("array size: %.3f kB\n", array_in_bytes / 1024.);
+    } else {
+      printf("array size: %.3f MB\n", array_in_bytes / (1024 * 1024.));
+    }
+
     measurepopcnt(n, iterations, verbose);
     
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
