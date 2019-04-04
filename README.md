@@ -1,3 +1,9 @@
+# libpopcnt
+
+[![Build Status](https://travis-ci.com/mklarqvist/positional-popcount.svg)](https://travis-ci.com/mklarqvist/positional-popcount)
+[![Github Releases](https://img.shields.io/github/release/mklarqvist/positional-popcount.svg)](https://github.com/mklarqvist/positional-popcount/releases)
+
+
 # positional-popcount
 
 These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word.

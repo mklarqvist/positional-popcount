@@ -84,9 +84,6 @@ script:
       make example
       make instrumented_benchmark
 
-      example
-      bench 100000 10
-
     elif [ "${TRAVIS_OS_NAME}" = "linux" ]
     then
       make -j4
