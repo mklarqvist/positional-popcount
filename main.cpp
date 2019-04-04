@@ -8,10 +8,17 @@
 
 inline void* aligned_malloc(size_t size, size_t align) {
     void* result;
+#if __STDC_VERSION__ >= 201112L
+    result = aligned_alloc(align, size);
+#elif _POSIX_VERSION >= 200112L
+     if (posix_memalign(&result, align, size)) result = nullptr;
+#else 
 #ifdef _MSC_VER 
     result = _aligned_malloc(size, align);
-#else 
-     if(posix_memalign(&result, align, size)) result = 0;
+#else
+    result = new uint8_t*[size];
+#endif
+
 #endif
     return result;
 }
@@ -81,12 +88,11 @@ void generate_random_data(uint16_t* data, uint32_t n) {
 typedef std::chrono::high_resolution_clock::time_point clockdef;
 
 int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, int id, int iterations,
-                          uint16_t* data, uint32_t n, uint32_t* counters, 
+                          uint16_t* data, uint32_t n, 
                           bench_unit& unit) 
 {
     // Set counters to 0.
-    memset(counters, 0, sizeof(uint32_t)*16);
-
+    uint32_t counters[16] = {0};
     uint32_t flags_truth[16] = {0};
 
     uint32_t cycles_low = 0, cycles_high = 0;
@@ -211,16 +217,10 @@ asm   volatile("RDTSCP\n\t"
 }
 
 void benchmark(uint16_t* vals, std::vector<bench_unit>& units, const uint32_t n, int iterations) {
-    uint32_t truth[16];
-    uint32_t flags[16];
-
-    // Truth-set from naive scalar subroutine.
-    pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,1,iterations,vals,n,truth,units[1]);
-    
-    // for(int i = 2; i < PPOPCNT_NUMBER_METHODS; ++i) {
-    for(int i = 2; i < 24; ++i) {
-        pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),i,iterations,vals,n,flags,units[i]);
-        //assert_truth(flags, truth);
+    // Cycle over algorithms.
+    for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) {
+    // for(int i = 2; i < 24; ++i) {
+        pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),i,iterations,vals,n,units[i]);
     }
 }
 
