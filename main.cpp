@@ -180,15 +180,14 @@ asm   volatile("RDTSCP\n\t"
     variance /= clocks.size();
     stdDeviation = sqrt(variance);
 
-    
-    std::cerr << pospopcnt_u16_method_names[id] << "\t" << 
-        mean_cycles << "\t" << mean_cycles / n << "\t" << 
-        variance << "\t" << 
+    std::cout << pospopcnt_u16_method_names[id] << "\t" << 
+        mean_cycles << "\t" <<
+        min_c << "(" << min_c/mean_cycles << ")" << "\t" << 
+        max_c << "(" << max_c/mean_cycles << ")" << "\t" <<
         stdDeviation << "\t" << 
         mad << "\t" << 
         mean_time << "\t" << 
-        min_c << "(" << min_c/mean_cycles << ")" << "\t" << 
-        max_c << "(" << max_c/mean_cycles << ")" << "\t" <<
+        mean_cycles / n << "\t" << 
         ((n*sizeof(uint16_t)) / (1024*1024.0)) / (mean_time / 1000000.0) << std::endl;
 
     // End timer and update times.
@@ -229,6 +228,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     // Memory align input data.
     uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
     std::vector<bench_unit> units(64);
+    std::cout << "Algorithm\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(micros)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
     benchmark(vals, units, n, cycles);
 
     return;
