@@ -76,13 +76,6 @@ before_install:
   # Overwrite default CC and CXX
   - eval "${COMPILERS}"
 
-install:
-  - |
-    if [ "${TRAVIS_OS_NAME}" = "linux" ]
-    then
-        sudo apt-get install -y make cmake cppcheck valgrind g++-multilib
-    fi
-
 script:
   - |
     if [ "$CXX" = "x86_64-w64-mingw32-g++-posix" ]
@@ -91,8 +84,8 @@ script:
       make example
       make instrumented_benchmark
 
-      ./example
-      ./bench 100000 10
+      example
+      bench 100000 10
 
     elif [ "${TRAVIS_OS_NAME}" = "linux" ]
     then
@@ -102,8 +95,6 @@ script:
 
       ./example
       ./bench 100000 10
-
-      valgrind --error-exitcode=1 ./bench 100000 10
 
     elif [ "${TRAVIS_OS_NAME}" = "osx" ]
     then
