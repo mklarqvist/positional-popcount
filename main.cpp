@@ -4,15 +4,6 @@
 #include <cassert>//assert
 #include <cstring>//memset
 
-#ifdef __linux__
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/hardirq.h>
-#include <linux/preempt.h>
-#include <linux/sched.h> 
-#endif
-
 #include "pospopcnt.h"
 
 inline void* aligned_malloc(size_t size, size_t align) {
@@ -89,7 +80,7 @@ void generate_random_data(uint16_t* data, uint32_t n) {
 // Definition for microsecond timer.
 typedef std::chrono::high_resolution_clock::time_point clockdef;
 
-int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, 
+int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, int id, int iterations,
                           uint16_t* data, uint32_t n, uint32_t* counters, 
                           bench_unit& unit) 
 {
@@ -107,7 +98,7 @@ int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f,
     std::vector<uint32_t> clocks;
     std::vector<uint32_t> times;
 
-    for (int i = 0; i < 250; ++i) {
+    for (int i = 0; i < iterations; ++i) {
         memset(counters, 0, sizeof(uint32_t)*16);
         memset(flags_truth, 0, sizeof(uint32_t)*16);
         generate_random_data(data, n);
@@ -135,9 +126,9 @@ asm   volatile("RDTSCP\n\t"
                "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
 
 #ifdef __linux__ 
-    unsigned long flags;
-    preempt_disable(); /*we disable preemption on our CPU*/
-    raw_local_irq_save(flags); /*we disable hard interrupts on our CPU*/  
+    // unsigned long flags;
+    // preempt_disable(); /*we disable preemption on our CPU*/
+    // raw_local_irq_save(flags); /*we disable hard interrupts on our CPU*/  
     /*at this stage we exclusively own the CPU*/ 
 #endif
 
@@ -155,8 +146,8 @@ asm   volatile("RDTSCP\n\t"
                    "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
 
 #ifdef __linux__ 
-        raw_local_irq_restore(flags);/*we enable hard interrupts on our CPU*/
-        preempt_enable();/*we enable preemption*/
+        // raw_local_irq_restore(flags);/*we enable hard interrupts on our CPU*/
+        // preempt_enable();/*we enable preemption*/
 #endif
 
         clockdef t2 = std::chrono::high_resolution_clock::now();
@@ -170,9 +161,12 @@ asm   volatile("RDTSCP\n\t"
     }
 
     uint64_t tot_cycles = 0, tot_time = 0;
+    uint32_t min_c = std::numeric_limits<uint32_t>::max(), max_c = 0;
     for (int i = 0; i < clocks.size(); ++i) {
         tot_cycles += clocks[i];
         tot_time += times[i];
+        min_c = std::min(min_c, clocks[i]);
+        max_c = std::max(max_c, clocks[i]);
     }
     double mean_cycles = tot_cycles / (double)clocks.size();
     uint32_t mean_time = tot_time / (double)clocks.size();
@@ -187,7 +181,15 @@ asm   volatile("RDTSCP\n\t"
     stdDeviation = sqrt(variance);
 
     
-    std::cerr << "mean_cycles=" << mean_cycles << "->" << mean_cycles / n << " and var=" << variance << " std=" << stdDeviation << " mad=" << mad << " time=" << mean_time << std::endl;
+    std::cerr << pospopcnt_u16_method_names[id] << "\t" << 
+        mean_cycles << "\t" << mean_cycles / n << "\t" << 
+        variance << "\t" << 
+        stdDeviation << "\t" << 
+        mad << "\t" << 
+        mean_time << "\t" << 
+        min_c << "(" << min_c/mean_cycles << ")" << "\t" << 
+        max_c << "(" << max_c/mean_cycles << ")" << "\t" <<
+        ((n*sizeof(uint16_t)) / (1024*1024.0)) / (mean_time / 1000000.0) << std::endl;
 
     // End timer and update times.
     //uint64_t cpu_cycles_after = get_cpu_cycles();
@@ -205,29 +207,33 @@ asm   volatile("RDTSCP\n\t"
     return 0;
 }
 
-void benchmark(uint16_t* vals, std::vector<bench_unit>& units, const uint32_t n) {
+void benchmark(uint16_t* vals, std::vector<bench_unit>& units, const uint32_t n, int iterations) {
     uint32_t truth[16];
     uint32_t flags[16];
 
     // Truth-set from naive scalar subroutine.
-    pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,vals,n,truth,units[1]);
+    pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,1,iterations,vals,n,truth,units[1]);
     
-    for(int i = 2; i < 12; ++i) {
-        pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),vals,n,flags,units[i]);
+    for(int i = 2; i < PPOPCNT_NUMBER_METHODS; ++i) {
+        pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),i,iterations,vals,n,flags,units[i]);
         //assert_truth(flags, truth);
     }
 }
 
 void flag_test(uint32_t n, uint32_t cycles = 1) {
-    std::cerr << "Generating " << n << " flags. (" << n*sizeof(uint16_t) / 1024 << "kb)" << std::endl;
+    std::cerr << "Generating " << n << " flags. (" << n*sizeof(uint16_t) / 1024 << "kb) repeated " << cycles << " times." << std::endl;
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
 
     // Memory align input data.
     uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
-
     std::vector<bench_unit> units(64);
+    benchmark(vals, units, n, cycles);
+
+    return;
+
+    
 
     std::cout << "Type\tRange\tIteration";
     for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << pospopcnt_u16_method_names[i];
@@ -251,7 +257,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             units[0].times_local = time_span.count();
 
             // Start benchmarking.
-            benchmark(vals, units, n);
+            benchmark(vals, units, n, c);
 
 #define MBS(cum) ((n*sizeof(uint16_t)) / (1024*1024.0)) / (units[cum].times_local / 1000000.0)
             std::cout << "MBS\t" << ranges[r] << "\t" << c;
@@ -284,8 +290,8 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
 }
 
 int main(int argc, char **argv) {
-    if(argc == 1)      flag_test(100000000, 10);
-    else if(argc == 2) flag_test(std::atoi(argv[1]), 10);
+    if(argc == 1)      flag_test(1000000, 500);
+    else if(argc == 2) flag_test(std::atoi(argv[1]), 500);
     else if(argc == 3) flag_test(std::atoi(argv[1]), std::atoi(argv[2]));
     else return(1);
     return(0);
