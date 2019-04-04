@@ -2154,7 +2154,7 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
         __m512i input1 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v1, 8));
         
         const __m512i bits_04 = _mm512_and_si512(input0, _mm512_set1_epi16(0x1111));
-        const __m512i bits_15 = _mm512_and_si512(_mm512_srli_epi32(input0, 1), _mm512_set1_epi16(0x1111)); // 0001000100010001
+        const __m512i bits_15 = _mm512_and_si512(_mm512_srli_epi32(input0, 1), _mm512_set1_epi16(0x1111)); // 00010001 00010001
         const __m512i bits_26 = _mm512_and_si512(_mm512_srli_epi32(input0, 2), _mm512_set1_epi16(0x1111));
         const __m512i bits_37 = _mm512_and_si512(_mm512_srli_epi32(input0, 3), _mm512_set1_epi16(0x1111));
 
@@ -2173,7 +2173,7 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
         const __m512i sum_ae = _mm512_sad_epu8(bits_ae, _mm512_setzero_si512());
         const __m512i sum_bf = _mm512_sad_epu8(bits_bf, _mm512_setzero_si512());
 
-        sum[0x0] = _mm512_add_epi64(sum[0x0], _mm512_and_si512 (sum_04, _mm512_set1_epi64(0xF))); // (0)...1111
+        sum[0x0] = _mm512_add_epi64(sum[0x0], _mm512_and_si512 (sum_04, _mm512_set1_epi64(0xF))); // 00001111
         sum[0x4] = _mm512_add_epi64(sum[0x4], _mm512_srli_epi32(sum_04, 4));
         sum[0x1] = _mm512_add_epi64(sum[0x1], _mm512_and_si512 (sum_15, _mm512_set1_epi64(0xF)));
         sum[0x5] = _mm512_add_epi64(sum[0x5], _mm512_srli_epi32(sum_15, 4));
@@ -2336,7 +2336,6 @@ int pospopcnt_u16_avx512_mula3(const uint16_t* array, uint32_t len, uint32_t* fl
 }
 
 int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    //for (size_t i = 0; i < 16; i++) flags[i] = 0;
     for (uint32_t i = len - (len % (32 * 16)); i < len; ++i) {
         for (int j = 0; j < 16; ++j) {
             flags[j] += ((array[i] & (1 << j)) >> j);
@@ -2407,39 +2406,58 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
 #undef U
         }
 
+// AVX512VBMI is not as common as AVX512F.
 #if defined(__AVX512VBMI__) && __AVX512VBMI__ == 1
-       // update the counters after the last iteration
+       // Update the counters after the last iteration
         for (size_t i = 0; i < 16; i++) {
             counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, one));
             v16 = _mm512_srli_epi16(v16, 1);
         }
         
         for (size_t i = 0; i < 16; i += 2) {
-            __m512i shuffle_lo = _mm512_setr_epi32(0x06040200, 0x0e0c0a08, 0x16141210, 0x1e1c1a18, // 00000110 00000100 00000010 00000000
+// 00000110 00000100 00000010 00000000, 00001110 00001100 00001010 00001000, 00010110 00010100 00010010 00010000, 00011110 00011100 00011010 00011000
+// {6, 4, 2, 0},                        {14, 12, 10, 8},                     {22, 20, 18, 16},                    {30, 28, 26, 24}
+// 00100110 00100100 00100010 00100000, 00101110 00101100 00101010 00101000, 00110110 00110100 00110010 00110000, 00111110 00111100 00111010 00111000
+// {38, 36, 34, 32},                    {46, 44, 42, 40},                    {54, 52, 50, 48},                    {62, 60, 58, 56}
+// 01000110 01000100 01000010 01000000, 01001110 01001100 01001010 01001000, 01010110 01010100 01010010 01010000, 01011110 01011100 01011010 01011000
+// {70, 68, 66, 64},                    {78, 76, 74, 72},                    {86, 84, 82, 80},                    {94, 92, 90, 88}
+// 01100110 01100100 01100010 01100000, 01101110 01101100 01101010 01101000, 01110110 01110100 01110010 01110000, 01111110 01111100 01111010 01111000
+// {102, 100, 98, 96},                  {110, 108, 106, 104},                {118, 116, 114, 112},                {126, 124, 122, 120}
+            __m512i shuffle_lo = _mm512_setr_epi32(0x06040200, 0x0e0c0a08, 0x16141210, 0x1e1c1a18,
                                                    0x26242220, 0x2e2c2a28, 0x36343230, 0x3e3c3a38,
                                                    0x46444240, 0x4e4c4a48, 0x56545250, 0x5e5c5a58,
                                                    0x66646260, 0x6e6c6a68, 0x76747270, 0x7e7c7a78);
+
+// 00000111 00000101 00000011 00000001, 00001111 00001101 00001011 00001001, 00010111 00010101 00010011 00010001, 00011111 00011101 00011011 00011001
+// {7, 5, 3, 1},                        {15, 13, 11, 9},                     {23, 21, 19, 17},                    {31, 29, 27, 25}
+// 00100111 00100101 00100011 00100001, 00101111 00101101 00101011 00101001, 00110111 00110101 00110011 00110001, 00111111 00111101 00111011 00111001
+// {39, 37, 35, 33},                    {47, 45, 43, 41},                    {55, 53, 51, 49},                    {63, 61, 59, 57}
+// 01000111 01000101 01000011 01000001, 01001111 01001101 01001011 01001001, 01010111 01010101 01010011 01010001, 01011111 01011101 01011011 01011001
+// {71, 69, 67, 65},                    {79, 77, 75, 73},                    {87, 85, 83, 81},                    {95, 93, 91, 89}
+// 01100111 01100101 01100011 01100001, 01101111 01101101 01101011 01101001, 01110111 01110101 01110011 01110001, 01111111 01111101 01111011 01111001
+ // {103, 101, 99, 97},                 {111, 109, 107, 105},                {119, 117, 115, 113},                {127, 125, 123, 121}
             __m512i shuffle_hi = _mm512_setr_epi32(0x07050301, 0x0f0d0b09, 0x17151311, 0x1f1d1b19,
                                                    0x27252321, 0x2f2d2b29, 0x37353331, 0x3f3d3b39,
                                                    0x47454341, 0x4f4d4b49, 0x57555351, 0x5f5d5b59,
                                                    0x67656361, 0x6f6d6b69, 0x77757371, 0x7f7d7b79);
-            // Move **lower bytes** from 16-bit counters, so bytes 0..31 of
-            // results are from counter[i] and 32..63 from counter[i+1]
+            
+            // Move **lower** bytes from 16-bit counters, so bytes 0..31 of
+            // results are from counter[i] and 32..63 from counter[i+1].
             __m512i lo_bytes = _mm512_permutex2var_epi8(counter[i], shuffle_lo, counter[i + 1]);
 
-            // Likewise, move **higher bytes**
+            // Likewise, move **higher** bytes.
             __m512i hi_bytes = _mm512_permutex2var_epi8(counter[i], shuffle_hi, counter[i + 1]);
 
-            // Sum the lower bytes: now each 64-bit word holds sum of 8 bytes
+            // Sum the lower bytes: now each 64-bit word holds sum of 8 bytes.
             __m512i sum_lo = _mm512_sad_epu8(lo_bytes, _mm512_setzero_si512());
 
-            // Likewise sum the higher bytes
+            // Likewise sum the higher bytes.
             __m512i sum_hi = _mm512_sad_epu8(hi_bytes, _mm512_setzero_si512());
 
-            // Calculate final sums --- the sum of higher bytes has to be multiplied by 256
+            // Calculate final sums --- the sum of higher bytes has to be multiplied by 256 (1 << 8)
             __m512i sum = _mm512_add_epi64(sum_lo, _mm512_slli_epi64(sum_hi, 8));
 
-            // Since _mm512_extractXXX are slow, we use a buffer, which is likely cached
+            // Since _mm512_extract* are slow. Instead we use a local buffer that is most likely cached.
             uint64_t buf64[8];
             _mm512_storeu_si512((__m512i*)buf64, _mm512_slli_epi32(sum, 4));
 
@@ -2447,7 +2465,7 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
             flags[i + 1] += buf64[4] + buf64[5] + buf64[6] + buf64[7];
         }
 #else
-// update the counters after the last iteration
+        // Update the counters after the last iteration.
         for (size_t i = 0; i < 16; i++) {
             counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
             v16 = _mm512_srli_epi16(v16, 1);
