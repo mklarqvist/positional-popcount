@@ -95,17 +95,9 @@ int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, int id, int iterations,
     
     //const uint64_t cpu_cycles_before = get_cpu_cycles();
 
-    std::vector<uint32_t> clocks;
+    std::vector<uint64_t> clocks;
     std::vector<uint32_t> times;
 
-    for (int i = 0; i < iterations; ++i) {
-        memset(counters, 0, sizeof(uint32_t)*16);
-        memset(flags_truth, 0, sizeof(uint32_t)*16);
-        generate_random_data(data, n);
-
-        pospopcnt_u16_scalar_naive(data, n, flags_truth);
-
-        clockdef t1 = std::chrono::high_resolution_clock::now();
 // Intel guide:
 // @see: https://www.intel.com/content/dam/www/public/us/en/documents/white-papers/ia-32-ia-64-benchmark-code-execution-paper.pdf
 asm   volatile ("CPUID\n\t"
@@ -124,6 +116,15 @@ asm   volatile("RDTSCP\n\t"
                "mov %%edx, %0\n\t"
                "mov %%eax, %1\n\t"
                "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
+
+    for (int i = 0; i < iterations; ++i) {
+        memset(counters, 0, sizeof(uint32_t)*16);
+        memset(flags_truth, 0, sizeof(uint32_t)*16);
+        generate_random_data(data, n);
+
+        pospopcnt_u16_scalar_naive(data, n, flags_truth);
+
+        clockdef t1 = std::chrono::high_resolution_clock::now();
 
 #ifdef __linux__ 
     // unsigned long flags;
@@ -156,12 +157,15 @@ asm   volatile("RDTSCP\n\t"
         assert_truth(counters, flags_truth);
         // std::cerr << cycles_low <<"-" << cycles_high << " and " << cycles_low1 << "-" << cycles_high1 << std::endl;
         // std::cerr << "diff=" << (cycles_low1-cycles_low) << "->" << (cycles_low1-cycles_low)/(double)n << std::endl;
-        clocks.push_back(cycles_low1-cycles_low);
+        uint64_t start = ( ((uint64_t)cycles_high  << 32) | cycles_low  );
+        uint64_t end   = ( ((uint64_t)cycles_high1 << 32) | cycles_low1 );
+
+        clocks.push_back(end - start);
         times.push_back(time_span.count());
     }
 
     uint64_t tot_cycles = 0, tot_time = 0;
-    uint32_t min_c = std::numeric_limits<uint32_t>::max(), max_c = 0;
+    uint64_t min_c = std::numeric_limits<uint64_t>::max(), max_c = 0;
     for (int i = 0; i < clocks.size(); ++i) {
         tot_cycles += clocks[i];
         tot_time += times[i];
@@ -180,7 +184,7 @@ asm   volatile("RDTSCP\n\t"
     variance /= clocks.size();
     stdDeviation = sqrt(variance);
 
-    std::cout << pospopcnt_u16_method_names[id] << "\t" << 
+    std::cout << pospopcnt_u16_method_names[id] << "\t" << n << "\t" << 
         mean_cycles << "\t" <<
         min_c << "(" << min_c/mean_cycles << ")" << "\t" << 
         max_c << "(" << max_c/mean_cycles << ")" << "\t" <<
@@ -213,7 +217,8 @@ void benchmark(uint16_t* vals, std::vector<bench_unit>& units, const uint32_t n,
     // Truth-set from naive scalar subroutine.
     pospopcnt_u16_wrapper(&pospopcnt_u16_scalar_naive,1,iterations,vals,n,truth,units[1]);
     
-    for(int i = 2; i < PPOPCNT_NUMBER_METHODS; ++i) {
+    // for(int i = 2; i < PPOPCNT_NUMBER_METHODS; ++i) {
+    for(int i = 2; i < 24; ++i) {
         pospopcnt_u16_wrapper(get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i)),i,iterations,vals,n,flags,units[i]);
         //assert_truth(flags, truth);
     }
@@ -228,7 +233,7 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     // Memory align input data.
     uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
     std::vector<bench_unit> units(64);
-    std::cout << "Algorithm\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(micros)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
+    std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(micros)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
     benchmark(vals, units, n, cycles);
 
     return;
