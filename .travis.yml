@@ -85,32 +85,32 @@ install:
 
 script:
   - |
-  if [ "$CXX" = "x86_64-w64-mingw32-g++-posix" ]
-  then
-    make -j4
-    make example
-    make instrumented_benchmark
+    if [ "$CXX" = "x86_64-w64-mingw32-g++-posix" ]
+    then
+      make -j4
+      make example
+      make instrumented_benchmark
 
-    ./example
-    ./bench 100000 10
+      ./example
+      ./bench 100000 10
 
-  elif [ "${TRAVIS_OS_NAME}" = "linux" ]
-  then
-    make -j4
-    make example
-    make instrumented_benchmark
+    elif [ "${TRAVIS_OS_NAME}" = "linux" ]
+    then
+      make -j4
+      make example
+      make instrumented_benchmark
 
-    ./example
-    ./bench 100000 10
+      ./example
+      ./bench 100000 10
 
-    valgrind --error-exitcode=1 ./bench 100000 10
+      valgrind --error-exitcode=1 ./bench 100000 10
 
-  elif [ "${TRAVIS_OS_NAME}" = "osx" ]
-  then
-    make -j4
-    make example
-    make instrumented_benchmark
+    elif [ "${TRAVIS_OS_NAME}" = "osx" ]
+    then
+      make -j4
+      make example
+      make instrumented_benchmark
 
-    ./example
-    ./bench 100000 10
-  fi
+      ./example
+      ./bench 100000 10
+    fi
