@@ -2516,6 +2516,17 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
     }
     return 0;
 }
+
+int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) {
+    __m512i counter = _mm512_setzero_si512();
+    __m512i ones = _mm512_set1_epi32(1);
+
+    for (int i = 0; i < len; i++) {
+        counter = _mm512_mask_add_epi32(counter, data[i], counter, ones);
+    }
+
+    _mm512_storeu_si512((__m512i*)flags, counter);
+}
 #else
 int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
@@ -2523,6 +2534,7 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32
 int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_mula2(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
 #if __clang__ == 1 || __llvm__ == 1

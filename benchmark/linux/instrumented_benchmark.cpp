@@ -48,6 +48,7 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_avx512,
     pospopcnt_u16_avx512_popcnt32_mask,
     pospopcnt_u16_avx512_popcnt64_mask,
+    pospopcnt_u16_avx512_masked_ops,
     pospopcnt_u16_avx512_popcnt,
     pospopcnt_u16_avx512_mula,
     pospopcnt_u16_avx512_mula_unroll4,
@@ -117,6 +118,7 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
     evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
     evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    evts.push_back(PERF_COUNT_HW_REF_CPU_CYCLES);
     LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
     std::vector<unsigned long long> results; // tmp buffer
     std::vector< std::vector<unsigned long long> > allresults;
@@ -177,14 +179,12 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
                "cache ref., %8.1f cache mis.\n",
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
     } else {
-        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
-        // printf("%4.3f \n", double(mins[0]) / n);
+        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
 
     return isok;
 }
 
-#if POSPOPCNT_SIMD_VERSION >= 5
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
@@ -193,6 +193,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
     evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
     evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    evts.push_back(PERF_COUNT_HW_REF_CPU_CYCLES);
     LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
     std::vector<unsigned long long> results; // tmp buffer
     std::vector< std::vector<unsigned long long> > allresults;
@@ -235,20 +236,19 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
 #endif
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-                "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / n / 4, double(mins[1]) / n / 4);
+               "instructions per 16-bit word %4.3f \n",
+                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
         // first we display mins
         printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-                "cache ref., %8llu cache mis.\n",
+               "cache ref., %8llu cache mis.\n",
                 mins[0], mins[1], mins[2], mins[3], mins[4]);
         printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-                "cache ref., %8.1f cache mis.\n",
+               "cache ref., %8.1f cache mis.\n",
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
     } else {
-        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n / 4);
-    }     
+        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
+    }
 }
-#endif
 
 static void print_usage(char *command) {
     printf(" Try %s -n 100000 -i 15 -v \n", command);
@@ -258,7 +258,7 @@ static void print_usage(char *command) {
 }
 
 int main(int argc, char **argv) {
-    size_t n = 10000000;
+    size_t n = 100000;
     size_t iterations = 0; 
     bool verbose = false;
     int c;
@@ -303,10 +303,17 @@ int main(int argc, char **argv) {
        return EXIT_FAILURE;
     }
 
-#if POSPOPCNT_SIMD_VERSION >= 5
-    measurepopcnt(n, iterations, verbose);
-#endif
+    size_t array_in_bytes = sizeof(uint16_t) * n;
+    if(array_in_bytes < 1024) {
+      printf("array size: %zu B\n", array_in_bytes);
+    } else if (array_in_bytes < 1024 * 1024) {
+      printf("array size: %.3f kB\n", array_in_bytes / 1024.);
+    } else {
+      printf("array size: %.3f MB\n", array_in_bytes / (1024 * 1024.));
+    }
 
+    measurepopcnt(n, iterations, verbose);
+    
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
         printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);

@@ -182,7 +182,7 @@ PPOPCNT_INLINE void pospopcnt_csa_avx512(__m512i* __restrict__ h,
 *  Support definitions
 ******************************/
 
-#define PPOPCNT_NUMBER_METHODS 34
+#define PPOPCNT_NUMBER_METHODS 35
 
 typedef enum {
     PPOPCNT_AUTO,           PPOPCNT_SCALAR,
@@ -199,6 +199,7 @@ typedef enum {
     PPOPCNT_AVX2_MULA_UR16, PPOPCNT_AVX2_MULA3,
     PPOPCNT_AVX2_CSA,       PPOPCNT_AVX512,
     PPOPCNT_AVX512_MASK32,  PPOPCNT_AVX512_MASK64,
+    PPOSCNT_AVX512_MASKED_OPS,
     PPOPCNT_AVX512_POPCNT,  PPOPCNT_AVX512_MULA,
     PPOPCNT_AVX512_MULA_UR4,PPOPCNT_AVX512_MULA_UR8,
     PPOPCNT_AVX512_MULA2,   PPOPCNT_AVX512_MULA3,
@@ -233,6 +234,7 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx512",
     "pospopcnt_u16_avx512_popcnt32_mask",
     "pospopcnt_u16_avx512_popcnt64_mask",
+    "pospopcnt_u16_avx512_masked_ops",
     "pospopcnt_u16_avx512_popcnt",
     "pospopcnt_u16_avx512_mula",
     "pospopcnt_u16_avx512_mula_unroll4",
@@ -334,6 +336,7 @@ int pospopcnt_u16_avx2_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);

@@ -39,7 +39,7 @@ See `example.c` for a complete example. Compile with `make example`.
 
 ### Note
 
-This is a collaborative effort between Marcus D. R. Klarqvist ([@klarqvist](https://github.com/mklarqvist/)), Wojciech Muła ([@WojciechMula](https://github.com/WojciechMula)), and Daniel Lemire ([@lemire](https://github.com/lemire/)).
+This is a collaborative effort between Marcus D. R. Klarqvist ([@klarqvist](https://github.com/mklarqvist/)), Wojciech Muła ([@WojciechMula](https://github.com/WojciechMula)), and Daniel Lemire ([@lemire](https://github.com/lemire/)). We acknowledge [@aqrit](https://github.com/aqrit) for contributing with the `pospopcnt_u16_sse2_sad` algorithm.
 
 ### History
 
