@@ -71,6 +71,7 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, len, flags);
     case(PPOPCNT_AVX512_MASK32): return pospopcnt_u16_avx512_popcnt32_mask(data, len, flags);
     case(PPOPCNT_AVX512_MASK64): return pospopcnt_u16_avx512_popcnt64_mask(data, len, flags);
+    case(PPOSCNT_AVX512_MASKED_OPS): return pospopcnt_u16_avx512_masked_ops(data, len, flags);
     case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt(data, len, flags);
     case(PPOPCNT_AVX512_MULA): return pospopcnt_u16_avx512_mula(data, len, flags);
     case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, len, flags);
@@ -112,13 +113,14 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
     case(PPOPCNT_AVX512_MASK32): return &pospopcnt_u16_avx512_popcnt32_mask;
     case(PPOPCNT_AVX512_MASK64): return &pospopcnt_u16_avx512_popcnt64_mask;
+    case(PPOSCNT_AVX512_MASKED_OPS): return &pospopcnt_u16_avx512_masked_ops;
     case(PPOPCNT_AVX512_POPCNT): return &pospopcnt_u16_avx512_popcnt;
     case(PPOPCNT_AVX512_MULA): return &pospopcnt_u16_avx512_mula;
     case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
     case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
     case(PPOPCNT_AVX512_MULA3): return &pospopcnt_u16_avx512_mula3;
-    case(PPOPCNT_AVX512_CSA): return &pospopcnt_u16_avx512_csa;
     case(PPOPCNT_AVX512_MULA2): return &pospopcnt_u16_avx512_mula2;
+    case(PPOPCNT_AVX512_CSA): return &pospopcnt_u16_avx512_csa;
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
