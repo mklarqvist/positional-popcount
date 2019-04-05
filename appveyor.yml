@@ -14,6 +14,11 @@ platform:
   - x64
 
 build_script:
-  - make
-  - make instrumented_benchmark
-  - make example
+  - cmd: if [%BUILD_ENVIRONMENT%]==[cygwin] (
+      C:\cygwin\bin\bash -l -c "make;" )
+  - cmd: if [%BUILD_ENVIRONMENT%]==[cygwin64] (
+      C:\cygwin64\bin\bash -l -c "make;" )
+  - cmd: if [%BUILD_ENVIRONMENT%]==[mingw] (
+      C:\MinGW\msys\1.0\bin\bash -l -c "make;" )
+  - cmd: if [%BUILD_ENVIRONMENT%]==[mingw-w64] (
+      C:\msys64\usr\bin\bash -l -c "make;" )

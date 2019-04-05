@@ -719,6 +719,7 @@ int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* f
 }
 
 #if POSPOPCNT_SIMD_VERSION >= 6
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
 int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m512i masks[16];
     for (int i = 0; i < 16; ++i) {
@@ -794,6 +795,10 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint3
 
     return 0;
 }
+#else
+int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m512i masks[16];
@@ -910,9 +915,9 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) {
 
 #else
 int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 5
@@ -1989,6 +1994,7 @@ int pospopcnt_u16_sse_csa(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
 int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { 
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = len / 32;
@@ -2145,6 +2151,11 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32
     
     return 0;
 }
+#else 
+int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags) {
     const __m512i* data_vectors = (const __m512i*)(data);
@@ -2225,6 +2236,7 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
     return 0;
 }
 
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
 int pospopcnt_u16_avx512_mula3(const uint16_t* array, uint32_t len, uint32_t* flags) {
     __m512i counters[16];
 
@@ -2343,7 +2355,11 @@ int pospopcnt_u16_avx512_mula3(const uint16_t* array, uint32_t len, uint32_t* fl
     }
     return 0;
 }
+#else
+int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
 int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
     for (uint32_t i = len - (len % (32 * 16)); i < len; ++i) {
         for (int j = 0; j < 16; ++j) {
@@ -2518,6 +2534,9 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
     }
     return 0;
 }
+#else
+int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
 int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m512i counter = _mm512_setzero_si512();
