@@ -117,6 +117,7 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
     evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
     evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    evts.push_back(PERF_COUNT_HW_REF_CPU_CYCLES);
     LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
     std::vector<unsigned long long> results; // tmp buffer
     std::vector< std::vector<unsigned long long> > allresults;
@@ -177,8 +178,7 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
                "cache ref., %8.1f cache mis.\n",
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
     } else {
-        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n);
-        // printf("%4.3f \n", double(mins[0]) / n);
+        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
 
     return isok;
@@ -192,6 +192,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
     evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
     evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    evts.push_back(PERF_COUNT_HW_REF_CPU_CYCLES);
     LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
     std::vector<unsigned long long> results; // tmp buffer
     std::vector< std::vector<unsigned long long> > allresults;
@@ -234,18 +235,18 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
 #endif
     if (verbose) {
         printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-                "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / n / 4, double(mins[1]) / n / 4);
+               "instructions per 16-bit word %4.3f \n",
+                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
         // first we display mins
         printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-                "cache ref., %8llu cache mis.\n",
+               "cache ref., %8llu cache mis.\n",
                 mins[0], mins[1], mins[2], mins[3], mins[4]);
         printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-                "cache ref., %8.1f cache mis.\n",
+               "cache ref., %8.1f cache mis.\n",
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
     } else {
-        printf("cycles per 16-bit word:  %4.3f \n", double(mins[0]) / n / 4);
-    }     
+        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
+    }
 }
 
 static void print_usage(char *command) {
@@ -256,7 +257,7 @@ static void print_usage(char *command) {
 }
 
 int main(int argc, char **argv) {
-    size_t n = 10000000;
+    size_t n = 100000;
     size_t iterations = 0; 
     bool verbose = false;
     int c;
