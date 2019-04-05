@@ -34,17 +34,17 @@ all: bench
 	$(CXX) $(CPPFLAGS)-c -o $@ $<
 
 bench: pospopcnt.o main.o
-	$(CXX) $(CPPFLAGS) pospopcnt.c main.cpp -o bench
+	$(CXX) $(CPPFLAGS) pospopcnt.o main.o -o bench
 
 itest: instrumented_benchmark
 	$(CXX) --version
 	./instrumented_benchmark
 
-instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c benchmark/linux/instrumented_benchmark.cpp benchmark/linux/popcnt.h
-	$(CXX) $(CPPFLAGS) pospopcnt.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
+instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c pospopcnt.o benchmark/linux/instrumented_benchmark.o benchmark/linux/popcnt.h
+	$(CXX) $(CPPFLAGS) pospopcnt.o benchmark/linux/instrumented_benchmark.o -I. -Ibenchmark/linux -o instrumented_benchmark
 
 example: pospopcnt.o example.o
-	$(CC) $(CFLAGS) pospopcnt.c example.c -o example
+	$(CC) $(CFLAGS) pospopcnt.o example.o -o example
 
 test: bench
 	$(CXX) --version

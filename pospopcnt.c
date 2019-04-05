@@ -20,6 +20,11 @@
 
 #include "pospopcnt.h"
 
+#if __clang__ == 1 || __llvm__ == 1
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsequenced"
+#endif
+
 int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #if POSPOPCNT_SIMD_VERSION >= 6
     if (len < 32) return(pospopcnt_u16_sse_sad(data, len, flags)); // small
@@ -302,7 +307,7 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t len, uint32_t* flag
     __m256i counter = _mm256_set1_epi16(0);
     const __m256i one_mask =  _mm256_set1_epi16(1);
     // set_epi is parameterized backwards (15->0)
-    const __m256i masks = _mm256_set_epi16(1 << 15, 1 << 14, 1 << 13, 1 << 12,
+    const __m256i masks = _mm256_set_epi16(-32768, 1 << 14, 1 << 13, 1 << 12,
                                            1 << 11, 1 << 10, 1 << 9,  1 << 8,
                                            1 << 7,  1 << 6,  1 << 5,  1 << 4,
                                            1 << 3,  1 << 2,  1 << 1,  1 << 0);
@@ -374,7 +379,7 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
     __m128i counterHi = _mm_set1_epi16(0);
     const __m128i one_mask =  _mm_set1_epi16(1);
     // set_epi is parameterized backwards (15->0)
-    const __m128i masksLo = _mm_set_epi16(1 << 15, 1 << 14, 1 << 13, 1 << 12,
+    const __m128i masksLo = _mm_set_epi16(-32768, 1 << 14, 1 << 13, 1 << 12,
                                           1 << 11, 1 << 10, 1 << 9,  1 << 8);
     const __m128i masksHi = _mm_set_epi16(1 << 7,  1 << 6,  1 << 5,  1 << 4,
                                           1 << 3,  1 << 2,  1 << 1,  1 << 0);
@@ -625,7 +630,9 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
 int pospopcnt_u16_sse2_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
+#if !defined(__clang__)
  __attribute__((optimize("no-tree-vectorize")))
+#endif
 int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags) {
     memset(flags, 0, 16*sizeof(uint32_t));
 
@@ -2516,4 +2523,8 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32
 int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_mula2(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+#endif
+
+#if __clang__ == 1 || __llvm__ == 1
+#pragma clang diagnostic pop
 #endif
