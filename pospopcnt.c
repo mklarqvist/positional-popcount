@@ -28,7 +28,8 @@
 int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #if POSPOPCNT_SIMD_VERSION >= 6
     if (len < 32) return(pospopcnt_u16_sse_sad(data, len, flags)); // small
-    else if (len < 512) return(pospopcnt_u16_sse_mula_unroll8(data, len, flags)); // medium
+    else if (len < 256) return(pospopcnt_u16_sse_mula_unroll8(data, len, flags)); // small
+    else if (len < 512) return(pospopcnt_u16_avx512_mula_unroll8(data, len, flags)); // medium
     else if (len < 4096) return(pospopcnt_u16_avx512_mula3(data, len, flags)); // medium3
     else return(pospopcnt_u16_avx512_csa(data, len, flags));
 #elif POSPOPCNT_SIMD_VERSION >= 5

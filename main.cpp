@@ -158,7 +158,7 @@ asm   volatile("RDTSCP\n\t"
 #endif
 
         clockdef t2 = std::chrono::high_resolution_clock::now();
-        auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+        auto time_span = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
 
         assert_truth(counters, flags_truth);
         // std::cerr << cycles_low <<"-" << cycles_high << " and " << cycles_low1 << "-" << cycles_high1 << std::endl;
@@ -198,7 +198,7 @@ asm   volatile("RDTSCP\n\t"
         mad << "\t" << 
         mean_time << "\t" << 
         mean_cycles / n << "\t" << 
-        ((n*sizeof(uint16_t)) / (1024*1024.0)) / (mean_time / 1000000.0) << std::endl;
+        ((n*sizeof(uint16_t)) / (1024*1024.0)) / (mean_time / 1000000000.0) << std::endl;
 
     // End timer and update times.
     //uint64_t cpu_cycles_after = get_cpu_cycles();
@@ -233,63 +233,9 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     // Memory align input data.
     uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
     std::vector<bench_unit> units(64);
-    std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(micros)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
+    std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(nanos)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
     benchmark(vals, units, n, cycles);
-
-    return;
-
-    
-
-    std::cout << "Type\tRange\tIteration";
-    for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << pospopcnt_u16_method_names[i];
-    std::cout << std::endl;
-
-    const std::vector<uint32_t> ranges = {8, 16, 64, 256, 512, 1024, 4096, 65536};
-    for (int r = 0; r < ranges.size(); ++r) {
-        std::uniform_int_distribution<uint16_t> distr(1, ranges[r]); // right inclusive
-
-        for (int c = 0; c < cycles; ++c) {
-            std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-
-            // Generate random data every iteration.
-            for (int i = 0; i < n; ++i) {
-                vals[i] = distr(eng);
-            }
-
-            std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-            auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-            units[0].times += time_span.count();
-            units[0].times_local = time_span.count();
-
-            // Start benchmarking.
-            benchmark(vals, units, n, c);
-
-#define MBS(cum) ((n*sizeof(uint16_t)) / (1024*1024.0)) / (units[cum].times_local / 1000000.0)
-            std::cout << "MBS\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << '\t' << (units[i].valid ? MBS(i) : 0);
-            std::cout << std::endl;
-            std::cout << "Cycles\t" << ranges[r] << "\t" << c;
-            for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << '\t' << (units[i].valid ? units[i].cycles_local / float(n) : 0);
-            std::cout << std::endl;
-#undef MBS
-        }
-#define AVG(pos) (double)units[pos].times/cycles
-        std::cout << "Times\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << '\t' << AVG(i);
-        std::cout << std::endl;
-
-#define INTS_SEC(cum) ((n*sizeof(uint16_t)) / (1024*1024.0)) / (AVG(cum) / 1000000.0)
-        std::cout << "MB/s\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << (units[i].valid ? INTS_SEC(i) : 0);
-        std::cout << std::endl;
-        std::cout << "Cycles/int\t" << ranges[r] << "\t" << "F";
-        for (int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) std::cout << "\t" << (units[i].valid ? units[i].cycles / (cycles*float(n)) : 0);
-        std::cout << std::endl;
-#undef AVG
-
-        units = std::vector<bench_unit>(64);
-    }
-
+        
     // Cleanup.
     aligned_free(vals);
 }
