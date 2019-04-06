@@ -46,16 +46,17 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_avx2_mula3,
     pospopcnt_u16_avx2_csa,
     pospopcnt_u16_avx512,
-    pospopcnt_u16_avx512_popcnt32_mask,
-    pospopcnt_u16_avx512_popcnt64_mask,
+    pospopcnt_u16_avx512bw_popcnt32_mask,
+    pospopcnt_u16_avx512bw_popcnt64_mask,
     pospopcnt_u16_avx512_masked_ops,
     pospopcnt_u16_avx512_popcnt,
-    pospopcnt_u16_avx512_mula,
-    pospopcnt_u16_avx512_mula_unroll4,
-    pospopcnt_u16_avx512_mula_unroll8,
+    pospopcnt_u16_avx512bw_mula,
+    pospopcnt_u16_avx512bw_mula_unroll4,
+    pospopcnt_u16_avx512bw_mula_unroll8,
     pospopcnt_u16_avx512_mula2,
-    pospopcnt_u16_avx512_mula3,
-    pospopcnt_u16_avx512_csa};
+    pospopcnt_u16_avx512bw_mula3,
+    pospopcnt_u16_avx512bw_csa,
+    pospopcnt_u16_avx512vbmi_csa};
 
 void print16(uint32_t *flags) {
     for (int k = 0; k < 16; k++)

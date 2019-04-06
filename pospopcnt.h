@@ -182,7 +182,7 @@ PPOPCNT_INLINE void pospopcnt_csa_avx512(__m512i* __restrict__ h,
 *  Support definitions
 ******************************/
 
-#define PPOPCNT_NUMBER_METHODS 35
+#define PPOPCNT_NUMBER_METHODS 36
 
 typedef enum {
     PPOPCNT_AUTO,           PPOPCNT_SCALAR,
@@ -198,12 +198,12 @@ typedef enum {
     PPOPCNT_AVX2_MULA_UR4,  PPOPCNT_AVX2_MULA_UR8,
     PPOPCNT_AVX2_MULA_UR16, PPOPCNT_AVX2_MULA3,
     PPOPCNT_AVX2_CSA,       PPOPCNT_AVX512,
-    PPOPCNT_AVX512_MASK32,  PPOPCNT_AVX512_MASK64,
+    PPOPCNT_AVX512BW_MASK32,  PPOPCNT_AVX512BW_MASK64,
     PPOSCNT_AVX512_MASKED_OPS,
-    PPOPCNT_AVX512_POPCNT,  PPOPCNT_AVX512_MULA,
-    PPOPCNT_AVX512_MULA_UR4,PPOPCNT_AVX512_MULA_UR8,
-    PPOPCNT_AVX512_MULA2,   PPOPCNT_AVX512_MULA3,
-    PPOPCNT_AVX512_CSA
+    PPOPCNT_AVX512_POPCNT,  PPOPCNT_AVX512BW_MULA,
+    PPOPCNT_AVX512BW_MULA_UR4,PPOPCNT_AVX512BW_MULA_UR8,
+    PPOPCNT_AVX512_MULA2,   PPOPCNT_AVX512BW_MULA3,
+    PPOPCNT_AVX512BW_CSA, PPOPCNT_AVX512VBMI_CSA
 } PPOPCNT_U16_METHODS;
 
 static const char * const pospopcnt_u16_method_names[] = {
@@ -232,16 +232,17 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx2_mula3",
     "pospopcnt_u16_avx2_csa",
     "pospopcnt_u16_avx512",
-    "pospopcnt_u16_avx512_popcnt32_mask",
-    "pospopcnt_u16_avx512_popcnt64_mask",
+    "pospopcnt_u16_avx512bw_popcnt32_mask",
+    "pospopcnt_u16_avx512bw_popcnt64_mask",
     "pospopcnt_u16_avx512_masked_ops",
     "pospopcnt_u16_avx512_popcnt",
-    "pospopcnt_u16_avx512_mula",
-    "pospopcnt_u16_avx512_mula_unroll4",
-    "pospopcnt_u16_avx512_mula_unroll8",
+    "pospopcnt_u16_avx512bw_mula",
+    "pospopcnt_u16_avx512bw_mula_unroll4",
+    "pospopcnt_u16_avx512bw_mula_unroll8",
     "pospopcnt_u16_avx512_mula2",
-    "pospopcnt_u16_avx512_mula3",
-    "pospopcnt_u16_avx512_csa"};
+    "pospopcnt_u16_avx512bw_mula3",
+    "pospopcnt_u16_avx512bw_csa",
+    "pospopcnt_u16_avx512vbmi_csa"};
 
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
@@ -334,15 +335,20 @@ int pospopcnt_u16_avx2_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t
 int pospopcnt_u16_avx2_mula_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_mula3(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512vbmi_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
+
+// Support
+// Wrapper for avx512_csa
 int pospopcnt_u16_avx512_csa(const uint16_t* data, uint32_t len, uint32_t* flags);
 
 #ifdef __cplusplus
