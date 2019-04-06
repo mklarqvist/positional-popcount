@@ -20,12 +20,18 @@
 
 #include "pospopcnt.h"
 
+#if __clang__ == 1 || __llvm__ == 1
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsequenced"
+#endif
+
 int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #if POSPOPCNT_SIMD_VERSION >= 6
     if (len < 32) return(pospopcnt_u16_sse_sad(data, len, flags)); // small
-    else if (len < 512) return(pospopcnt_u16_sse_mula_unroll8(data, len, flags)); // medium
-    else if (len < 4096) return(pospopcnt_u16_avx512_mula3(data, len, flags)); // medium3
-    else return(pospopcnt_u16_avx512_csa(data, len, flags));
+    else if (len < 256) return(pospopcnt_u16_sse_mula_unroll8(data, len, flags)); // small
+    else if (len < 512) return(pospopcnt_u16_avx512bw_mula_unroll8(data, len, flags)); // medium
+    else if (len < 4096) return(pospopcnt_u16_avx512bw_mula3(data, len, flags)); // medium3
+    else return(pospopcnt_u16_avx512_csa(data, len, flags)); // fix
 #elif POSPOPCNT_SIMD_VERSION >= 5
     if (len < 128) return(pospopcnt_u16_sse_sad(data, len, flags)); // small
     else if (len < 1024) return(pospopcnt_u16_avx2_mula_unroll8(data, len, flags)); // medium
@@ -64,15 +70,17 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX2_MULA3): return pospopcnt_u16_avx2_mula3(data, len, flags);
     case(PPOPCNT_AVX2_CSA): return pospopcnt_u16_avx2_csa(data, len, flags);
     case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, len, flags);
-    case(PPOPCNT_AVX512_MASK32): return pospopcnt_u16_avx512_popcnt32_mask(data, len, flags);
-    case(PPOPCNT_AVX512_MASK64): return pospopcnt_u16_avx512_popcnt64_mask(data, len, flags);
+    case(PPOPCNT_AVX512BW_MASK32): return pospopcnt_u16_avx512bw_popcnt32_mask(data, len, flags);
+    case(PPOPCNT_AVX512BW_MASK64): return pospopcnt_u16_avx512bw_popcnt64_mask(data, len, flags);
+    case(PPOSCNT_AVX512_MASKED_OPS): return pospopcnt_u16_avx512_masked_ops(data, len, flags);
     case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt(data, len, flags);
-    case(PPOPCNT_AVX512_MULA): return pospopcnt_u16_avx512_mula(data, len, flags);
-    case(PPOPCNT_AVX512_MULA_UR4): return pospopcnt_u16_avx512_mula_unroll4(data, len, flags);
-    case(PPOPCNT_AVX512_MULA_UR8): return pospopcnt_u16_avx512_mula_unroll8(data, len, flags);
-    case(PPOPCNT_AVX512_MULA3): return pospopcnt_u16_avx512_mula3(data, len, flags);
-    case(PPOPCNT_AVX512_CSA): return pospopcnt_u16_avx512_csa(data, len, flags);
+    case(PPOPCNT_AVX512BW_MULA): return pospopcnt_u16_avx512bw_mula(data, len, flags);
+    case(PPOPCNT_AVX512BW_MULA_UR4): return pospopcnt_u16_avx512bw_mula_unroll4(data, len, flags);
+    case(PPOPCNT_AVX512BW_MULA_UR8): return pospopcnt_u16_avx512bw_mula_unroll8(data, len, flags);
+    case(PPOPCNT_AVX512BW_MULA3): return pospopcnt_u16_avx512bw_mula3(data, len, flags);
     case(PPOPCNT_AVX512_MULA2): return pospopcnt_u16_avx512_mula2(data, len, flags);
+    case(PPOPCNT_AVX512BW_CSA): return pospopcnt_u16_avx512bw_csa(data, len, flags);
+    case(PPOPCNT_AVX512VBMI_CSA): return pospopcnt_u16_avx512vbmi_csa(data, len, flags);
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
@@ -105,15 +113,17 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX2_MULA3): return &pospopcnt_u16_avx2_mula3;
     case(PPOPCNT_AVX2_CSA): return pospopcnt_u16_avx2_csa;
     case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
-    case(PPOPCNT_AVX512_MASK32): return &pospopcnt_u16_avx512_popcnt32_mask;
-    case(PPOPCNT_AVX512_MASK64): return &pospopcnt_u16_avx512_popcnt64_mask;
+    case(PPOPCNT_AVX512BW_MASK32): return &pospopcnt_u16_avx512bw_popcnt32_mask;
+    case(PPOPCNT_AVX512BW_MASK64): return &pospopcnt_u16_avx512bw_popcnt64_mask;
+    case(PPOSCNT_AVX512_MASKED_OPS): return &pospopcnt_u16_avx512_masked_ops;
     case(PPOPCNT_AVX512_POPCNT): return &pospopcnt_u16_avx512_popcnt;
-    case(PPOPCNT_AVX512_MULA): return &pospopcnt_u16_avx512_mula;
-    case(PPOPCNT_AVX512_MULA_UR4): return &pospopcnt_u16_avx512_mula_unroll4;
-    case(PPOPCNT_AVX512_MULA_UR8): return &pospopcnt_u16_avx512_mula_unroll8;
-    case(PPOPCNT_AVX512_MULA3): return &pospopcnt_u16_avx512_mula3;
-    case(PPOPCNT_AVX512_CSA): return &pospopcnt_u16_avx512_csa;
+    case(PPOPCNT_AVX512BW_MULA): return &pospopcnt_u16_avx512bw_mula;
+    case(PPOPCNT_AVX512BW_MULA_UR4): return &pospopcnt_u16_avx512bw_mula_unroll4;
+    case(PPOPCNT_AVX512BW_MULA_UR8): return &pospopcnt_u16_avx512bw_mula_unroll8;
+    case(PPOPCNT_AVX512BW_MULA3): return &pospopcnt_u16_avx512bw_mula3;
     case(PPOPCNT_AVX512_MULA2): return &pospopcnt_u16_avx512_mula2;
+    case(PPOPCNT_AVX512BW_CSA): return &pospopcnt_u16_avx512bw_csa;
+    case(PPOPCNT_AVX512VBMI_CSA): return &pospopcnt_u16_avx512vbmi_csa;
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
@@ -302,7 +312,7 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t len, uint32_t* flag
     __m256i counter = _mm256_set1_epi16(0);
     const __m256i one_mask =  _mm256_set1_epi16(1);
     // set_epi is parameterized backwards (15->0)
-    const __m256i masks = _mm256_set_epi16(1 << 15, 1 << 14, 1 << 13, 1 << 12,
+    const __m256i masks = _mm256_set_epi16(-32768, 1 << 14, 1 << 13, 1 << 12,
                                            1 << 11, 1 << 10, 1 << 9,  1 << 8,
                                            1 << 7,  1 << 6,  1 << 5,  1 << 4,
                                            1 << 3,  1 << 2,  1 << 1,  1 << 0);
@@ -374,7 +384,7 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
     __m128i counterHi = _mm_set1_epi16(0);
     const __m128i one_mask =  _mm_set1_epi16(1);
     // set_epi is parameterized backwards (15->0)
-    const __m128i masksLo = _mm_set_epi16(1 << 15, 1 << 14, 1 << 13, 1 << 12,
+    const __m128i masksLo = _mm_set_epi16(-32768, 1 << 14, 1 << 13, 1 << 12,
                                           1 << 11, 1 << 10, 1 << 9,  1 << 8);
     const __m128i masksHi = _mm_set_epi16(1 << 7,  1 << 6,  1 << 5,  1 << 4,
                                           1 << 3,  1 << 2,  1 << 1,  1 << 0);
@@ -625,7 +635,9 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
 int pospopcnt_u16_sse2_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
+#if !defined(__clang__)
  __attribute__((optimize("no-tree-vectorize")))
+#endif
 int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags) {
     memset(flags, 0, 16*sizeof(uint32_t));
 
@@ -710,7 +722,8 @@ int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* f
 }
 
 #if POSPOPCNT_SIMD_VERSION >= 6
-int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) {
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
+int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m512i masks[16];
     for (int i = 0; i < 16; ++i) {
         masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
@@ -746,7 +759,7 @@ int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint3
     return 0;
 }
 
-int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) {
+int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m512i masks[16];
     for (int i = 0; i < 16; ++i) {
         masks[i] = _mm512_set1_epi32(((1 << i) << 16) | (1 << i));
@@ -785,6 +798,10 @@ int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint3
 
     return 0;
 }
+#else
+int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m512i masks[16];
@@ -900,10 +917,10 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) {
 }
 
 #else
-int pospopcnt_u16_avx512_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 5
@@ -1980,7 +1997,8 @@ int pospopcnt_u16_sse_csa(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
-int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
+int pospopcnt_u16_avx512bw_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { 
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = len / 32;
 
@@ -2010,7 +2028,7 @@ int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flag
     return 0;
 }
 
-int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+int pospopcnt_u16_avx512bw_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { 
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = len / 32;
 
@@ -2068,7 +2086,7 @@ int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32
     return 0;
 }
 
-int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+int pospopcnt_u16_avx512bw_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { 
     const __m512i* data_vectors = (const __m512i*)(data);
     const uint32_t n_cycles = len / 32;
 
@@ -2136,6 +2154,11 @@ int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32
     
     return 0;
 }
+#else 
+int pospopcnt_u16_avx512bw_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags) {
     const __m512i* data_vectors = (const __m512i*)(data);
@@ -2154,7 +2177,7 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
         __m512i input1 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v1, 8));
         
         const __m512i bits_04 = _mm512_and_si512(input0, _mm512_set1_epi16(0x1111));
-        const __m512i bits_15 = _mm512_and_si512(_mm512_srli_epi32(input0, 1), _mm512_set1_epi16(0x1111)); // 0001000100010001
+        const __m512i bits_15 = _mm512_and_si512(_mm512_srli_epi32(input0, 1), _mm512_set1_epi16(0x1111)); // 00010001 00010001
         const __m512i bits_26 = _mm512_and_si512(_mm512_srli_epi32(input0, 2), _mm512_set1_epi16(0x1111));
         const __m512i bits_37 = _mm512_and_si512(_mm512_srli_epi32(input0, 3), _mm512_set1_epi16(0x1111));
 
@@ -2173,7 +2196,7 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
         const __m512i sum_ae = _mm512_sad_epu8(bits_ae, _mm512_setzero_si512());
         const __m512i sum_bf = _mm512_sad_epu8(bits_bf, _mm512_setzero_si512());
 
-        sum[0x0] = _mm512_add_epi64(sum[0x0], _mm512_and_si512 (sum_04, _mm512_set1_epi64(0xF))); // (0)...1111
+        sum[0x0] = _mm512_add_epi64(sum[0x0], _mm512_and_si512 (sum_04, _mm512_set1_epi64(0xF))); // 00001111
         sum[0x4] = _mm512_add_epi64(sum[0x4], _mm512_srli_epi32(sum_04, 4));
         sum[0x1] = _mm512_add_epi64(sum[0x1], _mm512_and_si512 (sum_15, _mm512_set1_epi64(0xF)));
         sum[0x5] = _mm512_add_epi64(sum[0x5], _mm512_srli_epi32(sum_15, 4));
@@ -2216,7 +2239,8 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
     return 0;
 }
 
-int pospopcnt_u16_avx512_mula3(const uint16_t* array, uint32_t len, uint32_t* flags) {
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
+int pospopcnt_u16_avx512bw_mula3(const uint16_t* array, uint32_t len, uint32_t* flags) {
     __m512i counters[16];
 
     for (size_t i = 0; i < 16; i++) {
@@ -2334,9 +2358,130 @@ int pospopcnt_u16_avx512_mula3(const uint16_t* array, uint32_t len, uint32_t* fl
     }
     return 0;
 }
+#else
+int pospopcnt_u16_avx512bw_mula3(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
 
-int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
-    //for (size_t i = 0; i < 16; i++) flags[i] = 0;
+#if defined(__AVX512BW__) && __AVX512BW__ == 1
+int pospopcnt_u16_avx512bw_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    for (uint32_t i = len - (len % (32 * 16)); i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    const __m512i* data = (const __m512i*)array;
+    __m512i v1  = _mm512_setzero_si512();
+    __m512i v2  = _mm512_setzero_si512();
+    __m512i v4  = _mm512_setzero_si512();
+    __m512i v8  = _mm512_setzero_si512();
+    __m512i v16 = _mm512_setzero_si512();
+    __m512i twosA, twosB, foursA, foursB, eightsA, eightsB;
+    __m512i one = _mm512_set1_epi16(1);
+
+    const size_t size = len / 32;
+    const uint64_t limit = size - size % 16;
+
+    uint16_t buffer[32];
+
+    uint64_t i = 0;
+    while (i < limit) {
+        __m512i counter[16];
+        for (size_t i = 0; i < 16; i++) {
+            counter[i] = _mm512_setzero_si512();
+        }
+
+        size_t thislimit = limit;
+        if (thislimit - i >= (1 << 16))
+            thislimit = i + (1 << 16) - 1;
+
+        for (/**/; i < thislimit; i += 16) {
+#define U(pos) {                     \
+    counter[pos] = _mm512_add_epi16(counter[pos], _mm512_and_si512(v16, _mm512_set1_epi16(1))); \
+    v16 = _mm512_srli_epi16(v16, 1); \
+}
+            U(0)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
+            U(1)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
+            U(2)
+            pospopcnt_csa_avx512(&foursA, &v2, twosA, twosB);
+            U(3)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
+            U(4)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
+            U(5)
+            pospopcnt_csa_avx512(&foursB, &v2, twosA, twosB);
+            U(6)
+            pospopcnt_csa_avx512(&eightsA,&v4, foursA, foursB);
+            U(7)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
+            U(8)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
+            U(9)
+            pospopcnt_csa_avx512(&foursA, &v2, twosA, twosB);
+            U(10)
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
+            U(11)
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
+            U(12)
+            pospopcnt_csa_avx512(&foursB, &v2, twosA, twosB);
+            U(13)
+            U(14)
+            pospopcnt_csa_avx512(&eightsB,&v4, foursA, foursB);
+            U(15)
+            pospopcnt_csa_avx512(&v16,    &v8, eightsA, eightsB);
+#undef U
+        }
+        // Update the counters after the last iteration.
+        for (size_t i = 0; i < 16; i++) {
+            counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
+            v16 = _mm512_srli_epi16(v16, 1);
+        }
+        
+        for (size_t i = 0; i < 16; i++) {
+            _mm512_storeu_si512((__m512i*)buffer, counter[i]);
+            for (size_t z = 0; z < 32; z++) {
+                flags[i] += 16 * (uint32_t)buffer[z];
+            }
+        }
+    }
+
+    _mm512_storeu_si512((__m512i*)buffer, v1);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 1 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm512_storeu_si512((__m512i*)buffer, v2);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    
+    _mm512_storeu_si512((__m512i*)buffer, v4);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm512_storeu_si512((__m512i*)buffer, v8);
+    for (size_t i = 0; i < 32; i++) {
+        for (int j = 0; j < 16; j++) {
+            flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    return 0;
+}
+#else
+int pospopcnt_u16_avx512bw_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+#endif
+
+#if defined(__AVX512VBMI__) && __AVX512VBMI__ == 1
+int pospopcnt_u16_avx512vbmi_csa(const uint16_t* array, uint32_t len, uint32_t* flags) {
     for (uint32_t i = len - (len % (32 * 16)); i < len; ++i) {
         for (int j = 0; j < 16; ++j) {
             flags[j] += ((array[i] & (1 << j)) >> j);
@@ -2407,59 +2552,62 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
 #undef U
         }
 
-#if defined(__AVX512VBMI__) && __AVX512VBMI__ == 1
-       // update the counters after the last iteration
+       // Update the counters after the last iteration
         for (size_t i = 0; i < 16; i++) {
             counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, one));
             v16 = _mm512_srli_epi16(v16, 1);
         }
         
         for (size_t i = 0; i < 16; i += 2) {
-            __m512i shuffle_lo = _mm512_setr_epi32(0x06040200, 0x0e0c0a08, 0x16141210, 0x1e1c1a18, // 00000110 00000100 00000010 00000000
+// 00000110 00000100 00000010 00000000, 00001110 00001100 00001010 00001000, 00010110 00010100 00010010 00010000, 00011110 00011100 00011010 00011000
+// {6, 4, 2, 0},                        {14, 12, 10, 8},                     {22, 20, 18, 16},                    {30, 28, 26, 24}
+// 00100110 00100100 00100010 00100000, 00101110 00101100 00101010 00101000, 00110110 00110100 00110010 00110000, 00111110 00111100 00111010 00111000
+// {38, 36, 34, 32},                    {46, 44, 42, 40},                    {54, 52, 50, 48},                    {62, 60, 58, 56}
+// 01000110 01000100 01000010 01000000, 01001110 01001100 01001010 01001000, 01010110 01010100 01010010 01010000, 01011110 01011100 01011010 01011000
+// {70, 68, 66, 64},                    {78, 76, 74, 72},                    {86, 84, 82, 80},                    {94, 92, 90, 88}
+// 01100110 01100100 01100010 01100000, 01101110 01101100 01101010 01101000, 01110110 01110100 01110010 01110000, 01111110 01111100 01111010 01111000
+// {102, 100, 98, 96},                  {110, 108, 106, 104},                {118, 116, 114, 112},                {126, 124, 122, 120}
+            __m512i shuffle_lo = _mm512_setr_epi32(0x06040200, 0x0e0c0a08, 0x16141210, 0x1e1c1a18,
                                                    0x26242220, 0x2e2c2a28, 0x36343230, 0x3e3c3a38,
                                                    0x46444240, 0x4e4c4a48, 0x56545250, 0x5e5c5a58,
                                                    0x66646260, 0x6e6c6a68, 0x76747270, 0x7e7c7a78);
+
+// 00000111 00000101 00000011 00000001, 00001111 00001101 00001011 00001001, 00010111 00010101 00010011 00010001, 00011111 00011101 00011011 00011001
+// {7, 5, 3, 1},                        {15, 13, 11, 9},                     {23, 21, 19, 17},                    {31, 29, 27, 25}
+// 00100111 00100101 00100011 00100001, 00101111 00101101 00101011 00101001, 00110111 00110101 00110011 00110001, 00111111 00111101 00111011 00111001
+// {39, 37, 35, 33},                    {47, 45, 43, 41},                    {55, 53, 51, 49},                    {63, 61, 59, 57}
+// 01000111 01000101 01000011 01000001, 01001111 01001101 01001011 01001001, 01010111 01010101 01010011 01010001, 01011111 01011101 01011011 01011001
+// {71, 69, 67, 65},                    {79, 77, 75, 73},                    {87, 85, 83, 81},                    {95, 93, 91, 89}
+// 01100111 01100101 01100011 01100001, 01101111 01101101 01101011 01101001, 01110111 01110101 01110011 01110001, 01111111 01111101 01111011 01111001
+ // {103, 101, 99, 97},                 {111, 109, 107, 105},                {119, 117, 115, 113},                {127, 125, 123, 121}
             __m512i shuffle_hi = _mm512_setr_epi32(0x07050301, 0x0f0d0b09, 0x17151311, 0x1f1d1b19,
                                                    0x27252321, 0x2f2d2b29, 0x37353331, 0x3f3d3b39,
                                                    0x47454341, 0x4f4d4b49, 0x57555351, 0x5f5d5b59,
                                                    0x67656361, 0x6f6d6b69, 0x77757371, 0x7f7d7b79);
-            // Move **lower bytes** from 16-bit counters, so bytes 0..31 of
-            // results are from counter[i] and 32..63 from counter[i+1]
+            
+            // Move **lower** bytes from 16-bit counters, so bytes 0..31 of
+            // results are from counter[i] and 32..63 from counter[i+1].
             __m512i lo_bytes = _mm512_permutex2var_epi8(counter[i], shuffle_lo, counter[i + 1]);
 
-            // Likewise, move **higher bytes**
+            // Likewise, move **higher** bytes.
             __m512i hi_bytes = _mm512_permutex2var_epi8(counter[i], shuffle_hi, counter[i + 1]);
 
-            // Sum the lower bytes: now each 64-bit word holds sum of 8 bytes
+            // Sum the lower bytes: now each 64-bit word holds sum of 8 bytes.
             __m512i sum_lo = _mm512_sad_epu8(lo_bytes, _mm512_setzero_si512());
 
-            // Likewise sum the higher bytes
+            // Likewise sum the higher bytes.
             __m512i sum_hi = _mm512_sad_epu8(hi_bytes, _mm512_setzero_si512());
 
-            // Calculate final sums --- the sum of higher bytes has to be multiplied by 256
+            // Calculate final sums --- the sum of higher bytes has to be multiplied by 256 (1 << 8)
             __m512i sum = _mm512_add_epi64(sum_lo, _mm512_slli_epi64(sum_hi, 8));
 
-            // Since _mm512_extractXXX are slow, we use a buffer, which is likely cached
+            // Since _mm512_extract* are slow. Instead we use a local buffer that is most likely cached.
             uint64_t buf64[8];
             _mm512_storeu_si512((__m512i*)buf64, _mm512_slli_epi32(sum, 4));
 
             flags[i + 0] += buf64[0] + buf64[1] + buf64[2] + buf64[3];
             flags[i + 1] += buf64[4] + buf64[5] + buf64[6] + buf64[7];
         }
-#else
-// update the counters after the last iteration
-        for (size_t i = 0; i < 16; i++) {
-            counter[i] = _mm512_add_epi16(counter[i], _mm512_and_si512(v16, _mm512_set1_epi16(1)));
-            v16 = _mm512_srli_epi16(v16, 1);
-        }
-        
-        for (size_t i = 0; i < 16; i++) {
-            _mm512_storeu_si512((__m512i*)buffer, counter[i]);
-            for (size_t z = 0; z < 32; z++) {
-                flags[i] += 16 * (uint32_t)buffer[z];
-            }
-        }
-#endif
     }
 
     _mm512_storeu_si512((__m512i*)buffer, v1);
@@ -2492,10 +2640,42 @@ int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flag
     return 0;
 }
 #else
-int pospopcnt_u16_avx512_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_mula3(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512vbmi_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+#endif
+
+int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) {
+    __m512i counter = _mm512_setzero_si512();
+    __m512i ones = _mm512_set1_epi32(1);
+
+    for (int i = 0; i < len; i++) {
+        counter = _mm512_mask_add_epi32(counter, data[i], counter, ones);
+    }
+
+    _mm512_storeu_si512((__m512i*)flags, counter);
+}
+
+// Wrapper
+int pospopcnt_u16_avx512_csa(const uint16_t* data, uint32_t len, uint32_t* flags) { 
+    #if defined(__AVX512VBMI__) && __AVX512VBMI__ == 1
+    return pospopcnt_u16_avx512vbmi_csa(data, len, flags);
+    #elif defined(__AVX512BW__) && __AVX512BW__ == 1
+    return pospopcnt_u16_avx512bw_csa(data, len, flags);
+    #else
+    return(0);
+    #endif
+}
+
+#else
+int pospopcnt_u16_avx512bw_mula(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_mula_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_mula3(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512bw_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512vbmi_csa(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512_mula2(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+#endif
+
+#if __clang__ == 1 || __llvm__ == 1
+#pragma clang diagnostic pop
 #endif

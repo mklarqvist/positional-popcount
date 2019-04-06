@@ -19,7 +19,7 @@
 OPTFLAGS  := -O3 -march=native
 CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS)
 CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
-CPP_SOURCE = main.cpp
+CPP_SOURCE = main.cpp benchmark/linux/instrumented_benchmark.cpp
 C_SOURCE   = pospopcnt.c example.c
 OBJECTS    = $(CPP_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
 
@@ -33,18 +33,21 @@ all: bench
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS)-c -o $@ $<
 
+benchmark/linux/instrumented_benchmark.o : benchmark/linux/instrumented_benchmark.cpp
+	$(CXX) $(CPPFLAGS) -I. -Ibenchmark/linux -c -o $@ $<
+
 bench: pospopcnt.o main.o
-	$(CXX) $(CPPFLAGS) pospopcnt.c main.cpp -o bench
+	$(CXX) $(CPPFLAGS) pospopcnt.o main.o -o bench
 
 itest: instrumented_benchmark
 	$(CXX) --version
 	./instrumented_benchmark
 
-instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c benchmark/linux/instrumented_benchmark.cpp benchmark/linux/popcnt.h
-	$(CXX) $(CPPFLAGS) pospopcnt.c  benchmark/linux/instrumented_benchmark.cpp -I. -Ibenchmark/linux -o instrumented_benchmark
+instrumented_benchmark: benchmark/linux/instrumented_benchmark.cpp benchmark/linux/linux-perf-events.h pospopcnt.h pospopcnt.c pospopcnt.o benchmark/linux/instrumented_benchmark.o benchmark/linux/popcnt.h
+	$(CXX) $(CPPFLAGS) pospopcnt.o benchmark/linux/instrumented_benchmark.o -I. -Ibenchmark/linux -o instrumented_benchmark
 
 example: pospopcnt.o example.o
-	$(CC) $(CFLAGS) pospopcnt.c example.c -o example
+	$(CC) $(CFLAGS) pospopcnt.o example.o -o example
 
 test: bench
 	$(CXX) --version

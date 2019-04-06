@@ -1,0 +1,24 @@
+# Automated Windows (MSVC++) testing using appveyor.com
+# https://ci.appveyor.com/projects
+
+version: 1.0.{build}
+
+branches:
+  except:
+    - gh-pages
+
+os: Visual Studio 2017
+
+platform:
+  - x86
+  - x64
+
+build_script:
+  - cmd: if [%BUILD_ENVIRONMENT%]==[cygwin] (
+      C:\cygwin\bin\bash -l -c "make;" )
+  - cmd: if [%BUILD_ENVIRONMENT%]==[cygwin64] (
+      C:\cygwin64\bin\bash -l -c "make;" )
+  - cmd: if [%BUILD_ENVIRONMENT%]==[mingw] (
+      C:\MinGW\msys\1.0\bin\bash -l -c "make;" )
+  - cmd: if [%BUILD_ENVIRONMENT%]==[mingw-w64] (
+      C:\msys64\usr\bin\bash -l -c "make;" )
