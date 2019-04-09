@@ -41,7 +41,7 @@ See `example.c` for a complete example. Compile with `make example`.
 
 ### Note
 
-This is a collaborative effort between Marcus D. R. Klarqvist ([@klarqvist](https://github.com/mklarqvist/)), Wojciech Muła ([@WojciechMula](https://github.com/WojciechMula)), and Daniel Lemire ([@lemire](https://github.com/lemire/)). We acknowledge [@aqrit](https://github.com/aqrit) for contributing with the `pospopcnt_u16_sse2_sad` algorithm. M.D.R.K. acknowledge James Bonfield ([@jkbonfield](https://github.com/jkbonfield)) for informal discussions that resulted in this work.
+This is a collaborative effort between Marcus D. R. Klarqvist ([@klarqvist](https://github.com/mklarqvist/)), Wojciech Muła ([@WojciechMula](https://github.com/WojciechMula)), and Daniel Lemire ([@lemire](https://github.com/lemire/)). We acknowledge [@aqrit](https://github.com/aqrit) for contributing with the algorithms `pospopcnt_u16_sse2_sad` and `pospopcnt_u16_scalar_umul128`. M.D.R.K. acknowledge James Bonfield ([@jkbonfield](https://github.com/jkbonfield)) for informal discussions that resulted in this work.
 
 ### History
 

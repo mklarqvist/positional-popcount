@@ -101,6 +101,18 @@ extern "C" {
 #define PIL_POPCOUNT __builtin_popcountll
 #endif
 
+PPOPCNT_INLINE uint64_t pospopcnt_umul128(uint64_t a, uint64_t b, uint64_t* hi) {
+    unsigned __int128 x = (unsigned __int128)a * (unsigned __int128)b;
+    *hi = (uint64_t)(x >> 64);
+    return (uint64_t)x;
+}
+
+PPOPCNT_INLINE uint64_t pospopcnt_loadu_u64(const void* ptr) {
+    uint64_t data;
+    memcpy(&data, ptr, sizeof(data));
+    return data;
+}
+
 #if POSPOPCNT_SIMD_VERSION >= 3
 
 /**
@@ -182,12 +194,14 @@ PPOPCNT_INLINE void pospopcnt_csa_avx512(__m512i* __restrict__ h,
 *  Support definitions
 ******************************/
 
-#define PPOPCNT_NUMBER_METHODS 36
+#define PPOPCNT_NUMBER_METHODS 38
 
 typedef enum {
     PPOPCNT_AUTO,           PPOPCNT_SCALAR,
     PPOPCNT_SCALAR_NOSIMD,  PPOPCNT_SCALAR_PARTITION,
-    PPOPCNT_SCALAR_HIST1X4, PPOPCNT_SSE_SINGLE,
+    PPOPCNT_SCALAR_HIST1X4,
+    PPOPCNT_SCALAR_UMUL128, PPOPCNT_SCALAR_UMUL128_UR2,
+    PPOPCNT_SSE_SINGLE,
     PPOPCNT_SSE_MULA,       PPOPCNT_SSE_MULA_UR4,
     PPOPCNT_SSE_MULA_UR8,   PPOPCNT_SSE_MULA_UR16,
     PPOPCNT_SSE_SAD,        PPOPCNT_SSE_CSA,
@@ -212,6 +226,8 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_scalar_naive_nosimd",
     "pospopcnt_u16_scalar_partition",
     "pospopcnt_u16_scalar_hist1x4",
+    "pospopcnt_u16_scalar_umul128",
+    "pospopcnt_u16_scalar_umul128_unroll2",
     "pospopcnt_u16_sse_single",
     "pospopcnt_u16_sse_mula",
     "pospopcnt_u16_sse_mula_unroll4",
@@ -314,6 +330,8 @@ int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t len, uint32_t* fla
 int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_scalar_umul128(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_mula(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_mula_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
