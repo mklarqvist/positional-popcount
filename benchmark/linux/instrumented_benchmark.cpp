@@ -188,6 +188,7 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     return isok;
 }
 
+#if POSPOPCNT_SIMD_VERSION >= 5
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
@@ -252,6 +253,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
         printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
 }
+#endif
 
 static void print_usage(char *command) {
     printf(" Try %s -n 100000 -i 15 -v \n", command);
@@ -315,8 +317,10 @@ int main(int argc, char **argv) {
       printf("array size: %.3f MB\n", array_in_bytes / (1024 * 1024.));
     }
 
+#if POSPOPCNT_SIMD_VERSION >= 5
     measurepopcnt(n, iterations, verbose);
-    
+#endif
+   
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
         printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);
