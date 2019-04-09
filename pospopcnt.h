@@ -216,7 +216,7 @@ static inline __m512i avx512_popcount(const __m512i v) {
     return _mm512_sad_epu8(t3, _mm512_setzero_si512());
 }
 
-// 512i-version of pospopcnt_harvey_seal_AVX2
+// 512i-version of carry-save adder subroutine.
 PPOPCNT_INLINE
 void pospopcnt_csa_avx512(__m512i* __restrict__ h, 
                           __m512i* __restrict__ l, 

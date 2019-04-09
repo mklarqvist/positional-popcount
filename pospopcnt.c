@@ -784,6 +784,8 @@ int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) 
             x >>= 1;
         }
     }
+
+    return 0;
 }
 
 int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_t* out) {
@@ -874,6 +876,8 @@ int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_
         out[7]  += (tail_counter_b >> 48) & 0xFF;
         out[15] += (tail_counter_b >> 56) & 0xFF;
     }
+
+    return 0;
 }
 
 #if POSPOPCNT_SIMD_VERSION >= 6
