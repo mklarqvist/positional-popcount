@@ -39,7 +39,7 @@ int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #elif POSPOPCNT_SIMD_VERSION >= 3
     return(pospopcnt_u16_sse_csa(data, len, flags));
 #else
-    return(pospopcnt_u16_scalar_naive(data, len, flags));
+    return(pospopcnt_u16_scalar_umul128_unroll2(data, len, flags)); // fallback scalar
 #endif
 }
 
@@ -50,6 +50,8 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_SCALAR_NOSIMD): return pospopcnt_u16_scalar_naive_nosimd(data, len, flags);
     case(PPOPCNT_SCALAR_PARTITION): return pospopcnt_u16_scalar_partition(data, len, flags);
     case(PPOPCNT_SCALAR_HIST1X4): return pospopcnt_u16_scalar_hist1x4(data, len, flags);
+    case(PPOPCNT_SCALAR_UMUL128): return pospopcnt_u16_scalar_umul128(data, len, flags);
+    case(PPOPCNT_SCALAR_UMUL128_UR2): return pospopcnt_u16_scalar_umul128_unroll2(data, len, flags);
     case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single(data, len, flags);
     case(PPOPCNT_SSE_MULA): return pospopcnt_u16_sse_mula(data, len, flags);
     case(PPOPCNT_SSE_MULA_UR4): return pospopcnt_u16_sse_mula_unroll4(data, len, flags);
@@ -93,6 +95,8 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_SCALAR_NOSIMD): return &pospopcnt_u16_scalar_naive_nosimd;
     case(PPOPCNT_SCALAR_PARTITION): return &pospopcnt_u16_scalar_partition;
     case(PPOPCNT_SCALAR_HIST1X4): return &pospopcnt_u16_scalar_hist1x4;
+    case(PPOPCNT_SCALAR_UMUL128): return &pospopcnt_u16_scalar_umul128;
+    case(PPOPCNT_SCALAR_UMUL128_UR2): return &pospopcnt_u16_scalar_umul128_unroll2;
     case(PPOPCNT_SSE_SINGLE): return &pospopcnt_u16_sse_single;
     case(PPOPCNT_SSE_MULA): return &pospopcnt_u16_sse_mula;
     case(PPOPCNT_SSE_MULA_UR4): return &pospopcnt_u16_sse_mula_unroll4;
@@ -721,6 +725,159 @@ int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* f
     return 0;
 }
 
+// By @aqrit (https://github.com/aqrit)
+// @see: https://gist.github.com/aqrit/c729815b0165c139d0bac642ab7ee104
+int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) {
+    const uint64_t mask_bits = UINT64_C(0x1249124912491249); // 00000000 00000100 01110000 00010010 10001110 10110000 01101010 11110001
+    const uint64_t mask_cnts = UINT64_C(0x003801C00E007007); // 00000000 00111000 00000001 11000000 00001110 00000000 01110000 00001000
+    const uint64_t mask_0001 = UINT64_C(0x0001000100010001); // 00000000 00000001 00000000 00000001 00000000 00000001 00000000 00000001
+
+    while (n >= 4) {
+        uint64_t counter_a = 0; // 5 packed 12-bit counters (4 unused bits).
+        uint64_t counter_b = 0;
+        uint64_t counter_c = 0;
+        uint64_t counter_d = 0;
+
+        // Terminate before overflowing the counters.
+        uint32_t len = ((n < 0x0FFF) ? n : 0x0FFF) & ~3;
+        n -= len;
+        for (const uint16_t* end = &in[len]; in != end; in += 4) {
+            uint64_t v = pospopcnt_loadu_u64(in);
+            uint64_t a = v & mask_bits;         // 0b0001001001001001
+            uint64_t b = (v >> 1)  & mask_bits; // 0b0010010010010010 >> 1
+            uint64_t c = (v >> 2)  & mask_bits; // 0b0100100100100100 >> 2
+            uint64_t d = (v >> 15) & mask_0001; // 0b1000000000000000 >> 15
+            uint64_t hi_a, hi_b, hi_c;
+            a = pospopcnt_umul128(a, mask_0001, &hi_a);
+            b = pospopcnt_umul128(b, mask_0001, &hi_b);
+            c = pospopcnt_umul128(c, mask_0001, &hi_c);
+            a += hi_a; // Broadcast 3-bit counts.
+            b += hi_b;
+            c += hi_c;
+            counter_a += a & mask_cnts;
+            counter_b += b & mask_cnts;
+            counter_c += c & mask_cnts;
+            counter_d += d;
+        }
+
+        out[0]  += counter_a & 0x0FFF;
+        out[1]  += counter_b & 0x0FFF;
+        out[2]  += counter_c & 0x0FFF;
+        out[3]  += (counter_a >> 51);
+        out[4]  += (counter_b >> 51);
+        out[5]  += (counter_c >> 51);
+        out[6]  += (counter_a >> 38) & 0x0FFF;
+        out[7]  += (counter_b >> 38) & 0x0FFF;
+        out[8]  += (counter_c >> 38) & 0x0FFF;
+        out[9]  += (counter_a >> 25) & 0x0FFF;
+        out[10] += (counter_b >> 25) & 0x0FFF;
+        out[11] += (counter_c >> 25) & 0x0FFF;
+        out[12] += (counter_a >> 12) & 0x0FFF;
+        out[13] += (counter_b >> 12) & 0x0FFF;
+        out[14] += (counter_c >> 12) & 0x0FFF;
+        out[15] += (counter_d * mask_0001) >> 48;
+    }
+
+    // Residual words.
+    for (const uint16_t* tail_end = &in[n]; in != tail_end; ++in) {
+        uint16_t x = *in;
+        for (int i = 0; i != 16; ++i) {
+            out[i] += x & 1;
+            x >>= 1;
+        }
+    }
+}
+
+int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_t* out) {
+    while (n >= 8) {
+        uint64_t counter_a = 0; // 4 packed 12-bit counters
+        uint64_t counter_b = 0;
+        uint64_t counter_c = 0;
+        uint64_t counter_d = 0;
+
+        // end before overflowing the counters
+        uint32_t len = ((n < 0x0FFF) ? n : 0x0FFF) & ~7;
+        n -= len;
+        for (const uint16_t* end = &in[len]; in != end; in += 8) {
+            const uint64_t mask_a = UINT64_C(0x1111111111111111);
+            const uint64_t mask_b = mask_a + mask_a;
+            const uint64_t mask_c = mask_b + mask_b;
+            const uint64_t mask_0001 = UINT64_C(0x0001000100010001);
+            const uint64_t mask_cnts = UINT64_C(0x000000F00F00F00F);
+
+            uint64_t v0 = pospopcnt_loadu_u64(&in[0]);
+            uint64_t v1 = pospopcnt_loadu_u64(&in[4]);
+
+            uint64_t a = (v0 & mask_a) + (v1 & mask_a);
+            uint64_t b = ((v0 & mask_b) + (v1 & mask_b)) >> 1;
+            uint64_t c = ((v0 & mask_c) + (v1 & mask_c)) >> 2;
+            uint64_t d = ((v0 >> 3) & mask_a) + ((v1 >> 3) & mask_a);
+
+            uint64_t hi;
+            a = pospopcnt_umul128(a, mask_0001, &hi);
+            a += hi; // broadcast 4-bit counts
+            b = pospopcnt_umul128(b, mask_0001, &hi);
+            b += hi;
+            c = pospopcnt_umul128(c, mask_0001, &hi);
+            c += hi;
+            d = pospopcnt_umul128(d, mask_0001, &hi);
+            d += hi;
+
+            counter_a += a & mask_cnts;
+            counter_b += b & mask_cnts;
+            counter_c += c & mask_cnts;
+            counter_d += d & mask_cnts;
+        }
+
+        out[0] += counter_a & 0x0FFF;
+        out[1] += counter_b & 0x0FFF;
+        out[2] += counter_c & 0x0FFF;
+        out[3] += counter_d & 0x0FFF;
+        out[4] += (counter_a >> 36);
+        out[5] += (counter_b >> 36);
+        out[6] += (counter_c >> 36);
+        out[7] += (counter_d >> 36);
+        out[8] += (counter_a >> 24) & 0x0FFF;
+        out[9] += (counter_b >> 24) & 0x0FFF;
+        out[10] += (counter_c >> 24) & 0x0FFF;
+        out[11] += (counter_d >> 24) & 0x0FFF;
+        out[12] += (counter_a >> 12) & 0x0FFF;
+        out[13] += (counter_b >> 12) & 0x0FFF;
+        out[14] += (counter_c >> 12) & 0x0FFF;
+        out[15] += (counter_d >> 12) & 0x0FFF;
+    }
+
+    // assert(n < 8)
+    if (n != 0) {
+        uint64_t tail_counter_a = 0;
+        uint64_t tail_counter_b = 0;
+        do { // zero-extend a bit to 8-bits (emulate pdep) then accumulate
+            const uint64_t mask_01 = UINT64_C(0x0101010101010101);
+            const uint64_t magic   = UINT64_C(0x0000040010004001); // 1+(1<<14)+(1<<28)+(1<<42)
+            uint64_t x = *in++;
+            tail_counter_a += ((x & 0x5555) * magic) & mask_01; // 0101010101010101
+            tail_counter_b += (((x >> 1) & 0x5555) * magic) & mask_01;
+        } while (--n);
+
+        out[0]  += tail_counter_a & 0xFF;
+        out[8]  += (tail_counter_a >>  8) & 0xFF;
+        out[2]  += (tail_counter_a >> 16) & 0xFF;
+        out[10] += (tail_counter_a >> 24) & 0xFF;
+        out[4]  += (tail_counter_a >> 32) & 0xFF;
+        out[12] += (tail_counter_a >> 40) & 0xFF;
+        out[6]  += (tail_counter_a >> 48) & 0xFF;
+        out[14] += (tail_counter_a >> 56) & 0xFF;
+        out[1]  += tail_counter_b & 0xFF;
+        out[9]  += (tail_counter_b >>  8) & 0xFF;
+        out[3]  += (tail_counter_b >> 16) & 0xFF;
+        out[11] += (tail_counter_b >> 24) & 0xFF;
+        out[5]  += (tail_counter_b >> 32) & 0xFF;
+        out[13] += (tail_counter_b >> 40) & 0xFF;
+        out[7]  += (tail_counter_b >> 48) & 0xFF;
+        out[15] += (tail_counter_b >> 56) & 0xFF;
+    }
+}
+
 #if POSPOPCNT_SIMD_VERSION >= 6
 #if defined(__AVX512BW__) && __AVX512BW__ == 1
 int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -1160,10 +1317,6 @@ int pospopcnt_u16_avx2_mula(const uint16_t* array, uint32_t len, uint32_t* flags
     for (/**/; i + 2 <= n_cycles; i += 2) {
         __m256i v0 = _mm256_loadu_si256(data_vectors + i + 0);
         __m256i v1 = _mm256_loadu_si256(data_vectors + i + 1);
-        
-        // Steps:
-        // Select LSB of V0 OR with V1 MSB
-        // Select MSB of V0 OR with V1 LSB
         __m256i input0 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0x00FF)), _mm256_slli_epi16(v1, 8));
         __m256i input1 = _mm256_or_si256(_mm256_and_si256(v0, _mm256_set1_epi16(0xFF00)), _mm256_srli_epi16(v1, 8));
         
@@ -2247,24 +2400,28 @@ int pospopcnt_u16_avx512bw_mula3(const uint16_t* array, uint32_t len, uint32_t* 
         counters[i] = _mm512_setzero_si512();
     }
 
-    const __m512i mask1bit = _mm512_set1_epi16(0x5555); // 0101010101010101
-    const __m512i mask2bit = _mm512_set1_epi16(0x3333); // 0011001100110011
-    const __m512i mask4bit = _mm512_set1_epi16(0x0F0F); // 1111000011110000
-    const __m512i mask8bit = _mm512_set1_epi16(0x00FF); // 0000000011111111
+    const __m512i mask1bit = _mm512_set1_epi16(0x5555); // 0101010101010101 Pattern: 01
+    const __m512i mask2bit = _mm512_set1_epi16(0x3333); // 0011001100110011 Pattern: 0011
+    const __m512i mask4bit = _mm512_set1_epi16(0x0F0F); // 0000111100001111 Pattern: 00001111
+    const __m512i mask8bit = _mm512_set1_epi16(0x00FF); // 0000000011111111 Pattern: 0000000011111111
     
     const uint32_t n_cycles = len / (2048 * (16*32));
     const uint32_t n_total  = len / (16*32);
     uint16_t tmp[32];
 
 /*------ Macros --------*/
-#define LL(i,p,k)  const __m512i sum##p##k##_##i##bit_even = _mm512_add_epi8(input##p & mask##i##bit, input##k & mask##i##bit);
+#define LE(i,p,k)  const __m512i sum##p##k##_##i##bit_even = _mm512_add_epi8(input##p & mask##i##bit, input##k & mask##i##bit);
 #define LO(i,p,k)  const __m512i sum##p##k##_##i##bit_odd  = _mm512_add_epi8(_mm512_srli_epi16(input##p, i) & mask##i##bit, _mm512_srli_epi16(input##k, i) & mask##i##bit);
 
-#define LBLOCK(i)                                 \
-    LL(i,0,1) LL(i,2,3)   LL(i,4,5)   LL(i,6,7)   \
-    LL(i,8,9) LL(i,10,11) LL(i,12,13) LL(i,14,15) \
-    LO(i,0,1) LO(i,2,3)   LO(i,4,5)   LO(i,6,7)   \
-    LO(i,8,9) LO(i,10,11) LO(i,12,13) LO(i,14,15)
+#define LBLOCK(i)           \
+    LE(i,0,1)   LO(i,0,1)   \
+    LE(i,2,3)   LO(i,2,3)   \
+    LE(i,4,5)   LO(i,4,5)   \
+    LE(i,6,7)   LO(i,6,7)   \
+    LE(i,8,9)   LO(i,8,9)   \
+    LE(i,10,11) LO(i,10,11) \
+    LE(i,12,13) LO(i,12,13) \
+    LE(i,14,15) LO(i,14,15) \
 
 #define EVEN(b,i,k,p) input##i = sum##k##p##_##b##bit_even;
 #define ODD(b,i,k,p)  input##i = sum##k##p##_##b##bit_odd;
@@ -2347,7 +2504,7 @@ int pospopcnt_u16_avx512bw_mula3(const uint16_t* array, uint32_t len, uint32_t* 
 #undef ODD
 #undef EVEN
 #undef LBLOCK
-#undef LL
+#undef LE
 #undef LO
 #undef UO
 #undef UE

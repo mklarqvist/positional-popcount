@@ -26,6 +26,8 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_scalar_naive_nosimd,
     pospopcnt_u16_scalar_partition,
     pospopcnt_u16_scalar_hist1x4,
+    pospopcnt_u16_scalar_umul128,
+    pospopcnt_u16_scalar_umul128_unroll2,
     pospopcnt_u16_sse_single,
     pospopcnt_u16_sse_mula,
     pospopcnt_u16_sse_mula_unroll4,
