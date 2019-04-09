@@ -1493,37 +1493,22 @@ int pospopcnt_u16_avx2_harvey_seal(const uint16_t* array, uint32_t len, uint32_t
     counter[pos] = _mm256_add_epi16(counter[pos], _mm256_and_si256(v16, one)); \
     v16 = _mm256_srli_epi16(v16, 1); \
 }
-            U(0)
-            pospopcnt_harvey_seal_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  0), _mm256_loadu_si256(data + i +  1));
-            U(1)
-            pospopcnt_harvey_seal_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  2), _mm256_loadu_si256(data + i +  3));
-            U(2)
-            pospopcnt_harvey_seal_avx2(&foursA, &v2, twosA, twosB);
-            U(3)
-            pospopcnt_harvey_seal_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  4), _mm256_loadu_si256(data + i +  5));
-            U(4)
-            pospopcnt_harvey_seal_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  6), _mm256_loadu_si256(data + i +  7));
-            U(5)
-            pospopcnt_harvey_seal_avx2(&foursB, &v2, twosA, twosB);
-            U(6)
-            pospopcnt_harvey_seal_avx2(&eightsA,&v4, foursA, foursB);
-            U(7)
-            pospopcnt_harvey_seal_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  8),  _mm256_loadu_si256(data + i +  9));
-            U(8)
-            pospopcnt_harvey_seal_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 10),  _mm256_loadu_si256(data + i + 11));
-            U(9)
-            pospopcnt_harvey_seal_avx2(&foursA, &v2, twosA, twosB);
-            U(10)
-            pospopcnt_harvey_seal_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i + 12),  _mm256_loadu_si256(data + i + 13));
-            U(11)
-            pospopcnt_harvey_seal_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 14),  _mm256_loadu_si256(data + i + 15));
-            U(12)
-            pospopcnt_harvey_seal_avx2(&foursB, &v2, twosA, twosB);
-            U(13)
-            U(14)
-            pospopcnt_harvey_seal_avx2(&eightsB,&v4, foursA, foursB);
-            counter[15] = _mm256_add_epi16(counter[15], _mm256_and_si256(v16, one));
-            pospopcnt_harvey_seal_avx2(&v16,    &v8, eightsA, eightsB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  0), _mm256_loadu_si256(data + i +  1));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  2), _mm256_loadu_si256(data + i +  3));
+            pospopcnt_csa_avx2(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  4), _mm256_loadu_si256(data + i +  5));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  6), _mm256_loadu_si256(data + i +  7));
+            pospopcnt_csa_avx2(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&eightsA,&v4, foursA, foursB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  8),  _mm256_loadu_si256(data + i +  9));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 10),  _mm256_loadu_si256(data + i + 11));
+            pospopcnt_csa_avx2(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i + 12),  _mm256_loadu_si256(data + i + 13));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 14),  _mm256_loadu_si256(data + i + 15));
+            pospopcnt_csa_avx2(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&eightsB,&v4, foursA, foursB);
+            U(0) U(1) U(2) U(3) U(4) U(5) U(6) U(7) U(8) U(9) U(10) U(11) U(12) U(13) U(14) U(15) // Updates
+            pospopcnt_csa_avx2(&v16,    &v8, eightsA, eightsB);
 #undef U
         }
 
@@ -2064,37 +2049,22 @@ int pospopcnt_u16_sse_harvey_seal(const uint16_t* array, uint32_t len, uint32_t*
     counter[pos] = _mm_add_epi16(counter[pos], _mm_and_si128(v16, _mm_set1_epi16(1))); \
     v16 = _mm_srli_epi16(v16, 1); \
 }
-            U(0)
-            pospopcnt_harvey_seal_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  0), _mm_loadu_si128(data + i +  1));
-            U(1)
-            pospopcnt_harvey_seal_sse(&twosB,  &v1, _mm_loadu_si128(data + i +  2), _mm_loadu_si128(data + i +  3));
-            U(2)
-            pospopcnt_harvey_seal_sse(&foursA, &v2, twosA, twosB);
-            U(3)
-            pospopcnt_harvey_seal_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  4), _mm_loadu_si128(data + i +  5));
-            U(4)
-            pospopcnt_harvey_seal_sse(&twosB,  &v1, _mm_loadu_si128(data + i +  6), _mm_loadu_si128(data + i +  7));
-            U(5)
-            pospopcnt_harvey_seal_sse(&foursB, &v2, twosA, twosB);
-            U(6)
-            pospopcnt_harvey_seal_sse(&eightsA,&v4, foursA, foursB);
-            U(7)
-            pospopcnt_harvey_seal_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  8),  _mm_loadu_si128(data + i +  9));
-            U(8)
-            pospopcnt_harvey_seal_sse(&twosB,  &v1, _mm_loadu_si128(data + i + 10),  _mm_loadu_si128(data + i + 11));
-            U(9)
-            pospopcnt_harvey_seal_sse(&foursA, &v2, twosA, twosB);
-            U(10)
-            pospopcnt_harvey_seal_sse(&twosA,  &v1, _mm_loadu_si128(data + i + 12),  _mm_loadu_si128(data + i + 13));
-            U(11)
-            pospopcnt_harvey_seal_sse(&twosB,  &v1, _mm_loadu_si128(data + i + 14),  _mm_loadu_si128(data + i + 15));
-            U(12)
-            pospopcnt_harvey_seal_sse(&foursB, &v2, twosA, twosB);
-            U(13)
-            U(14)
-            pospopcnt_harvey_seal_sse(&eightsB,  &v4, foursA, foursB);
-            counter[15] = _mm_add_epi16(counter[15], _mm_and_si128(v16, _mm_set1_epi16(1)));
-            pospopcnt_harvey_seal_sse(&v16,      &v8, eightsA, eightsB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  0), _mm_loadu_si128(data + i +  1));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i +  2), _mm_loadu_si128(data + i +  3));
+            pospopcnt_csa_sse(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  4), _mm_loadu_si128(data + i +  5));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i +  6), _mm_loadu_si128(data + i +  7));
+            pospopcnt_csa_sse(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&eightsA,&v4, foursA, foursB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  8),  _mm_loadu_si128(data + i +  9));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i + 10),  _mm_loadu_si128(data + i + 11));
+            pospopcnt_csa_sse(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i + 12),  _mm_loadu_si128(data + i + 13));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i + 14),  _mm_loadu_si128(data + i + 15));
+            pospopcnt_csa_sse(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&eightsB,&v4, foursA, foursB);
+            U(0) U(1) U(2) U(3) U(4) U(5) U(6) U(7) U(8) U(9) U(10) U(11) U(12) U(13) U(14) U(15) // Updates
+            pospopcnt_csa_sse(&v16,    &v8, eightsA, eightsB);
 #undef U
         }
 
@@ -2554,22 +2524,22 @@ int pospopcnt_u16_avx512bw_harvey_seal(const uint16_t* array, uint32_t len, uint
     counter[pos] = _mm512_add_epi16(counter[pos], _mm512_and_si512(v16, _mm512_set1_epi16(1))); \
     v16 = _mm512_srli_epi16(v16, 1); \
 }
-            pospopcnt_harvey_seal_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
-            pospopcnt_harvey_seal_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
-            pospopcnt_harvey_seal_avx512(&foursA,  &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
-            pospopcnt_harvey_seal_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
-            pospopcnt_harvey_seal_avx512(&foursB,  &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&eightsA, &v4, foursA, foursB);
-            pospopcnt_harvey_seal_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
-            pospopcnt_harvey_seal_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
-            pospopcnt_harvey_seal_avx512(&foursA,  &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
-            pospopcnt_harvey_seal_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
-            pospopcnt_harvey_seal_avx512(&foursB,  &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&eightsB, &v4, foursA, foursB);
+            pospopcnt_csa_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
+            pospopcnt_csa_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
+            pospopcnt_csa_avx512(&foursA,  &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
+            pospopcnt_csa_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
+            pospopcnt_csa_avx512(&foursB,  &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&eightsA, &v4, foursA, foursB);
+            pospopcnt_csa_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
+            pospopcnt_csa_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
+            pospopcnt_csa_avx512(&foursA,  &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&twosA,   &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
+            pospopcnt_csa_avx512(&twosB,   &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
+            pospopcnt_csa_avx512(&foursB,  &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&eightsB, &v4, foursA, foursB);
             U(0) U(1) U(2) U(3) U(4) U(5) U(6) U(7) U(8) U(9) U(10) U(11) U(12) U(13) U(14) U(15) // Updates
-            pospopcnt_harvey_seal_avx512(&v16,     &v8, eightsA, eightsB);
+            pospopcnt_csa_avx512(&v16,     &v8, eightsA, eightsB);
         }
         // Update the counters after the last iteration.
         for (size_t i = 0; i < 16; ++i) U(i)
@@ -2653,22 +2623,22 @@ int pospopcnt_u16_avx512vbmi_harvey_seal(const uint16_t* array, uint32_t len, ui
     counter[pos] = _mm512_add_epi16(counter[pos], _mm512_and_si512(v16, _mm512_set1_epi16(1))); \
     v16 = _mm512_srli_epi16(v16, 1); \
 }
-            pospopcnt_harvey_seal_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
-            pospopcnt_harvey_seal_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
-            pospopcnt_harvey_seal_avx512(&foursA, &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
-            pospopcnt_harvey_seal_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
-            pospopcnt_harvey_seal_avx512(&foursB, &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&eightsA,&v4, foursA, foursB);
-            pospopcnt_harvey_seal_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
-            pospopcnt_harvey_seal_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
-            pospopcnt_harvey_seal_avx512(&foursA, &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
-            pospopcnt_harvey_seal_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
-            pospopcnt_harvey_seal_avx512(&foursB, &v2, twosA, twosB);
-            pospopcnt_harvey_seal_avx512(&eightsB,&v4, foursA, foursB);
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 0), _mm512_loadu_si512(data + i + 1));
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 2), _mm512_loadu_si512(data + i + 3));
+            pospopcnt_csa_avx512(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 4), _mm512_loadu_si512(data + i + 5));
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 6), _mm512_loadu_si512(data + i + 7));
+            pospopcnt_csa_avx512(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&eightsA,&v4, foursA, foursB);
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 8),  _mm512_loadu_si512(data + i + 9));
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 10), _mm512_loadu_si512(data + i + 11));
+            pospopcnt_csa_avx512(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&twosA,  &v1, _mm512_loadu_si512(data + i + 12), _mm512_loadu_si512(data + i + 13));
+            pospopcnt_csa_avx512(&twosB,  &v1, _mm512_loadu_si512(data + i + 14), _mm512_loadu_si512(data + i + 15));
+            pospopcnt_csa_avx512(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx512(&eightsB,&v4, foursA, foursB);
             U(0) U(1) U(2) U(3) U(4) U(5) U(6) U(7) U(8) U(9) U(10) U(11) U(12) U(13) U(14) U(15) // Updates
-            pospopcnt_harvey_seal_avx512(&v16,    &v8, eightsA, eightsB);
+            pospopcnt_csa_avx512(&v16,    &v8, eightsA, eightsB);
         }
 
         // Update the counters after the last iteration

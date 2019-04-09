@@ -161,7 +161,7 @@ uint64_t pospopcnt_loadu_u64(const void* ptr) {
  * B and C are 16-bit staggered registers such that &C - &B = 1.
  * 
  * Example usage:
- * pospopcnt_harvey_seal_sse(&twosA, &v1, _mm_loadu_si128(data + i + 0), _mm_loadu_si128(data + i + 1));
+ * pospopcnt_csa_sse(&twosA, &v1, _mm_loadu_si128(data + i + 0), _mm_loadu_si128(data + i + 1));
  * 
  * @param h 
  * @param l 
@@ -169,9 +169,9 @@ uint64_t pospopcnt_loadu_u64(const void* ptr) {
  * @param c  
  */
 PPOPCNT_INLINE
-void pospopcnt_harvey_seal_sse(__m128i* __restrict__ h, 
-                               __m128i* __restrict__ l, 
-                               const __m128i b, const __m128i c) 
+void pospopcnt_csa_sse(__m128i* __restrict__ h, 
+                       __m128i* __restrict__ l, 
+                       const __m128i b, const __m128i c) 
 {
      const __m128i u = _mm_xor_si128(*l, b);
      *h = _mm_or_si128(*l & b, u & c); // shift carry (sc_i).
@@ -190,9 +190,9 @@ void pospopcnt_harvey_seal_sse(__m128i* __restrict__ h,
 #endif
 
 PPOPCNT_INLINE
-void pospopcnt_harvey_seal_avx2(__m256i* __restrict__ h, 
-                                __m256i* __restrict__ l, 
-                                const __m256i b, const __m256i c) 
+void pospopcnt_csa_avx2(__m256i* __restrict__ h, 
+                        __m256i* __restrict__ l, 
+                        const __m256i b, const __m256i c) 
 {
      const __m256i u = _mm256_xor_si256(*l, b);
      *h = _mm256_or_si256(*l & b, u & c);
@@ -218,9 +218,9 @@ static inline __m512i avx512_popcount(const __m512i v) {
 
 // 512i-version of pospopcnt_harvey_seal_AVX2
 PPOPCNT_INLINE
-void pospopcnt_harvey_seal_avx512(__m512i* __restrict__ h, 
-                                  __m512i* __restrict__ l, 
-                                  __m512i b, __m512i c) 
+void pospopcnt_csa_avx512(__m512i* __restrict__ h, 
+                          __m512i* __restrict__ l, 
+                          __m512i b, __m512i c) 
 {
      *h = _mm512_ternarylogic_epi32(c, b, *l, 0xE8); // 11101000
      *l = _mm512_ternarylogic_epi32(c, b, *l, 0x96); // 10010110
