@@ -104,6 +104,7 @@ int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, int id, int iterations,
     std::vector<uint64_t> clocks;
     std::vector<uint32_t> times;
 
+#ifndef _MSC_VER
 // Intel guide:
 // @see: https://www.intel.com/content/dam/www/public/us/en/documents/white-papers/ia-32-ia-64-benchmark-code-execution-paper.pdf
 asm   volatile ("CPUID\n\t"
@@ -122,6 +123,7 @@ asm   volatile("RDTSCP\n\t"
                "mov %%edx, %0\n\t"
                "mov %%eax, %1\n\t"
                "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
+#endif
 
     for (int i = 0; i < iterations; ++i) {
         memset(counters, 0, sizeof(uint32_t)*16);
@@ -139,19 +141,21 @@ asm   volatile("RDTSCP\n\t"
     /*at this stage we exclusively own the CPU*/ 
 #endif
 
+#ifndef _MSC_VER 
     asm   volatile ("CPUID\n\t"
                     "RDTSC\n\t"
                     "mov %%edx, %0\n\t"
                     "mov %%eax, %1\n\t": "=r" (cycles_high), "=r" (cycles_low):: "%rax", "%rbx", "%rcx", "%rdx");
-
+#endif
     // Call argument subroutine pointer.
     (*f)(data, n, counters);
 
+#ifndef _MSC_VER 
     asm   volatile("RDTSCP\n\t"
                    "mov %%edx, %0\n\t"
                    "mov %%eax, %1\n\t"
                    "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
-
+#endif
 #ifdef __linux__ 
         // raw_local_irq_restore(flags);/*we enable hard interrupts on our CPU*/
         // preempt_enable();/*we enable preemption*/
