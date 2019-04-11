@@ -39,7 +39,11 @@ int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 #elif POSPOPCNT_SIMD_VERSION >= 3
     return(pospopcnt_u16_sse_harvey_seal(data, len, flags));
 #else
-    return(pospopcnt_u16_scalar_umul128_unroll2(data, len, flags)); // fallback scalar
+    #ifndef _MSC_VER
+        return(pospopcnt_u16_scalar_umul128_unroll2(data, len, flags)); // fallback scalar
+    #else
+        return(pospopcnt_u16_scalar_naive(data, len, flags));
+    #endif
 #endif
 }
 
@@ -90,44 +94,44 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
 
 pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     switch(method) {
-    case(PPOPCNT_AUTO): return &pospopcnt_u16;
-    case(PPOPCNT_SCALAR): return &pospopcnt_u16_scalar_naive;
-    case(PPOPCNT_SCALAR_NOSIMD): return &pospopcnt_u16_scalar_naive_nosimd;
-    case(PPOPCNT_SCALAR_PARTITION): return &pospopcnt_u16_scalar_partition;
-    case(PPOPCNT_SCALAR_HIST1X4): return &pospopcnt_u16_scalar_hist1x4;
-    case(PPOPCNT_SCALAR_UMUL128): return &pospopcnt_u16_scalar_umul128;
-    case(PPOPCNT_SCALAR_UMUL128_UR2): return &pospopcnt_u16_scalar_umul128_unroll2;
-    case(PPOPCNT_SSE_SINGLE): return &pospopcnt_u16_sse_single;
-    case(PPOPCNT_SSE_BLEND_POPCNT): return &pospopcnt_u16_sse_blend_popcnt;
-    case(PPOPCNT_SSE_BLEND_POPCNT_UR4): return &pospopcnt_u16_sse_blend_popcnt_unroll4;
-    case(PPOPCNT_SSE_BLEND_POPCNT_UR8): return &pospopcnt_u16_sse_blend_popcnt_unroll8;
-    case(PPOPCNT_SSE_BLEND_POPCNT_UR16): return &pospopcnt_u16_sse_blend_popcnt_unroll16;
-    case(PPOPCNT_SSE_SAD): return &pospopcnt_u16_sse_sad;
-    case(PPOPCNT_SSE_HARVEY_SEAL): return &pospopcnt_u16_sse_harvey_seal;
-    case(PPOPCNT_AVX2_POPCNT): return &pospopcnt_u16_avx2_popcnt;
-    case(PPOPCNT_AVX2): return &pospopcnt_u16_avx2;
-    case(PPOPCNT_AVX2_POPCNT_NAIVE): return &pospopcnt_u16_avx2_naive_counter;
-    case(PPOPCNT_AVX2_SINGLE): return &pospopcnt_u16_avx2_single;
-    case(PPOPCNT_AVX2_LEMIRE1): return &pospopcnt_u16_avx2_lemire;
-    case(PPOPCNT_AVX2_LEMIRE2): return &pospopcnt_u16_avx2_lemire2;
-    case(PPOPCNT_AVX2_BLEND_POPCNT): return &pospopcnt_u16_avx2_blend_popcnt;
-    case(PPOPCNT_AVX2_BLEND_POPCNT_UR4): return &pospopcnt_u16_avx2_blend_popcnt_unroll4;
-    case(PPOPCNT_AVX2_BLEND_POPCNT_UR8): return &pospopcnt_u16_avx2_blend_popcnt_unroll8;
-    case(PPOPCNT_AVX2_BLEND_POPCNT_UR16): return &pospopcnt_u16_avx2_blend_popcnt_unroll16;
-    case(PPOPCNT_AVX2_ADDER_FOREST): return &pospopcnt_u16_avx2_adder_forest;
+    case(PPOPCNT_AUTO): return pospopcnt_u16;
+    case(PPOPCNT_SCALAR): return pospopcnt_u16_scalar_naive;
+    case(PPOPCNT_SCALAR_NOSIMD): return pospopcnt_u16_scalar_naive_nosimd;
+    case(PPOPCNT_SCALAR_PARTITION): return pospopcnt_u16_scalar_partition;
+    case(PPOPCNT_SCALAR_HIST1X4): return pospopcnt_u16_scalar_hist1x4;
+    case(PPOPCNT_SCALAR_UMUL128): return pospopcnt_u16_scalar_umul128;
+    case(PPOPCNT_SCALAR_UMUL128_UR2): return pospopcnt_u16_scalar_umul128_unroll2;
+    case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single;
+    case(PPOPCNT_SSE_BLEND_POPCNT): return pospopcnt_u16_sse_blend_popcnt;
+    case(PPOPCNT_SSE_BLEND_POPCNT_UR4): return pospopcnt_u16_sse_blend_popcnt_unroll4;
+    case(PPOPCNT_SSE_BLEND_POPCNT_UR8): return pospopcnt_u16_sse_blend_popcnt_unroll8;
+    case(PPOPCNT_SSE_BLEND_POPCNT_UR16): return pospopcnt_u16_sse_blend_popcnt_unroll16;
+    case(PPOPCNT_SSE_SAD): return pospopcnt_u16_sse_sad;
+    case(PPOPCNT_SSE_HARVEY_SEAL): return pospopcnt_u16_sse_harvey_seal;
+    case(PPOPCNT_AVX2_POPCNT): return pospopcnt_u16_avx2_popcnt;
+    case(PPOPCNT_AVX2): return pospopcnt_u16_avx2;
+    case(PPOPCNT_AVX2_POPCNT_NAIVE): return pospopcnt_u16_avx2_naive_counter;
+    case(PPOPCNT_AVX2_SINGLE): return pospopcnt_u16_avx2_single;
+    case(PPOPCNT_AVX2_LEMIRE1): return pospopcnt_u16_avx2_lemire;
+    case(PPOPCNT_AVX2_LEMIRE2): return pospopcnt_u16_avx2_lemire2;
+    case(PPOPCNT_AVX2_BLEND_POPCNT): return pospopcnt_u16_avx2_blend_popcnt;
+    case(PPOPCNT_AVX2_BLEND_POPCNT_UR4): return pospopcnt_u16_avx2_blend_popcnt_unroll4;
+    case(PPOPCNT_AVX2_BLEND_POPCNT_UR8): return pospopcnt_u16_avx2_blend_popcnt_unroll8;
+    case(PPOPCNT_AVX2_BLEND_POPCNT_UR16): return pospopcnt_u16_avx2_blend_popcnt_unroll16;
+    case(PPOPCNT_AVX2_ADDER_FOREST): return pospopcnt_u16_avx2_adder_forest;
     case(PPOPCNT_AVX2_HARVEY_SEAL): return pospopcnt_u16_avx2_harvey_seal;
-    case(PPOPCNT_AVX512): return &pospopcnt_u16_avx512;
-    case(PPOPCNT_AVX512BW_MASK32): return &pospopcnt_u16_avx512bw_popcnt32_mask;
-    case(PPOPCNT_AVX512BW_MASK64): return &pospopcnt_u16_avx512bw_popcnt64_mask;
-    case(PPOSCNT_AVX512_MASKED_OPS): return &pospopcnt_u16_avx512_masked_ops;
-    case(PPOPCNT_AVX512_POPCNT): return &pospopcnt_u16_avx512_popcnt;
-    case(PPOPCNT_AVX512BW_BLEND_POPCNT): return &pospopcnt_u16_avx512bw_blend_popcnt;
-    case(PPOPCNT_AVX512BW_BLEND_POPCNT_UR4): return &pospopcnt_u16_avx512bw_blend_popcnt_unroll4;
-    case(PPOPCNT_AVX512BW_BLEND_POPCNT_UR8): return &pospopcnt_u16_avx512bw_blend_popcnt_unroll8;
-    case(PPOPCNT_AVX512BW_ADDER_FOREST): return &pospopcnt_u16_avx512bw_adder_forest;
-    case(PPOPCNT_AVX512_MULA2): return &pospopcnt_u16_avx512_mula2;
-    case(PPOPCNT_AVX512BW_HARVEY_SEAL): return &pospopcnt_u16_avx512bw_harvey_seal;
-    case(PPOPCNT_AVX512VBMI_HARVEY_SEAL): return &pospopcnt_u16_avx512vbmi_harvey_seal;
+    case(PPOPCNT_AVX512): return pospopcnt_u16_avx512;
+    case(PPOPCNT_AVX512BW_MASK32): return pospopcnt_u16_avx512bw_popcnt32_mask;
+    case(PPOPCNT_AVX512BW_MASK64): return pospopcnt_u16_avx512bw_popcnt64_mask;
+    case(PPOSCNT_AVX512_MASKED_OPS): return pospopcnt_u16_avx512_masked_ops;
+    case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt;
+    case(PPOPCNT_AVX512BW_BLEND_POPCNT): return pospopcnt_u16_avx512bw_blend_popcnt;
+    case(PPOPCNT_AVX512BW_BLEND_POPCNT_UR4): return pospopcnt_u16_avx512bw_blend_popcnt_unroll4;
+    case(PPOPCNT_AVX512BW_BLEND_POPCNT_UR8): return pospopcnt_u16_avx512bw_blend_popcnt_unroll8;
+    case(PPOPCNT_AVX512BW_ADDER_FOREST): return pospopcnt_u16_avx512bw_adder_forest;
+    case(PPOPCNT_AVX512_MULA2): return pospopcnt_u16_avx512_mula2;
+    case(PPOPCNT_AVX512BW_HARVEY_SEAL): return pospopcnt_u16_avx512bw_harvey_seal;
+    case(PPOPCNT_AVX512VBMI_HARVEY_SEAL): return pospopcnt_u16_avx512vbmi_harvey_seal;
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
