@@ -14,11 +14,9 @@ platform:
   - x64
 
 build_script:
-  - cmd: if [%BUILD_ENVIRONMENT%]==[cygwin] (
-      C:\cygwin\bin\bash -l -c "make;" )
-  - cmd: if [%BUILD_ENVIRONMENT%]==[cygwin64] (
-      C:\cygwin64\bin\bash -l -c "make;" )
-  - cmd: if [%BUILD_ENVIRONMENT%]==[mingw] (
-      C:\MinGW\msys\1.0\bin\bash -l -c "make;" )
-  - cmd: if [%BUILD_ENVIRONMENT%]==[mingw-w64] (
-      C:\msys64\usr\bin\bash -l -c "make;" )
+  - if "%platform%" == "x86" cmake -G "Visual Studio 15 2017" .
+  - if "%platform%" == "x64" cmake -G "Visual Studio 15 2017 Win64" .
+  - cmake --build . --config Release
+
+test_script:
+  - ctest -C Release

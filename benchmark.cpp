@@ -4,6 +4,12 @@
 #include <cassert>//assert
 #include <cstring>//memset
 
+#ifdef _MSC_VER
+# include <intrin.h>
+#else
+# include <x86intrin.h>
+#endif
+
 #include "pospopcnt.h"
 
 inline void* aligned_malloc(size_t size, size_t align) {
@@ -43,8 +49,12 @@ struct bench_unit {
 
 uint64_t get_cpu_cycles() {
     uint64_t result;
+#ifndef _MSC_VER
     __asm__ volatile(".byte 15;.byte 49;shlq $32,%%rdx;orq %%rdx,%%rax":"=a"
                      (result)::"%rdx");
+#else
+    result = __rdtsc();
+#endif
     return result;
 };
 
@@ -104,6 +114,7 @@ int pospopcnt_u16_wrapper(pospopcnt_u16_method_type f, int id, int iterations,
     std::vector<uint64_t> clocks;
     std::vector<uint32_t> times;
 
+#ifndef _MSC_VER
 // Intel guide:
 // @see: https://www.intel.com/content/dam/www/public/us/en/documents/white-papers/ia-32-ia-64-benchmark-code-execution-paper.pdf
 asm   volatile ("CPUID\n\t"
@@ -122,6 +133,7 @@ asm   volatile("RDTSCP\n\t"
                "mov %%edx, %0\n\t"
                "mov %%eax, %1\n\t"
                "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
+#endif
 
     for (int i = 0; i < iterations; ++i) {
         memset(counters, 0, sizeof(uint32_t)*16);
@@ -139,19 +151,21 @@ asm   volatile("RDTSCP\n\t"
     /*at this stage we exclusively own the CPU*/ 
 #endif
 
+#ifndef _MSC_VER 
     asm   volatile ("CPUID\n\t"
                     "RDTSC\n\t"
                     "mov %%edx, %0\n\t"
                     "mov %%eax, %1\n\t": "=r" (cycles_high), "=r" (cycles_low):: "%rax", "%rbx", "%rcx", "%rdx");
-
+#endif
     // Call argument subroutine pointer.
     (*f)(data, n, counters);
 
+#ifndef _MSC_VER 
     asm   volatile("RDTSCP\n\t"
                    "mov %%edx, %0\n\t"
                    "mov %%eax, %1\n\t"
                    "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
-
+#endif
 #ifdef __linux__ 
         // raw_local_irq_restore(flags);/*we enable hard interrupts on our CPU*/
         // preempt_enable();/*we enable preemption*/

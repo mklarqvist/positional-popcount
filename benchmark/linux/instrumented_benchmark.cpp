@@ -29,36 +29,36 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_scalar_umul128,
     pospopcnt_u16_scalar_umul128_unroll2,
     pospopcnt_u16_sse_single,
-    pospopcnt_u16_sse_mula,
-    pospopcnt_u16_sse_mula_unroll4,
-    pospopcnt_u16_sse_mula_unroll8,
-    pospopcnt_u16_sse_mula_unroll16,
+    pospopcnt_u16_sse_blend_popcnt,
+    pospopcnt_u16_sse_blend_popcnt_unroll4,
+    pospopcnt_u16_sse_blend_popcnt_unroll8,
+    pospopcnt_u16_sse_blend_popcnt_unroll16,
     pospopcnt_u16_sse_sad,
-    pospopcnt_u16_sse_csa,
+    pospopcnt_u16_sse_harvey_seal,
     pospopcnt_u16_avx2_popcnt,
     pospopcnt_u16_avx2,
     pospopcnt_u16_avx2_naive_counter,
     pospopcnt_u16_avx2_single,
     pospopcnt_u16_avx2_lemire,
     pospopcnt_u16_avx2_lemire2,
-    pospopcnt_u16_avx2_mula,
-    pospopcnt_u16_avx2_mula_unroll4,
-    pospopcnt_u16_avx2_mula_unroll8,
-    pospopcnt_u16_avx2_mula_unroll16,
-    pospopcnt_u16_avx2_mula3,
-    pospopcnt_u16_avx2_csa,
+    pospopcnt_u16_avx2_blend_popcnt,
+    pospopcnt_u16_avx2_blend_popcnt_unroll4,
+    pospopcnt_u16_avx2_blend_popcnt_unroll8,
+    pospopcnt_u16_avx2_blend_popcnt_unroll16,
+    pospopcnt_u16_avx2_adder_forest,
+    pospopcnt_u16_avx2_harvey_seal,
     pospopcnt_u16_avx512,
     pospopcnt_u16_avx512bw_popcnt32_mask,
     pospopcnt_u16_avx512bw_popcnt64_mask,
     pospopcnt_u16_avx512_masked_ops,
     pospopcnt_u16_avx512_popcnt,
-    pospopcnt_u16_avx512bw_mula,
-    pospopcnt_u16_avx512bw_mula_unroll4,
-    pospopcnt_u16_avx512bw_mula_unroll8,
+    pospopcnt_u16_avx512bw_blend_popcnt,
+    pospopcnt_u16_avx512bw_blend_popcnt_unroll4,
+    pospopcnt_u16_avx512bw_blend_popcnt_unroll8,
     pospopcnt_u16_avx512_mula2,
-    pospopcnt_u16_avx512bw_mula3,
-    pospopcnt_u16_avx512bw_csa,
-    pospopcnt_u16_avx512vbmi_csa};
+    pospopcnt_u16_avx512bw_adder_forest,
+    pospopcnt_u16_avx512bw_harvey_seal,
+    pospopcnt_u16_avx512vbmi_harvey_seal};
 
 void print16(uint32_t *flags) {
     for (int k = 0; k < 16; k++)
@@ -188,6 +188,7 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     return isok;
 }
 
+#if POSPOPCNT_SIMD_VERSION >= 5
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
     std::vector<uint16_t> vdata(n);
@@ -252,6 +253,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
         printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
 }
+#endif
 
 static void print_usage(char *command) {
     printf(" Try %s -n 100000 -i 15 -v \n", command);
@@ -315,8 +317,10 @@ int main(int argc, char **argv) {
       printf("array size: %.3f MB\n", array_in_bytes / (1024 * 1024.));
     }
 
+#if POSPOPCNT_SIMD_VERSION >= 5
     measurepopcnt(n, iterations, verbose);
-    
+#endif
+   
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
         printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);
