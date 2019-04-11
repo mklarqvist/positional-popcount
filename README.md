@@ -1,6 +1,8 @@
 # positional-popcount
 
 [![Build Status](https://travis-ci.com/mklarqvist/positional-popcount.svg)](https://travis-ci.com/mklarqvist/positional-popcount)
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/mklarqvist/positional-popcount?branch=master&svg=true)](https://ci.appveyor.com/project/mklarqvist/positional-popcount)
+[![Github Releases](https://img.shields.io/github/release/mklarqvist/positional-popcount.svg)](https://github.com/mklarqvist/positional-popcount/releases)
 
 These functions compute the novel "positional [population count](https://en.wikipedia.org/wiki/Hamming_weight)" (`pospopcnt`) statistics using fast [SIMD instructions](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions). Given a stream of k-bit words, we seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This problem is a generalization of the population-count problem where we count the sum total of set bits in a k-bit word.
 
@@ -30,7 +32,7 @@ The host architecture used is a 10 nm Cannon Lake [Core i3-8121U](https://ark.in
 
 ### Usage
 
-Compile the test suite with: `make` and run `./bench`. The test suite require `c++11` whereas the example and functions require only `c99`. For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
+For Linux/Mac: Compile the test suite with: `make` and run `./bench`. For Windows: run `cmake .` then `make`. The test suite require `c++11` whereas the example and functions require only `c99`. For more detailed test, see [Instrumented tests (Linux specific)](#instrumented-tests-linux-specific).
 
 Include `pospopcnt.h` and `pospopcnt.c` in your project. Then use the wrapper function for `pospopcnt`:
 ```c
