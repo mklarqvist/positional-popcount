@@ -723,6 +723,7 @@ int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* f
     return 0;
 }
 
+#ifndef _MSC_VER
 // By @aqrit (https://github.com/aqrit)
 // @see: https://gist.github.com/aqrit/c729815b0165c139d0bac642ab7ee104
 int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) {
@@ -879,6 +880,10 @@ int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_
 
     return 0;
 }
+#else 
+int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
+int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
+#endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
 #if defined(__AVX512BW__) && __AVX512BW__ == 1

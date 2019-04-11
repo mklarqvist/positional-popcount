@@ -133,6 +133,8 @@ extern "C" {
 #define PIL_POPCOUNT __builtin_popcountll
 #endif
 
+// Not supported on MSVC
+#ifndef _MSC_VER
 PPOPCNT_INLINE
 uint64_t pospopcnt_umul128(uint64_t a, uint64_t b, uint64_t* hi) {
     unsigned __int128 x = (unsigned __int128)a * (unsigned __int128)b;
@@ -146,6 +148,7 @@ uint64_t pospopcnt_loadu_u64(const void* ptr) {
     memcpy(&data, ptr, sizeof(data));
     return data;
 }
+#endif
 
 #if POSPOPCNT_SIMD_VERSION >= 3
 
