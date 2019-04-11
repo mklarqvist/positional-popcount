@@ -34,3 +34,6 @@
 example
 bench
 instrumented_benchmark
+.vscode
+CMakeFiles
+Testing

@@ -640,7 +640,7 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flag_cou
 }
 #else
 int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_sse2_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
 #if !defined(__clang__)
