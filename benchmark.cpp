@@ -53,7 +53,7 @@ uint64_t get_cpu_cycles() {
     __asm__ volatile(".byte 15;.byte 49;shlq $32,%%rdx;orq %%rdx,%%rax":"=a"
                      (result)::"%rdx");
 #else
-    uint64_t result = __rdtsc();
+    result = __rdtsc();
 #endif
     return result;
 };
