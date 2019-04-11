@@ -4,6 +4,12 @@
 #include <cassert>//assert
 #include <cstring>//memset
 
+#ifdef _MSC_VER
+# include <intrin.h>
+#else
+# include <x86intrin.h>
+#endif
+
 #include "pospopcnt.h"
 
 inline void* aligned_malloc(size_t size, size_t align) {
@@ -43,8 +49,12 @@ struct bench_unit {
 
 uint64_t get_cpu_cycles() {
     uint64_t result;
+#ifndef _MSC_VER
     __asm__ volatile(".byte 15;.byte 49;shlq $32,%%rdx;orq %%rdx,%%rax":"=a"
                      (result)::"%rdx");
+#else
+    uint64_t result = __rdtsc();
+#endif
     return result;
 };
 
