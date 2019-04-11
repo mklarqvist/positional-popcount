@@ -19,7 +19,7 @@
 OPTFLAGS  := -O3 -march=native
 CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS)
 CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
-CPP_SOURCE = main.cpp benchmark/linux/instrumented_benchmark.cpp
+CPP_SOURCE = benchmark.cpp benchmark/linux/instrumented_benchmark.cpp
 C_SOURCE   = pospopcnt.c example.c
 OBJECTS    = $(CPP_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
 
@@ -36,8 +36,8 @@ all: bench
 benchmark/linux/instrumented_benchmark.o : benchmark/linux/instrumented_benchmark.cpp
 	$(CXX) $(CPPFLAGS) -I. -Ibenchmark/linux -c -o $@ $<
 
-bench: pospopcnt.o main.o
-	$(CXX) $(CPPFLAGS) pospopcnt.o main.o -o bench
+bench: pospopcnt.o benchmark.o
+	$(CXX) $(CPPFLAGS) pospopcnt.o benchmark.o -o bench
 
 itest: instrumented_benchmark
 	$(CXX) --version
