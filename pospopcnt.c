@@ -647,8 +647,8 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
 int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 #endif
 
-#if !defined(__clang__)
- __attribute__((optimize("no-tree-vectorize")))
+#if !defined(__clang__) && !defined(_MSC_VER)
+__attribute__((optimize("no-tree-vectorize")))
 #endif
 int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags) {
     for (int i = 0; i < len; ++i) {
