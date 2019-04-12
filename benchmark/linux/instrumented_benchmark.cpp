@@ -225,14 +225,14 @@ bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_me
             }
         }
         std::vector<std::vector<uint32_t>> correctflags(m,std::vector<uint32_t>(16));
-        for (size_t k = 0; k < vdata.size(); k++) {
-          pospopcnt_u16_scalar_naive(vdata[k].data(), vdata.size(), correctflags[k].data()); // this is our gold standard
+        for (size_t k = 0; k < m; k++) {
+          pospopcnt_u16_scalar_naive(vdata[k].data(), vdata[k].size(), correctflags[k].data()); // this is our gold standard
         }
         std::vector<std::vector<uint32_t>> flags(m,std::vector<uint32_t>(16));
         
         unified.start();
-        for (size_t k = 0; k < vdata.size(); k++) {
-          fn(vdata[k].data(), vdata.size(), flags[k].data());
+        for (size_t k = 0; k < m ; k++) {
+          fn(vdata[k].data(), vdata[k].size(), flags[k].data());
         }
         unified.end(results);
 
