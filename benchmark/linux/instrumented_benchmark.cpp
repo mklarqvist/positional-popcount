@@ -188,6 +188,99 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     return isok;
 }
 
+/**
+ * @brief 
+ * 
+ * @param n          Number of integers.
+ * @parem m          Number of arrays.
+ * @param iterations Number of iterations.
+ * @param fn         Target function pointer.
+ * @param verbose    Flag enabling verbose output.
+ * @return           Returns true if the results are correct. Returns false if the results
+ *                   are either incorrect or the target function is not supported.
+ */
+bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
+    std::vector<int> evts;
+    std::vector<std::vector<uint16_t>> vdata(m, std::vector<uint16_t>(n));
+    evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
+    evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
+    evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
+    evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
+    evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    evts.push_back(PERF_COUNT_HW_REF_CPU_CYCLES);
+    LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
+    std::vector<unsigned long long> results; // tmp buffer
+    std::vector< std::vector<unsigned long long> > allresults;
+    results.resize(evts.size());
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 0xFFFF);
+
+    bool isok = true;
+    for (uint32_t i = 0; i < iterations; i++) {
+        for (size_t k = 0; k < vdata.size(); k++) {
+            for(size_t k2 = 0; k2 < vdata[k].size() ; k2++) { 
+               vdata[k][k2] = dis(gen); // random init.
+            }
+        }
+        std::vector<std::vector<uint32_t>> correctflags(m,std::vector<uint32_t>(16));
+        for (size_t k = 0; k < vdata.size(); k++) {
+          pospopcnt_u16_scalar_naive(vdata[k].data(), vdata.size(), correctflags[k].data()); // this is our gold standard
+        }
+        std::vector<std::vector<uint32_t>> flags(m,std::vector<uint32_t>(16));
+        
+        unified.start();
+        for (size_t k = 0; k < vdata.size(); k++) {
+          fn(vdata[k].data(), vdata.size(), flags[k].data());
+        }
+        unified.end(results);
+
+        uint64_t tot_obs = 0;
+        for (size_t km = 0; km < m; ++km)
+          for (size_t k = 0; k < 16; ++k) tot_obs += flags[km][k];
+        if (tot_obs == 0) { // when a method is not supported it returns all zero
+            return false;
+        }
+        for (size_t km = 0; km < m; ++km) {
+          for (size_t k = 0; k < 16; k++) {
+            if (correctflags[km][k] != flags[km][k]) {
+                if (test) {
+                    printf("bug:\n");
+                    printf("expected : ");
+                    print16(correctflags[km].data());
+                    printf("got      : ");
+                    print16(flags[km].data());
+                    return false;
+                } else {
+                    isok = false;
+                }
+            }
+          }
+        }
+        allresults.push_back(results);
+    }
+
+    std::vector<unsigned long long> mins = compute_mins(allresults);
+    std::vector<double> avg = compute_averages(allresults);
+    
+    if (verbose) {
+        printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+               "instructions per 16-bit word %4.3f \n",
+                double(mins[1]) / mins[0], double(mins[0]) / (n*m), double(mins[1]) / (n*m));
+        // first we display mins
+        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+               "cache ref., %8llu cache mis.\n",
+                mins[0], mins[1], mins[2], mins[3], mins[4]);
+        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+               "cache ref., %8.1f cache mis.\n",
+                avg[0], avg[1], avg[2], avg[3], avg[4]);
+    } else {
+        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / (n*m), double(mins[5]) / (n*m));
+    }
+
+    return isok;
+}
 #if POSPOPCNT_SIMD_VERSION >= 5
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
@@ -301,14 +394,18 @@ static void print_usage(char *command) {
 
 int main(int argc, char **argv) {
     size_t n = 100000;
+    size_t m = 1;
     size_t iterations = 0; 
     bool verbose = false;
     int c;
 
-    while ((c = getopt(argc, argv, "vhn:i:")) != -1) {
+    while ((c = getopt(argc, argv, "vhm:n:i:")) != -1) {
         switch (c) {
         case 'n':
             n = atoll(optarg);
+            break;
+        case 'm':
+            m = atoll(optarg);
             break;
         case 'v':
             verbose = true;
@@ -335,17 +432,17 @@ int main(int argc, char **argv) {
     }
 
     if(iterations == 0) {
-      if(n < 1000000) iterations = 100;
+      if(m*n < 1000000) iterations = 100;
       else iterations = 10;
     }
-    printf("n = %zu \n", n);
+    printf("n = %zu m = %zu \n", n, m);
     printf("iterations = %zu \n", iterations);
     if(n == 0) {
        printf("n cannot be zero.\n");
        return EXIT_FAILURE;
     }
 
-    size_t array_in_bytes = sizeof(uint16_t) * n;
+    size_t array_in_bytes = sizeof(uint16_t) * n * m;
     if(array_in_bytes < 1024) {
       printf("array size: %zu B\n", array_in_bytes);
     } else if (array_in_bytes < 1024 * 1024) {
@@ -355,14 +452,14 @@ int main(int argc, char **argv) {
     }
 
 #if POSPOPCNT_SIMD_VERSION >= 5
-    measurepopcnt(n, iterations, verbose);
+    measurepopcnt(n*m, iterations, verbose);
 #endif
-    measureoverhead(n, iterations, verbose);
+    measureoverhead(n*m, iterations, verbose);
    
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
         printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);
-        bool isok = benchmark(n, iterations, pospopcnt_u16_methods[k], verbose, true);
+        bool isok = benchmarkMany(n, m, iterations, pospopcnt_u16_methods[k], verbose, true);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[k]);
         }
