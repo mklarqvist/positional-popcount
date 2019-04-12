@@ -34,6 +34,7 @@
 example
 bench
 instrumented_benchmark
+instrumented_benchmark_align64
 .vscode
 CMakeFiles
 Testing

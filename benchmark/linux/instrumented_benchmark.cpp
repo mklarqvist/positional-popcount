@@ -19,6 +19,14 @@
 #include "pospopcnt.h"
 #include "linux-perf-events.h"
 #include "popcnt.h"
+#include "aligned_alloc.h"
+
+#ifdef ALIGN
+#   define memory_allocate(size) aligned_alloc(64, (size))
+#else
+#   define memory_allocate(size) malloc(size)
+#endif
+
 
 pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16, // higher-level heuristic
@@ -115,7 +123,9 @@ compute_averages(std::vector< std::vector<unsigned long long> > allresults) {
  */
 bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
     std::vector<int> evts;
-    std::vector<uint16_t> vdata(n);
+    uint16_t* vdata = (uint16_t*)memory_allocate(n * sizeof(uint16_t));
+    std::unique_ptr<uint16_t, decltype(&free)> dataholder(vdata, free);
+
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
@@ -133,15 +143,15 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
 
     bool isok = true;
     for (uint32_t i = 0; i < iterations; i++) {
-        for (size_t k = 0; k < vdata.size(); k++) {
+        for (size_t k = 0; k < n; k++) {
             vdata[k] = dis(gen); // random init.
         }
         uint32_t correctflags[16] = {0};
-        pospopcnt_u16_scalar_naive(vdata.data(), vdata.size(), correctflags); // this is our gold standard
+        pospopcnt_u16_scalar_naive(vdata, n, correctflags); // this is our gold standard
         uint32_t flags[16] = {0};
         
         unified.start();
-        fn(vdata.data(), vdata.size(), flags);
+        fn(vdata, n, flags);
         unified.end(results);
 
         uint64_t tot_obs = 0;
@@ -191,7 +201,8 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
 #if POSPOPCNT_SIMD_VERSION >= 5
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
-    std::vector<uint16_t> vdata(n);
+    uint16_t* vdata = (uint16_t*)memory_allocate(n * sizeof(uint16_t));
+    std::unique_ptr<uint16_t, decltype(&free)> dataholder(vdata, free);
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
@@ -207,29 +218,30 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, 0xFFFF);
 
-#if POSPOPCNT_SIMD_VERSION >= 6    
-    n = vdata.size() / (512 / 16) * (512 / 16);
-#elif POSPOPCNT_SIMD_VERSION >= 5
-    n = vdata.size() / (256 / 16) * (256 / 16);
-#endif
     for (uint32_t i = 0; i < iterations; i++) {
-        for (size_t k = 0; k < vdata.size(); k++) {
+        for (size_t k = 0; k < n; k++) {
             vdata[k] = dis(gen); // random init.
         }
 #if POSPOPCNT_SIMD_VERSION >= 6        
-        uint64_t expected = popcnt_harley_seal((const __m512i*) vdata.data(), vdata.size() / (512 / 16));       
+        uint64_t expected = popcnt_harley_seal((const __m512i*) vdata, n / (512 / 16));
         unified.start();
-        uint64_t measured = popcnt_harley_seal((const __m512i*) vdata.data(), vdata.size() / (512 / 16));
+        uint64_t measured = popcnt_harley_seal((const __m512i*) vdata, n / (512 / 16));
         unified.end(results);
 #elif POSPOPCNT_SIMD_VERSION >= 5
-        uint64_t expected = popcnt_avx2((const __m256i*) vdata.data(), vdata.size() / (256 / 16));
+        uint64_t expected = popcnt_avx2((const __m256i*) vdata, n / (256 / 16));
         unified.start();
-        uint64_t measured = popcnt_avx2((const __m256i*) vdata.data(), vdata.size() / (256 / 16));
+        uint64_t measured = popcnt_avx2((const __m256i*) vdata, n / (256 / 16));
         unified.end(results);
 #endif
         assert(measured == expected);
         allresults.push_back(results);
     }
+
+#if POSPOPCNT_SIMD_VERSION >= 6    
+    n = n / (512 / 16) * (512 / 16);
+#elif POSPOPCNT_SIMD_VERSION >= 5
+    n = n / (256 / 16) * (256 / 16);
+#endif
 
     std::vector<unsigned long long> mins = compute_mins(allresults);
     std::vector<double> avg = compute_averages(allresults);
