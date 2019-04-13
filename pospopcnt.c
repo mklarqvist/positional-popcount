@@ -2131,6 +2131,7 @@ int pospopcnt_u16_sse_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* 
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
+#define AND_OR 0xea // ternary function: (a & b) | c
 #if defined(__AVX512BW__) && __AVX512BW__ == 1
 int pospopcnt_u16_avx512bw_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { 
     const __m512i* data_vectors = (const __m512i*)(data);
@@ -2141,8 +2142,8 @@ int pospopcnt_u16_avx512bw_blend_popcnt(const uint16_t* data, uint32_t len, uint
         __m512i v0 = _mm512_loadu_si512(data_vectors + i + 0);
         __m512i v1 = _mm512_loadu_si512(data_vectors + i + 1);
 
-        __m512i input0 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v1, 8));
-        __m512i input1 = _mm512_or_si512(_mm512_and_si512(v0, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v1, 8));
+        __m512i input0 = _mm512_ternarylogic_epi32(v0, _mm512_set1_epi16(0x00FF), _mm512_slli_epi16(v1, 8), AND_OR);
+        __m512i input1 = _mm512_ternarylogic_epi32(v0, _mm512_set1_epi16(0xFF00), _mm512_srli_epi16(v1, 8), AND_OR);
         
         for (int i = 0; i < 8; ++i) {
             flags[ 7 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input0));
@@ -2171,8 +2172,8 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll4(const uint16_t* data, uint32_t l
 #define L(p) __m512i v##p = _mm512_loadu_si512(data_vectors+i+p);
         L(0) L(1) L(2) L(3)
 
-#define U0(p,k) __m512i input##p = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v##k, 8));
-#define U1(p,k) __m512i input##k = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v##k, 8));
+#define U0(p,k) __m512i input##p = _mm512_ternarylogic_epi32(v##p, _mm512_set1_epi16(0x00FF), _mm512_slli_epi16(v##k, 8), AND_OR);
+#define U1(p,k) __m512i input##k = _mm512_ternarylogic_epi32(v##p, _mm512_set1_epi16(0xFF00), _mm512_srli_epi16(v##k, 8), AND_OR);
 #define U(p, k)  U0(p,k) U1(p,k)
 
         U(0,1) U(2,3)
@@ -2230,8 +2231,8 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t l
         L(0)  L(1)  L(2)  L(3)  
         L(4)  L(5)  L(6)  L(7) 
 
-#define U0(p,k) __m512i input##p = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0x00FF)), _mm512_slli_epi16(v##k, 8));
-#define U1(p,k) __m512i input##k = _mm512_or_si512(_mm512_and_si512(v##p, _mm512_set1_epi16(0xFF00)), _mm512_srli_epi16(v##k, 8));
+#define U0(p,k) __m512i input##p = _mm512_ternarylogic_epi32(v##p, _mm512_set1_epi16(0x00FF), _mm512_slli_epi16(v##k, 8), AND_OR);
+#define U1(p,k) __m512i input##k = _mm512_ternarylogic_epi32(v##p, _mm512_set1_epi16(0xFF00), _mm512_srli_epi16(v##k, 8), AND_OR);
 #define U(p, k)  U0(p,k) U1(p,k)
 
         U(0,1) U( 2, 3) U( 4, 5) U( 6, 7)
@@ -2764,7 +2765,7 @@ int pospopcnt_u16_avx512_harvey_seal(const uint16_t* data, uint32_t len, uint32_
     return(0);
     #endif
 }
-
+#undef AND_OR
 #else
 int pospopcnt_u16_avx512bw_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_avx512bw_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
