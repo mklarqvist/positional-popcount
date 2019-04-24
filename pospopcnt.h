@@ -40,7 +40,7 @@
  * | sse_blend_popcnt_unroll8    | 2.09 | 3.16 | 2.35 | 1.88 | 1.67 | 1.56 | 1.5  | 1.44  |
  * | avx512_blend_popcnt_unroll8 | 1.78 | 3.61 | 3.61 | 3.59 | 3.68 | 3.65 | 3.67 | 3.7   |
  * | avx512_adder_forest         | 0.77 | 0.9  | 3.24 | 3.96 | 4.96 | 5.87 | 6.52 | 7.24  |
- * | avx512_harvey_seal          | 0.52 | 0.74 | 1.83 | 2.64 | 4.06 | 6.43 | 9.41 | 16.28 |
+ * | avx512_harley_seal          | 0.52 | 0.74 | 1.83 | 2.64 | 4.06 | 6.43 | 9.41 | 16.28 |
  * 
  * Compared to a naive unvectorized solution (`pospopcnt_u16_scalar_naive_nosimd`):
  * 
@@ -49,7 +49,7 @@
  * | sse_mula_unroll8            | 8.28 | 9.84  | 10.55 | 11    | 11.58 | 11.93 | 12.13 | 12.28  |
  * | avx512_blend_popcnt_unroll8 | 7.07 | 11.25 | 16.21 | 21    | 25.49 | 27.91 | 29.73 | 31.55  |
  * | avx512_adder_forest         | 3.05 | 2.82  | 14.53 | 23.13 | 34.37 | 44.91 | 52.78 | 61.68  |
- * | avx512_harvey_seal          | 2.07 | 2.3   | 8.21  | 15.41 | 28.17 | 49.14 | 76.11 | 138.71 |
+ * | avx512_harley_seal          | 2.07 | 2.3   | 8.21  | 15.41 | 28.17 | 49.14 | 76.11 | 138.71 |
  * 
 */
 #ifndef POSPOPCNT_H_2359235897293
@@ -249,7 +249,7 @@ typedef enum {
     PPOPCNT_SSE_BLEND_POPCNT_UR8,
     PPOPCNT_SSE_BLEND_POPCNT_UR16,
     PPOPCNT_SSE_SAD,
-    PPOPCNT_SSE_HARVEY_SEAL,
+    PPOPCNT_SSE_harley_SEAL,
     PPOPCNT_AVX2_POPCNT,
     PPOPCNT_AVX2,
     PPOPCNT_AVX2_POPCNT_NAIVE,
@@ -261,7 +261,7 @@ typedef enum {
     PPOPCNT_AVX2_BLEND_POPCNT_UR8,
     PPOPCNT_AVX2_BLEND_POPCNT_UR16,
     PPOPCNT_AVX2_ADDER_FOREST,
-    PPOPCNT_AVX2_HARVEY_SEAL,
+    PPOPCNT_AVX2_harley_SEAL,
     PPOPCNT_AVX512,
     PPOPCNT_AVX512BW_MASK32,
     PPOPCNT_AVX512BW_MASK64,
@@ -272,8 +272,8 @@ typedef enum {
     PPOPCNT_AVX512BW_BLEND_POPCNT_UR8,
     PPOPCNT_AVX512_MULA2,
     PPOPCNT_AVX512BW_ADDER_FOREST,
-    PPOPCNT_AVX512BW_HARVEY_SEAL,
-    PPOPCNT_AVX512VBMI_HARVEY_SEAL
+    PPOPCNT_AVX512BW_harley_SEAL,
+    PPOPCNT_AVX512VBMI_harley_SEAL
 } PPOPCNT_U16_METHODS;
 
 static const char * const pospopcnt_u16_method_names[] = {
@@ -290,7 +290,7 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_sse_blend_popcnt_unroll8",
     "pospopcnt_u16_sse_blend_popcnt_unroll16",
     "pospopcnt_u16_sse2_sad",
-    "pospopcnt_u16_sse2_harvey_seal",
+    "pospopcnt_u16_sse2_harley_seal",
     "pospopcnt_u16_avx2_popcnt",
     "pospopcnt_u16_avx2",
     "pospopcnt_u16_avx2_naive_counter",
@@ -302,7 +302,7 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx2_blend_popcnt_unroll8",
     "pospopcnt_u16_avx2_blend_popcnt_unroll16",
     "pospopcnt_u16_avx2_adder_forest",
-    "pospopcnt_u16_avx2_harvey_seal",
+    "pospopcnt_u16_avx2_harley_seal",
     "pospopcnt_u16_avx512",
     "pospopcnt_u16_avx512bw_popcnt32_mask",
     "pospopcnt_u16_avx512bw_popcnt64_mask",
@@ -313,8 +313,8 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx512bw_blend_popcnt_unroll8",
     "pospopcnt_u16_avx512_mula2",
     "pospopcnt_u16_avx512bw_adder_forest",
-    "pospopcnt_u16_avx512bw_harvey_seal",
-    "pospopcnt_u16_avx512vbmi_harvey_seal"};
+    "pospopcnt_u16_avx512bw_harley_seal",
+    "pospopcnt_u16_avx512vbmi_harley_seal"};
 
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
@@ -359,7 +359,7 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
  * 
  * Example usage:
  * 
- * pospopcnt_u16_method_type f = get_pospopcnt_u16_method(PPOPCNT_AVX2_HARVEY_SEAL);
+ * pospopcnt_u16_method_type f = get_pospopcnt_u16_method(PPOPCNT_AVX2_harley_SEAL);
  * (*f)(data, len, flags);
  * 
  * @param method                     Target function (PPOPCNT_U16_METHODS).
@@ -378,7 +378,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method);
 *  before calling pospopcnt_u16_* the first time.
 *
 *  Function names are prefixed by its target instruction set: 
-*  [scalar, sse, avx2, avx512]. For example, pospopcnt_u16_avx2_harvey_seal.
+*  [scalar, sse, avx2, avx512]. For example, pospopcnt_u16_avx2_harley_seal.
 ************************************************************************/
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags);
@@ -392,7 +392,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, u
 int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_sse_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t len, uint32_t* flags);
@@ -405,7 +405,7 @@ int pospopcnt_u16_avx2_adder_forest(const uint16_t* data, uint32_t len, uint32_t
 int pospopcnt_u16_avx2_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx2_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
@@ -416,12 +416,12 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll4(const uint16_t* data, uint32_t l
 int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512bw_adder_forest(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512bw_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
-int pospopcnt_u16_avx512vbmi_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512bw_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx512vbmi_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
 
 /*======   Support   ======*/
-// Wrapper for avx512*_harvey_seal
-int pospopcnt_u16_avx512_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+// Wrapper for avx512*_harley_seal
+int pospopcnt_u16_avx512_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
 
 #ifdef __cplusplus
 }
