@@ -27,7 +27,6 @@
 #   define memory_allocate(size) malloc(size)
 #endif
 
-
 pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16, // higher-level heuristic
     pospopcnt_u16_scalar_naive,
@@ -42,7 +41,7 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_sse_blend_popcnt_unroll8,
     pospopcnt_u16_sse_blend_popcnt_unroll16,
     pospopcnt_u16_sse_sad,
-    pospopcnt_u16_sse_harvey_seal,
+    pospopcnt_u16_sse_harley_seal,
     pospopcnt_u16_avx2_popcnt,
     pospopcnt_u16_avx2,
     pospopcnt_u16_avx2_naive_counter,
@@ -54,7 +53,7 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_avx2_blend_popcnt_unroll8,
     pospopcnt_u16_avx2_blend_popcnt_unroll16,
     pospopcnt_u16_avx2_adder_forest,
-    pospopcnt_u16_avx2_harvey_seal,
+    pospopcnt_u16_avx2_harley_seal,
     pospopcnt_u16_avx512,
     pospopcnt_u16_avx512bw_popcnt32_mask,
     pospopcnt_u16_avx512bw_popcnt64_mask,
@@ -65,8 +64,8 @@ pospopcnt_u16_method_type pospopcnt_u16_methods[] = {
     pospopcnt_u16_avx512bw_blend_popcnt_unroll8,
     pospopcnt_u16_avx512_mula2,
     pospopcnt_u16_avx512bw_adder_forest,
-    pospopcnt_u16_avx512bw_harvey_seal,
-    pospopcnt_u16_avx512vbmi_harvey_seal};
+    pospopcnt_u16_avx512bw_harley_seal,
+    pospopcnt_u16_avx512vbmi_harley_seal};
 
 void print16(uint32_t *flags) {
     for (int k = 0; k < 16; k++)
@@ -121,10 +120,9 @@ compute_averages(std::vector< std::vector<unsigned long long> > allresults) {
  * @return           Returns true if the results are correct. Returns false if the results
  *                   are either incorrect or the target function is not supported.
  */
-bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
+bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test, bool table_output = false) {
     std::vector<int> evts;
     uint16_t* vdata = (uint16_t*)memory_allocate(n * sizeof(uint16_t));
-    std::unique_ptr<uint16_t, decltype(&free)> dataholder(vdata, free);
 
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
@@ -181,16 +179,25 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     std::vector<double> avg = compute_averages(allresults);
     
     if (verbose) {
-        printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-               "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
-        // first we display mins
-        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-               "cache ref., %8llu cache mis.\n",
-                mins[0], mins[1], mins[2], mins[3], mins[4]);
-        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-               "cache ref., %8.1f cache mis.\n",
+        if (table_output) {
+            printf("%4.3f\t%4.3f\t%4.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f", 
+                double(mins[1]) / mins[0], double(mins[0]) / (n), double(mins[1]) / (n), 
+                mins[0], mins[1], mins[2], mins[3], mins[4], 
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
+
+        } else {
+            printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+                "instructions per 16-bit word %4.3f \n",
+                    double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
+
+            // first we display mins
+            printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+                "cache ref., %8llu cache mis.\n",
+                    mins[0], mins[1], mins[2], mins[3], mins[4]);
+            printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+                "cache ref., %8.1f cache mis.\n",
+                    avg[0], avg[1], avg[2], avg[3], avg[4]);
+        }
     } else {
         printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
@@ -209,7 +216,7 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
  * @return           Returns true if the results are correct. Returns false if the results
  *                   are either incorrect or the target function is not supported.
  */
-bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
+bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test, bool table_output = false) {
     std::vector<int> evts;
     std::vector<std::vector<uint16_t>> vdata(m, std::vector<uint16_t>(n));
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
@@ -273,29 +280,41 @@ bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_me
 
     std::vector<unsigned long long> mins = compute_mins(allresults);
     std::vector<double> avg = compute_averages(allresults);
-    
+
     if (verbose) {
-        printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-               "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / (n*m), double(mins[1]) / (n*m));
-        // first we display mins
-        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-               "cache ref., %8llu cache mis.\n",
-                mins[0], mins[1], mins[2], mins[3], mins[4]);
-        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-               "cache ref., %8.1f cache mis.\n",
+        if (table_output) {
+            printf("%4.3f\t%4.3f\t%4.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n", 
+                double(mins[1]) / mins[0], double(mins[0]) / (n*m), double(mins[1]) / (n*m), 
+                mins[0], mins[1], mins[2], mins[3], mins[4], 
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
+            
+            
+        } else {
+            printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+                "instructions per 16-bit word %4.3f \n",
+                    double(mins[1]) / mins[0], double(mins[0]) / (n*m), double(mins[1]) / (n*m));
+
+            // first we display mins
+            printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+                "cache ref., %8llu cache mis.\n",
+                    mins[0], mins[1], mins[2], mins[3], mins[4]);
+            printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+                "cache ref., %8.1f cache mis.\n",
+                    avg[0], avg[1], avg[2], avg[3], avg[4]);
+        }
     } else {
-        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / (n*m), double(mins[5]) / (n*m));
+        printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
 
     return isok;
 }
+
 #if POSPOPCNT_SIMD_VERSION >= 5
-void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
+void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose, bool table_output = false) {
     std::vector<int> evts;
-    uint16_t* vdata = (uint16_t*)memory_allocate(n * sizeof(uint16_t));
-    std::unique_ptr<uint16_t, decltype(&free)> dataholder(vdata, free);
+
+    uint16_t* vdata = (uint16_t*)aligned_malloc(POSPOPCNT_SIMD_ALIGNMENT, n*sizeof(uint16_t));
+
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
@@ -315,6 +334,7 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
         for (size_t k = 0; k < n; k++) {
             vdata[k] = dis(gen); // random init.
         }
+
 #if POSPOPCNT_SIMD_VERSION >= 6        
         uint64_t expected = popcnt_harley_seal((const __m512i*) vdata, n / (512 / 16));
         unified.start();
@@ -338,28 +358,42 @@ void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
 
     std::vector<unsigned long long> mins = compute_mins(allresults);
     std::vector<double> avg = compute_averages(allresults);
-#if POSPOPCNT_SIMD_VERSION >= 6 
-    printf("%-40s\t","avx512popcnt");    
+#if POSPOPCNT_SIMD_VERSION >= 6
+    if (table_output) printf("%s\t","avx512popcnt");
+    else printf("%-40s\t","avx512popcnt");    
 #elif POSPOPCNT_SIMD_VERSION >= 5
-    printf("%-40s\t","avx256popcnt");  
+    if (table_output) printf("%s\t","avx256popcnt");
+    else printf("%-40s\t","avx256popcnt");  
 #endif
+ 
     if (verbose) {
-        printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-               "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
-        // first we display mins
-        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-               "cache ref., %8llu cache mis.\n",
-                mins[0], mins[1], mins[2], mins[3], mins[4]);
-        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-               "cache ref., %8.1f cache mis.\n",
+        if (table_output) {
+            printf("%4.3f\t%4.3f\t%4.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n", 
+                double(mins[1]) / mins[0], double(mins[0]) / (n), double(mins[1]) / (n), 
+                mins[0], mins[1], mins[2], mins[3], mins[4], 
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
+        } else {
+            printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+                "instructions per 16-bit word %4.3f \n",
+                    double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
+
+            // first we display mins
+            printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+                "cache ref., %8llu cache mis.\n",
+                    mins[0], mins[1], mins[2], mins[3], mins[4]);
+            printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+                "cache ref., %8.1f cache mis.\n",
+                    avg[0], avg[1], avg[2], avg[3], avg[4]);
+        }
     } else {
         printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
+
+    aligned_free(vdata);
 }
 #endif
-void measureoverhead(uint32_t n, uint32_t iterations, bool verbose) {
+
+void measureoverhead(uint32_t n, uint32_t iterations, bool verbose, bool output_table = false) {
     std::vector<int> evts;
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
@@ -380,28 +414,38 @@ void measureoverhead(uint32_t n, uint32_t iterations, bool verbose) {
 
     std::vector<unsigned long long> mins = compute_mins(allresults);
     std::vector<double> avg = compute_averages(allresults);
-    printf("%-40s\t","nothing");    
+    if (output_table)printf("%s\t","nothing");
+    else printf("%-40s\t","nothing");
+    
     if (verbose) {
-        printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
-               "instructions per 16-bit word %4.3f \n",
-                double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
-        // first we display mins
-        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
-               "cache ref., %8llu cache mis.\n",
-                mins[0], mins[1], mins[2], mins[3], mins[4]);
-        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
-               "cache ref., %8.1f cache mis.\n",
+        if (output_table) {
+            printf("%4.3f\t%4.3f\t%4.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n", 
+                double(mins[1]) / mins[0], double(mins[0]) / (n), double(mins[1]) / (n), 
+                mins[0], mins[1], mins[2], mins[3], mins[4], 
                 avg[0], avg[1], avg[2], avg[3], avg[4]);
+        } else {
+            printf("instructions per cycle %4.2f, cycles per 16-bit word:  %4.3f, "
+                "instructions per 16-bit word %4.3f \n",
+                    double(mins[1]) / mins[0], double(mins[0]) / n, double(mins[1]) / n);
+            // first we display mins
+            printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+                "cache ref., %8llu cache mis.\n",
+                    mins[0], mins[1], mins[2], mins[3], mins[4]);
+            printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+                "cache ref., %8.1f cache mis.\n",
+                    avg[0], avg[1], avg[2], avg[3], avg[4]);
+        }
     } else {
         printf("cycles per 16-bit word:  %4.3f; ref cycles per 16-bit word: %4.3f \n", double(mins[0]) / n, double(mins[5]) / n);
     }
 }
 
 static void print_usage(char *command) {
-    printf(" Try %s -n 100000 -i 15 -v \n", command);
-    printf("-n is the number of 16-bit words \n");
-    printf("-i is the number of tests or iterations \n");
+    printf(" Try %s -n 100000 -i 15 -v\n", command);
+    printf("-n is the number of 16-bit words\n");
+    printf("-i is the number of tests or iterations\n");
     printf("-v makes things verbose\n");
+    printf("-t prints a tab-delimited version of the verbose output (requires -v flag)\n");
 }
 
 int main(int argc, char **argv) {
@@ -409,9 +453,10 @@ int main(int argc, char **argv) {
     size_t m = 1;
     size_t iterations = 0; 
     bool verbose = false;
+    bool table = false;
     int c;
 
-    while ((c = getopt(argc, argv, "vhm:n:i:")) != -1) {
+    while ((c = getopt(argc, argv, "vhm:n:i:t")) != -1) {
         switch (c) {
         case 'n':
             n = atoll(optarg);
@@ -427,6 +472,9 @@ int main(int argc, char **argv) {
             return EXIT_SUCCESS;
         case 'i':
             iterations = atoi(optarg);
+            break;
+        case 't':
+            table = true;
             break;
         default:
             abort();
@@ -463,20 +511,27 @@ int main(int argc, char **argv) {
       printf("array size: %.3f MB\n", array_in_bytes / (1024 * 1024.));
     }
 
+    if (verbose && table) {
+         std::cout << "Method\tInstructions/cycle\tCycles/word\tInstructions/word\t"
+            "minCycles\tminInstructions\tminBranchMisses\tminCacheRef\tminCacheMiss\t"
+            "avgCycles\tavgInstructions\tavgBranchMisses\tavgCacheRef\tavgCacheMiss" << std::endl;
+    }
+
 #if POSPOPCNT_SIMD_VERSION >= 5
-    measurepopcnt(n*m, iterations, verbose);
+    measurepopcnt(n*m, iterations, verbose, table);
 #endif
-    measureoverhead(n*m, iterations, verbose);
+    measureoverhead(n*m, iterations, verbose, table);
    
     for (size_t k = 0; k < PPOPCNT_NUMBER_METHODS; k++) {
-        printf("%-40s\t", pospopcnt_u16_method_names[k]);
+        if (table) printf("%s\t", pospopcnt_u16_method_names[k]);
+        else printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);
-        bool isok = benchmarkMany(n, m, iterations, pospopcnt_u16_methods[k], verbose, true);
+        bool isok = benchmarkMany(n, m, iterations, pospopcnt_u16_methods[k], verbose, true, table);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[k]);
         }
-        if (verbose)
-            printf("\n");
+        // if (verbose)
+            // printf("\n");
     }
 
     if (!verbose)
