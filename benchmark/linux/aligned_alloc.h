@@ -9,6 +9,12 @@
 #   include <stdlib.h>
 #endif
 
+template <class T>
+static inline int get_alignment(T * data) {
+    uintptr_t addr =  reinterpret_cast<uintptr_t>(data);
+    return  addr & ~(addr -1);
+}
+
 // portable version of  posix_memalign
 static inline void *aligned_malloc(size_t alignment, size_t size) {
 	void *p;
