@@ -22,6 +22,7 @@
 #include "aligned_alloc.h"
 
 #ifdef ALIGN
+#include "memalloc.h"
 #   define memory_allocate(size) aligned_alloc(64, (size))
 #else
 #   define memory_allocate(size) malloc(size)
@@ -125,7 +126,9 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
     std::vector<int> evts;
     uint16_t* vdata = (uint16_t*)memory_allocate(n * sizeof(uint16_t));
     std::unique_ptr<uint16_t, decltype(&free)> dataholder(vdata, free);
-
+    if(verbose) {
+      printf("alignment: %d\n", get_alignment(vdata));
+    }
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
@@ -211,7 +214,23 @@ bool benchmark(uint32_t n, uint32_t iterations, pospopcnt_u16_method_type fn, bo
  */
 bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_method_type fn, bool verbose, bool test) {
     std::vector<int> evts;
+#ifdef ALIGN
+    std::vector<std::vector<uint16_t,AlignedSTLAllocator<uint16_t,64>>> vdata(m, std::vector<uint16_t,AlignedSTLAllocator<uint16_t,64>>(n));
+#else
     std::vector<std::vector<uint16_t>> vdata(m, std::vector<uint16_t>(n));
+#endif
+#ifdef ALIGN
+    for(auto & x : vdata) {
+      assert(get_alignment(x.data()) == 64);
+    }
+#endif
+    if(verbose) {
+      printf("alignments: ");
+      for(auto & x : vdata) {
+        printf("%d ", get_alignment(x.data()));
+      }
+      printf("\n");
+    }    
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
     evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
@@ -295,6 +314,9 @@ bool benchmarkMany(uint32_t n, uint32_t m, uint32_t iterations, pospopcnt_u16_me
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
     uint16_t* vdata = (uint16_t*)memory_allocate(n * sizeof(uint16_t));
+    if(verbose) {
+      printf("alignment: %d\n", get_alignment(vdata));
+    }
     std::unique_ptr<uint16_t, decltype(&free)> dataholder(vdata, free);
     evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
     evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
