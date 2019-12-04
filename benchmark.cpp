@@ -104,6 +104,10 @@ struct Measurement {
         double   variance;
         double   stddev;
     } cycles;
+
+    size_t count; // input items
+    size_t size; // input size in bytes (items * sizeof(item))
+    double throughput; // MB/s
 };
 
 class StatisticsBuilder {
@@ -155,7 +159,7 @@ public:
 
 
 template <typename pospopcnt_function_type, typename ItemType>
-int pospopcnt_wrapper(
+Measurement pospopcnt_wrapper(
     const char* method_name,
     pospopcnt_function_type measured_function,
     pospopcnt_function_type reference_function,
@@ -230,19 +234,12 @@ asm   volatile("RDTSCP\n\t"
 #undef RDTSC_u64
     }
 
-    const auto meas = stats.calculate();
+    auto meas       = stats.calculate();
+    meas.count      = n;
+    meas.size       = meas.count * sizeof(ItemType);
+    meas.throughput = (meas.size / (1024*1024.0)) / (meas.time.mean / 1000000000.0);
 
-    std::cout << method_name << "\t" << n << "\t" <<
-        meas.cycles.mean << "\t" <<
-        meas.cycles.min << "(" << meas.cycles.min / meas.cycles.mean << ")" << "\t" <<
-        meas.cycles.max << "(" << meas.cycles.max / meas.cycles.mean << ")" << "\t" <<
-        meas.cycles.stddev << "\t" <<
-        meas.cycles.mad << "\t" <<
-        meas.time.mean << "\t" <<
-        meas.cycles.mean / n << "\t" <<
-        ((n*sizeof(uint16_t)) / (1024*1024.0)) / (meas.time.mean / 1000000000.0) << std::endl;
-
-    return 0;
+    return meas;
 }
 
 struct Parameters {
@@ -251,8 +248,57 @@ struct Parameters {
     std::string filter;
 };
 
+class MeasurementsPrinter {
+    bool header_printed = false;
+    bool only_time;
+    std::ostream& out;
+    
+public:
+    MeasurementsPrinter(std::ostream& out, bool only_time)
+        : out(out)
+        , only_time(only_time) {}
+
+    void print(const char* method_name, const Measurement& meas) {
+        if (only_time)
+            print_short(method_name, meas);
+        else {
+            print_header();
+            print_all(method_name, meas);
+        }
+    }
+
+private:
+    void print_all(const char* method_name, const Measurement& meas) {
+        out << method_name << '\t'
+            << meas.count << '\t'
+            << meas.cycles.mean << '\t'
+            << meas.cycles.min << "(" << meas.cycles.min / meas.cycles.mean << ")" << '\t'
+            << meas.cycles.max << "(" << meas.cycles.max / meas.cycles.mean << ")" << '\t'
+            << meas.cycles.stddev << '\t'
+            << meas.cycles.mad << '\t'
+            << meas.time.mean << '\t'
+            << meas.cycles.mean / meas.count << '\t'
+            << meas.throughput << '\n';
+    }
+
+    void print_short(const char* method_name, const Measurement& meas) {
+        out << method_name << '\t'
+            << meas.cycles.mean << '\n';
+    }
+
+    void print_header() {
+        if (header_printed)
+            return;
+
+        std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(nanos)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
+        header_printed = true;
+    }
+};
+
 void benchmark(uint16_t* vals, const Parameters& params) {
     // Cycle over algorithms.
+
+    MeasurementsPrinter printer(std::cout, true);
     for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) {
         const char* name = pospopcnt_u16_method_names[i];
         if (std::string(name).find(params.filter) == std::string::npos)
@@ -260,8 +306,10 @@ void benchmark(uint16_t* vals, const Parameters& params) {
 
         auto method = get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i));
         auto reference = pospopcnt_u16_scalar_naive;
-        pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
+        const auto meas = pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
             name, method, reference, params.iterations, vals, params.iterations);
+
+        printer.print(name, meas);
     }
     for(int i = 0; i < PPOPCNT_U8_NUMBER_METHODS; ++i) {
         const char* name = pospopcnt_u8_method_names[i];
@@ -270,8 +318,10 @@ void benchmark(uint16_t* vals, const Parameters& params) {
 
         auto method = get_pospopcnt_u8_method(PPOPCNT_U8_METHODS(i));
         auto reference = pospopcnt_u8_scalar_naive;
-        pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
+        const auto meas = pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
             name, method, reference, params.iterations, (uint8_t*)vals, params.iterations);
+
+        printer.print(name, meas);
     }
 }
 
@@ -280,9 +330,8 @@ void flag_test(const Parameters& params) {
 
     // Memory align input data.
     uint16_t* vals = (uint16_t*)aligned_malloc(params.items_count*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
-    std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(nanos)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
-    benchmark(vals, params);
         
+    benchmark(vals, params);
     // Cleanup.
     aligned_free(vals);
 }
