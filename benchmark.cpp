@@ -4,6 +4,7 @@
 #include <cassert>//assert
 #include <cstring>//memset
 #include <type_traits>
+#include <algorithm>
 
 #ifdef _MSC_VER
 # include <intrin.h>
@@ -98,6 +99,71 @@ void generate_random_data(IntegerType* data, size_t n) {
 // Definition for microsecond timer.
 typedef std::chrono::high_resolution_clock::time_point clockdef;
 
+struct Measurement {
+    struct {
+        uint64_t total;
+        double   mean;
+    } time;
+
+    struct {
+        uint64_t total;
+        uint64_t min;
+        uint64_t max;
+        double   mean;
+        double   mad;
+        double   variance;
+        double   stddev;
+    } cycles;
+};
+
+class StatisticsBuilder {
+    std::vector<uint32_t> times;
+    std::vector<uint64_t> clocks;
+public:
+    StatisticsBuilder(const size_t estimated_size) {
+        assert(estimated_size > 0);
+        times.reserve(estimated_size);
+        clocks.reserve(estimated_size);
+    }
+
+    void add_record(clockdef start, clockdef end, uint64_t rdtsc_start, uint64_t rdtsc_end) {
+        const auto time_span = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+
+        times.push_back(time_span.count());
+        clocks.push_back(rdtsc_end - rdtsc_start);
+    }
+
+    Measurement calculate() const {
+        Measurement meas;
+
+        const double n = clocks.size();
+
+        meas.time.total   = std::accumulate(times.begin(), times.end(), 0);
+        meas.time.mean    = meas.time.mean / n;
+
+        meas.cycles.total = std::accumulate(clocks.begin(), clocks.end(), 0);
+        meas.cycles.min   = *std::min_element(clocks.begin(), clocks.end());
+        meas.cycles.max   = *std::max_element(clocks.begin(), clocks.end());
+        meas.cycles.mean  = meas.cycles.total / n;
+
+        const double variance   = std::accumulate(clocks.begin(), clocks.end(), 0.0,
+                                  [&meas](double sum, uint64_t clocks) {
+                                      return sum + pow(clocks - meas.cycles.mean, 2.0);
+                                  });
+        const double mad        = std::accumulate(clocks.begin(), clocks.end(), 0.0,
+                                  [&meas](double sum, uint64_t clocks) {
+                                      return sum + std::abs(clocks - meas.cycles.mean);
+                                  });
+
+        meas.cycles.mad      = mad / n;
+        meas.cycles.variance = variance / n;
+        meas.cycles.stddev   = sqrt(meas.cycles.variance);
+
+        return meas;
+    }
+};
+
+
 template <typename pospopcnt_function_type, typename ItemType>
 int pospopcnt_wrapper(
     const char* method_name,
@@ -119,8 +185,7 @@ int pospopcnt_wrapper(
     uint32_t cycles_low1 = 0, cycles_high1 = 0;
     // Start timer.
     
-    std::vector<uint64_t> clocks;
-    std::vector<uint32_t> times;
+    StatisticsBuilder stats(iterations);
 
 #ifndef _MSC_VER
 // Intel guide:
@@ -150,7 +215,7 @@ asm   volatile("RDTSCP\n\t"
 
         reference_function(data, n, flags_truth);
 
-        clockdef t1 = std::chrono::high_resolution_clock::now();
+        const clockdef t1 = std::chrono::high_resolution_clock::now();
 
 #ifndef _MSC_VER 
     asm   volatile ("CPUID\n\t"
@@ -168,52 +233,32 @@ asm   volatile("RDTSCP\n\t"
                    "CPUID\n\t": "=r" (cycles_high1), "=r" (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");
 #endif
 
-        clockdef t2 = std::chrono::high_resolution_clock::now();
-        auto time_span = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
+        const clockdef t2 = std::chrono::high_resolution_clock::now();
 
         assert_truth(counters, flags_truth);
-        uint64_t start = ( ((uint64_t)cycles_high  << 32) | cycles_low  );
-        uint64_t end   = ( ((uint64_t)cycles_high1 << 32) | cycles_low1 );
 
-        clocks.push_back(end - start);
-        times.push_back(time_span.count());
+#define RDTSC_u64(high, low) (((uint64_t)(high) << 32)|(low))
+        stats.add_record(t1, t2, RDTSC_u64(cycles_high, cycles_low), RDTSC_u64(cycles_high1, cycles_low1));
+#undef RDTSC_u64
     }
 
-    uint64_t tot_cycles = 0, tot_time = 0;
-    uint64_t min_c = std::numeric_limits<uint64_t>::max(), max_c = 0;
-    for (int i = 0; i < clocks.size(); ++i) {
-        tot_cycles += clocks[i];
-        tot_time += times[i];
-        min_c = std::min(min_c, clocks[i]);
-        max_c = std::max(max_c, clocks[i]);
-    }
-    double mean_cycles = tot_cycles / (double)clocks.size();
-    uint32_t mean_time = tot_time / (double)clocks.size();
+    const auto meas = stats.calculate();
 
-    double variance = 0, stdDeviation = 0, mad = 0;
-    for(int i = 0; i < clocks.size(); ++i) {
-        variance += pow(clocks[i] - mean_cycles, 2);
-        mad += std::abs(clocks[i] - mean_cycles);
-    }
-    mad /= clocks.size();
-    variance /= clocks.size();
-    stdDeviation = sqrt(variance);
-
-    std::cout << method_name << "\t" << n << "\t" << 
-        mean_cycles << "\t" <<
-        min_c << "(" << min_c/mean_cycles << ")" << "\t" << 
-        max_c << "(" << max_c/mean_cycles << ")" << "\t" <<
-        stdDeviation << "\t" << 
-        mad << "\t" << 
-        mean_time << "\t" << 
-        mean_cycles / n << "\t" << 
-        ((n*sizeof(uint16_t)) / (1024*1024.0)) / (mean_time / 1000000000.0) << std::endl;
+    std::cout << method_name << "\t" << n << "\t" <<
+        meas.cycles.mean << "\t" <<
+        meas.cycles.min << "(" << meas.cycles.min / meas.cycles.mean << ")" << "\t" <<
+        meas.cycles.max << "(" << meas.cycles.max / meas.cycles.mean << ")" << "\t" <<
+        meas.cycles.stddev << "\t" <<
+        meas.cycles.mad << "\t" <<
+        meas.time.mean << "\t" <<
+        meas.cycles.mean / n << "\t" <<
+        ((n*sizeof(uint16_t)) / (1024*1024.0)) / (meas.time.mean / 1000000000.0) << std::endl;
     // End timer and update times.
-    
-    unit.times += mean_time;
-    unit.times_local = mean_time;
-    unit.cycles += mean_cycles;
-    unit.cycles_local = mean_cycles;
+
+    unit.times += meas.time.mean;
+    unit.times_local = meas.time.mean;
+    unit.cycles += meas.cycles.mean;
+    unit.cycles_local = meas.cycles.mean;
     for (int i = 0; i < 16; ++i) unit.valid += counters[i];
 
     return 0;
