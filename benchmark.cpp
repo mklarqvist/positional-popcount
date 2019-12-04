@@ -159,7 +159,6 @@ int pospopcnt_wrapper(
     const char* method_name,
     pospopcnt_function_type measured_function,
     pospopcnt_function_type reference_function,
-    int id,
     int iterations,
     ItemType* data,
     size_t n)
@@ -246,43 +245,75 @@ asm   volatile("RDTSCP\n\t"
     return 0;
 }
 
-void benchmark(uint16_t* vals, const uint32_t n, int iterations) {
+struct Parameters {
+    size_t items_count;
+    size_t iterations;
+    std::string filter;
+};
+
+void benchmark(uint16_t* vals, const Parameters& params) {
     // Cycle over algorithms.
     for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) {
+        const char* name = pospopcnt_u16_method_names[i];
+        if (std::string(name).find(params.filter) == std::string::npos)
+            continue;
+
         auto method = get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i));
         auto reference = pospopcnt_u16_scalar_naive;
         pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
-            pospopcnt_u16_method_names[i],
-            method, reference, i, iterations, vals, n);
+            name, method, reference, params.iterations, vals, params.iterations);
     }
     for(int i = 0; i < PPOPCNT_U8_NUMBER_METHODS; ++i) {
+        const char* name = pospopcnt_u8_method_names[i];
+        if (std::string(name).find(params.filter) == std::string::npos)
+            continue;
+
         auto method = get_pospopcnt_u8_method(PPOPCNT_U8_METHODS(i));
         auto reference = pospopcnt_u8_scalar_naive;
         pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
-            pospopcnt_u8_method_names[i],
-            method, reference, i, iterations, (uint8_t*)vals, n);
+            name, method, reference, params.iterations, (uint8_t*)vals, params.iterations);
     }
 }
 
-void flag_test(uint32_t n, uint32_t cycles = 1) {
-    std::cerr << "Generating " << n << " flags. (" << n*sizeof(uint16_t) / 1024 << "kb) repeated " << cycles << " times." << std::endl;
-
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 eng(rd()); // seed the generator
+void flag_test(const Parameters& params) {
+    std::cerr << "Will test " << params.items_count << " flags. (" << params.items_count*sizeof(uint16_t) / 1024 << "kB) repeated " << params.iterations << " times." << std::endl;
 
     // Memory align input data.
-    uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
+    uint16_t* vals = (uint16_t*)aligned_malloc(params.items_count*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
     std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(nanos)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
-    benchmark(vals, n, cycles);
+    benchmark(vals, params);
         
     // Cleanup.
     aligned_free(vals);
 }
 
+bool parse_args(int argc, char* argv[], Parameters& params);
+
 int main(int argc, char **argv) {
-    if(argc == 1)      flag_test(1000000, 500);
-    else if(argc == 2) flag_test(std::atoi(argv[1]), 500);
-    else if(argc == 3) flag_test(std::atoi(argv[1]), std::atoi(argv[2]));
-    else return(1);
-    return(0);
+    Parameters params;
+
+    if (!parse_args(argc, argv, params)) {
+        std::cout << "Usage: " << argv[0] << "[input-size [iterations-count [function-filter]]]" << '\n';
+        return EXIT_FAILURE;
+    }
+
+    flag_test(params);
+    return EXIT_SUCCESS;
+}
+
+bool parse_args(int argc, char* argv[], Parameters& params) {
+    params.items_count = 1000000;
+    params.iterations  = 500;
+    params.filter      = "";
+
+    if (argc > 1)
+        params.items_count = std::atoi(argv[1]);
+
+    if (argc > 2)
+        params.iterations = std::atoi(argv[2]);
+
+    if (argc > 3)
+        params.filter = argv[3];
+
+    return (argc <= 4);
 }
