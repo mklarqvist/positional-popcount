@@ -233,8 +233,6 @@ void pospopcnt_csa_avx512(__m512i* __restrict__ h,
 /* ****************************
 *  Support definitions
 ******************************/
-#define PPOPCNT_NUMBER_METHODS 38
-
 typedef enum {
     PPOPCNT_AUTO,
     PPOPCNT_SCALAR,
@@ -273,7 +271,9 @@ typedef enum {
     PPOPCNT_AVX512_MULA2,
     PPOPCNT_AVX512BW_ADDER_FOREST,
     PPOPCNT_AVX512BW_HARVEY_SEAL,
-    PPOPCNT_AVX512VBMI_HARVEY_SEAL
+    PPOPCNT_AVX512VBMI_HARVEY_SEAL,
+    //
+    PPOPCNT_NUMBER_METHODS
 } PPOPCNT_U16_METHODS;
 
 static const char * const pospopcnt_u16_method_names[] = {
@@ -316,6 +316,22 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx512bw_harvey_seal",
     "pospopcnt_u16_avx512vbmi_harvey_seal"};
 
+typedef enum {
+    PPOPCNT_U8_SCALAR,
+    PPOPCNT_U8_SCALAR_UMUL128_UR2,
+    PPOPCNT_U8_SSE_SAD,
+    PPOPCNT_U8_SSE_BLEND_POPCNT_UR8,
+    PPOPCNT_U8_SSE_HARLEY_SEAL,
+    //
+    PPOPCNT_U8_NUMBER_METHODS
+} PPOPCNT_U8_METHODS;
+
+static const char * const pospopcnt_u8_method_names[] = {
+    "pospopcnt_u8_scalar_naive",
+    "pospopcnt_u8_scalar_umul128_unroll2",
+    "pospopcnt_u8_sse_sad",
+    "pospopcnt_u8_sse_blend_popcnt_unroll8",
+    "pospopcnt_u8_sse_harley_seal"};
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
 *  positional population count.
@@ -323,6 +339,7 @@ static const char * const pospopcnt_u16_method_names[] = {
 
 // Function pointer definition.
 typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t len, uint32_t* flags);
+typedef void(*pospopcnt_u8_method_type)(const uint8_t* data, size_t len, uint32_t* flags);
 
 /**
  * @brief Default function for computing the positional popcnt statistics. 
@@ -418,6 +435,26 @@ int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* fla
 int pospopcnt_u16_avx512bw_adder_forest(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512bw_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512vbmi_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+
+/**
+ * @brief Retrieve the target pospopcnt_u8_method pointer.
+ * 
+ * Example usage:
+ * 
+ * pospopcnt_u8_method_type f = get_pospopcnt_u16_method(PPOPCNT8_AVX2_HARVEY_SEAL);
+ * (*f)(data, len, flags);
+ * 
+ * @param method                     Target function (PPOPCNT_U8_METHODS).
+ * @return pospopcnt_u16_method_type Returns the target function pointer.
+ */
+pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method);
+
+void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out);
+void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts);
+void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts);
+void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flag_counts);
+void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts);
+void pospopcnt_u8_sse_variant1(const uint8_t* data, size_t len, uint32_t* flag_counts);
 
 /*======   Support   ======*/
 // Wrapper for avx512*_harvey_seal
