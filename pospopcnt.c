@@ -137,6 +137,32 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     return 0; /* unreachable, but some compilers complain without it */
 }
 
+pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
+    switch(method) {
+    case(PPOPCNT_U8_SCALAR): return pospopcnt_u8_scalar_naive;
+    case(PPOPCNT_U8_SCALAR_UMUL128_UR2): return pospopcnt_u8_scalar_umul128_unroll2;
+    case(PPOPCNT_U8_SSE_SAD): return pospopcnt_u8_sse_sad;
+    case(PPOPCNT_U8_SSE_BLEND_POPCNT_UR8): return pospopcnt_u8_sse_blend_popcnt_unroll8;
+    case(PPOPCNT_U8_SSE_HARLEY_SEAL): return pospopcnt_u8_sse_harley_seal;
+    }
+    assert(0);
+    return 0; /* unreachable, but some compilers complain without it */
+}
+
+void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out) {
+    for (int i = 0; i < len; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            out[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+}
+
+void pospopcnt_u8_scalar_naive_single(uint8_t data, uint32_t* out) {
+    for (int i = 0; i < 8; ++i)
+        out[i] += ((data & (1 << i)) >> i);
+}
+
+
 #if POSPOPCNT_SIMD_VERSION >= 5
 int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) {
     __m256i masks[16];
@@ -642,9 +668,23 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flag_cou
 
     return 0;
 }
+
+void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    uint32_t pospopcnt16[16];
+    for (int i=0; i < 16; i++)
+        pospopcnt16[i] = 0;
+
+    pospopcnt_u16_sse_sad((uint16_t*)data, len/2, pospopcnt16);
+    for (int i=0; i < 8; i++)
+        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
+
+    if (len % 2 == 1)
+        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
+}
 #else
 int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
 #endif
 
 #if !defined(__clang__) && !defined(_MSC_VER)
@@ -884,9 +924,23 @@ int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_
 
     return 0;
 }
+
+void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    uint32_t pospopcnt16[32];
+    for (int i=0; i < 32; i++)
+        pospopcnt16[i] = 0;
+
+    pospopcnt_u16_scalar_umul128_unroll2((uint16_t*)data, len/2, pospopcnt16);
+    for (int i=0; i < 8; i++)
+        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
+
+    if (len % 2 == 1)
+        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
+}
 #else 
 int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
 int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
+void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts);
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
@@ -1872,6 +1926,19 @@ int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* array, uint32_t len, 
     return 0;
 }
 
+void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    uint32_t pospopcnt16[16];
+    for (int i=0; i < 16; i++)
+        pospopcnt16[i] = 0;
+
+    pospopcnt_u16_sse_blend_popcnt_unroll8((uint16_t*)data, len/2, pospopcnt16);
+    for (int i=0; i < 8; i++)
+        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
+
+    if (len % 2 == 1)
+        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
+}
+
 int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m128i* data_vectors = (const __m128i*)(array);
     const uint32_t n_cycles = len / 8;
@@ -2122,12 +2189,62 @@ int pospopcnt_u16_sse_harvey_seal(const uint16_t* array, uint32_t len, uint32_t*
     }
     return 0;
 }
+
+void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    uint32_t pospopcnt16[32];
+    for (int i=0; i < 32; i++)
+        pospopcnt16[i] = 0;
+
+    pospopcnt_u16_sse_harvey_seal((uint16_t*)data, len/2, pospopcnt16);
+    for (int i=0; i < 8; i++)
+        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
+
+    if (len % 2 == 1)
+        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
+}
+
+
+__m128i sse4_merge1_odd(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0xaa);
+    const __m128i t1 = b & _mm_set1_epi8(0xaa);
+
+    return t0 | (_mm_srli_epi32(t1, 1));
+}
+
+__m128i sse4_merge1_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x55);
+    const __m128i t1 = b & _mm_set1_epi8(0x55);
+
+    return t0 | (_mm_add_epi8(t1, t1));
+}
+
+__m128i sse4_merge2_odd(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0xcc);
+    const __m128i t1 = b & _mm_set1_epi8(0xcc);
+
+    return t0 | (_mm_srli_epi32(t1, 2));
+}
+
+__m128i sse4_merge2_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x33);
+    const __m128i t1 = b & _mm_set1_epi8(0x33);
+
+    return t0 | (_mm_slli_epi32(t1, 2));
+}
+
+uint64_t sse4_sum_epu64(__m128i x) {
+    return (uint64_t)_mm_extract_epi64(x, 0)
+         + (uint64_t)_mm_extract_epi64(x, 1);
+}
+
 #else
 int pospopcnt_u16_sse_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
 int pospopcnt_u16_sse_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
+void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
