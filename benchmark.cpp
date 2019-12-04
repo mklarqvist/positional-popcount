@@ -39,16 +39,6 @@ inline void aligned_free(void* ptr) {
 #endif
 }
 
-struct bench_unit {
-    bench_unit() : valid(false), cycles(0), cycles_local(0), times(0), times_local(0){}
-
-    bool valid;
-    float cycles;
-    float cycles_local;
-    uint64_t times;
-    uint64_t times_local;
-};
-
 uint64_t get_cpu_cycles() {
     uint64_t result;
 #ifndef _MSC_VER
@@ -172,8 +162,7 @@ int pospopcnt_wrapper(
     int id,
     int iterations,
     ItemType* data,
-    size_t n, 
-    bench_unit& unit) 
+    size_t n)
 {
     static_assert(std::is_unsigned<ItemType>::value, "ItemType must be an unsigned type");
 
@@ -253,32 +242,25 @@ asm   volatile("RDTSCP\n\t"
         meas.time.mean << "\t" <<
         meas.cycles.mean / n << "\t" <<
         ((n*sizeof(uint16_t)) / (1024*1024.0)) / (meas.time.mean / 1000000000.0) << std::endl;
-    // End timer and update times.
-
-    unit.times += meas.time.mean;
-    unit.times_local = meas.time.mean;
-    unit.cycles += meas.cycles.mean;
-    unit.cycles_local = meas.cycles.mean;
-    for (int i = 0; i < 16; ++i) unit.valid += counters[i];
 
     return 0;
 }
 
-void benchmark(uint16_t* vals, std::vector<bench_unit>& units, const uint32_t n, int iterations) {
+void benchmark(uint16_t* vals, const uint32_t n, int iterations) {
     // Cycle over algorithms.
     for(int i = 1; i < PPOPCNT_NUMBER_METHODS; ++i) {
         auto method = get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i));
         auto reference = pospopcnt_u16_scalar_naive;
         pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
             pospopcnt_u16_method_names[i],
-            method, reference, i, iterations, vals, n, units[i]);
+            method, reference, i, iterations, vals, n);
     }
     for(int i = 0; i < PPOPCNT_U8_NUMBER_METHODS; ++i) {
         auto method = get_pospopcnt_u8_method(PPOPCNT_U8_METHODS(i));
         auto reference = pospopcnt_u8_scalar_naive;
         pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
             pospopcnt_u8_method_names[i],
-            method, reference, i, iterations, (uint8_t*)vals, n, units[i]);
+            method, reference, i, iterations, (uint8_t*)vals, n);
     }
 }
 
@@ -290,9 +272,8 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
 
     // Memory align input data.
     uint16_t* vals = (uint16_t*)aligned_malloc(n*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
-    std::vector<bench_unit> units(64);
     std::cout << "Algorithm\tNumIntegers\tMeanCycles\tMinCycles\tMaxCycles\tStdDeviationCycles\tMeanAbsDev\tMeanTime(nanos)\tMeanCyclesInt\tThroughput(MB/s)" << std::endl;
-    benchmark(vals, units, n, cycles);
+    benchmark(vals, n, cycles);
         
     // Cleanup.
     aligned_free(vals);
