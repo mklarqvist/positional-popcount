@@ -87,6 +87,7 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
     case(PPOPCNT_AVX512_MULA2): return pospopcnt_u16_avx512_mula2(data, len, flags);
     case(PPOPCNT_AVX512BW_HARVEY_SEAL): return pospopcnt_u16_avx512bw_harvey_seal(data, len, flags);
     case(PPOPCNT_AVX512VBMI_HARVEY_SEAL): return pospopcnt_u16_avx512vbmi_harvey_seal(data, len, flags);
+    case PPOPCNT_NUMBER_METHODS: break; /* -Wswitch */
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
@@ -132,6 +133,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX512_MULA2): return pospopcnt_u16_avx512_mula2;
     case(PPOPCNT_AVX512BW_HARVEY_SEAL): return pospopcnt_u16_avx512bw_harvey_seal;
     case(PPOPCNT_AVX512VBMI_HARVEY_SEAL): return pospopcnt_u16_avx512vbmi_harvey_seal;
+    case PPOPCNT_NUMBER_METHODS: break; /* -Wswitch */
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
@@ -144,6 +146,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     case(PPOPCNT_U8_SSE_SAD): return pospopcnt_u8_sse_sad;
     case(PPOPCNT_U8_SSE_BLEND_POPCNT_UR8): return pospopcnt_u8_sse_blend_popcnt_unroll8;
     case(PPOPCNT_U8_SSE_HARLEY_SEAL): return pospopcnt_u8_sse_harley_seal;
+    case PPOPCNT_U8_NUMBER_METHODS: break; /* -Wswitch */
     }
     assert(0);
     return 0; /* unreachable, but some compilers complain without it */
