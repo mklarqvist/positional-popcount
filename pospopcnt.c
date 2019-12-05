@@ -153,7 +153,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
 }
 
 void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out) {
-    for (int i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
         for (int j = 0; j < 8; ++j) {
             out[j] += ((data[i] & (1 << j)) >> j);
         }
@@ -450,7 +450,7 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
 #define UL(idx) out_counters[idx] += _mm_extract_epi16(counterHi, idx);
 
     uint32_t pos = 0;
-    for (int i = 0; i < n_update_cycles; ++i) { // each block of 65536 values
+    for (size_t i = 0; i < n_update_cycles; ++i) { // each block of 65536 values
         for (int k = 0; k < 4096; ++k, ++pos) { // max sum of each 16-bit value in a register (65536/16)
             BLOCK
         }
@@ -472,7 +472,7 @@ int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags
 #undef UPDATE_LO
 
     // residual
-    for (int i = pos*8; i < len; ++i) {
+    for (size_t i = pos*8; i < len; ++i) {
         for (int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
     }
@@ -701,7 +701,7 @@ pospopcnt_u8_stub(pospopcnt_u8_sse_sad)
 __attribute__((optimize("no-tree-vectorize")))
 #endif
 int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32_t* flags) {
-    for (int i = 0; i < len; ++i) {
+    for (uint32_t i = 0; i < len; ++i) {
         for (int j = 0; j < 16; ++j) {
             flags[j] += ((data[i] & (1 << j)) >> j);
         }
@@ -711,7 +711,7 @@ int pospopcnt_u16_scalar_naive_nosimd(const uint16_t* data, uint32_t len, uint32
 }
 
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t len, uint32_t* flags) {
-    for (int i = 0; i < len; ++i) {
+    for (uint32_t i = 0; i < len; ++i) {
         for (int j = 0; j < 16; ++j) {
             flags[j] += ((data[i] & (1 << j)) >> j);
         }
@@ -723,7 +723,7 @@ int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t len, uint32_t* fla
 int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t len, uint32_t* flags) {
     uint32_t low[256] = {0}, high[256] = {0};
 
-    for (int i = 0; i < len; ++i) {
+    for (uint32_t i = 0; i < len; ++i) {
         ++low[data[i] & 255];
         ++high[(data[i] >> 8) & 255];
     }
@@ -746,7 +746,7 @@ int pospopcnt_u16_scalar_partition(const uint16_t* data, uint32_t len, uint32_t*
 int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* flags) {
      uint32_t low[256] = {0}, high[256] = {0};
 
-     int i = 0;
+     uint32_t i = 0;
      for (i = 0; i < (len & ~3); i+=4) {
           ++low[data[i+0] & 255];
           ++high[(data[i+0] >> 8) & 255];
@@ -2201,8 +2201,8 @@ int pospopcnt_u16_sse_harvey_seal(const uint16_t* array, uint32_t len, uint32_t*
 }
 
 void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts) {
-    uint32_t pospopcnt16[32];
-    for (int i=0; i < 32; i++)
+    uint32_t pospopcnt16[16];
+    for (int i=0; i < 16; i++)
         pospopcnt16[i] = 0;
 
     pospopcnt_u16_sse_harvey_seal((uint16_t*)data, len/2, pospopcnt16);
