@@ -157,6 +157,13 @@ void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out) {
     }
 }
 
+#define pospopcnt_u16_stub(name) \
+    int name(const uint16_t* data, uint32_t len, uint32_t* flags) { (void)data; (void)len; (void)flags; return(0); }
+
+#define pospopcnt_u8_stub(name) \
+    void name(const uint8_t* data, size_t len, uint32_t* flags) { (void)data; (void)len; (void)flags; return(0); }
+
+
 void pospopcnt_u8_scalar_naive_single(uint8_t data, uint32_t* out) {
     for (int i = 0; i < 8; ++i)
         out[i] += ((data & (1 << i)) >> i);
@@ -406,10 +413,10 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t len, uint32_t* flag
     return 0;
 }
 #else
-int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx2_popcnt)
+pospopcnt_u16_stub(pospopcnt_u16_avx2)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_naive_counter)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_single)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 3
@@ -682,9 +689,9 @@ void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts
         pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
 }
 #else
-int pospopcnt_u16_sse_single(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
+pospopcnt_u16_stub(pospopcnt_u16_sse_single)
+pospopcnt_u16_stub(pospopcnt_u16_sse_sad)
+pospopcnt_u8_stub(pospopcnt_u8_sse_sad)
 #endif
 
 #if !defined(__clang__) && !defined(_MSC_VER)
@@ -938,9 +945,9 @@ void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32
         pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
 }
 #else 
-int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
-int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
-void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
+pospopcnt_u16_stub(pospopcnt_u16_scalar_umul128)
+pospopcnt_u16_stub(pospopcnt_u16_scalar_umul128_unroll2)
+pospopcnt_u8_stub(pospopcnt_u8_scalar_umul128_unroll2)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
@@ -1021,8 +1028,8 @@ int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uin
     return 0;
 }
 #else
-int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt32_mask)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt64_mask)
 #endif
 
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -1139,10 +1146,10 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) {
 }
 
 #else
-int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt32_mask)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt64_mask)
+pospopcnt_u16_stub(pospopcnt_u16_avx512_popcnt)
+pospopcnt_u16_stub(pospopcnt_u16_avx512)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 5
@@ -1827,14 +1834,14 @@ int pospopcnt_u16_avx2_blend_popcnt_unroll16(const uint16_t* array, uint32_t len
     return 0;
 }
 #else
-int pospopcnt_u16_avx2_lemire(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_lemire2(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_adder_forest(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx2_harvey_seal(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx2_lemire)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_lemire2)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll4)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll8)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll16)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_adder_forest)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_harvey_seal)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 3
@@ -2238,13 +2245,13 @@ uint64_t sse4_sum_epu64(__m128i x) {
 }
 
 #else
-int pospopcnt_u16_sse_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_sse_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_sse_harvey_seal(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
-void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
+pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt)
+pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll4)
+pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll8)
+pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll16)
+pospopcnt_u16_stub(pospopcnt_u16_sse_harvey_seal)
+pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
+pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll8)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
@@ -2407,9 +2414,9 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t l
     return 0;
 }
 #else 
-int pospopcnt_u16_avx512bw_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll8)
 #endif
 
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -2615,7 +2622,7 @@ int pospopcnt_u16_avx512bw_adder_forest(const uint16_t* array, uint32_t len, uin
     return 0;
 }
 #else
-int pospopcnt_u16_avx512bw_adder_forest(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_adder_forest)
 #endif
 
 #if defined(__AVX512BW__) && __AVX512BW__ == 1
@@ -2713,7 +2720,7 @@ int pospopcnt_u16_avx512bw_harvey_seal(const uint16_t* array, uint32_t len, uint
     }
 }
 #else
-int pospopcnt_u16_avx512bw_harvey_seal(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_harvey_seal)
 #endif
 
 #if defined(__AVX512VBMI__) && __AVX512VBMI__ == 1
@@ -2858,7 +2865,7 @@ int pospopcnt_u16_avx512vbmi_harvey_seal(const uint16_t* array, uint32_t len, ui
     return 0;
 }
 #else
-int pospopcnt_u16_avx512vbmi_harvey_seal(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512vbmi_harvey_seal)
 #endif
 
 int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -2884,14 +2891,14 @@ int pospopcnt_u16_avx512_harvey_seal(const uint16_t* data, uint32_t len, uint32_
 }
 #undef AND_OR
 #else
-int pospopcnt_u16_avx512bw_blend_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_adder_forest(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512bw_harvey_seal(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512vbmi_harvey_seal(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_mula2(const uint16_t* array, uint32_t len, uint32_t* flags) { return(0); }
-int pospopcnt_u16_avx512_masked_ops(const uint16_t* data, uint32_t len, uint32_t* flags) { return(0); }
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll8)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_adder_forest)
+pospopcnt_u16_stub(pospopcnt_u16_avx512bw_harvey_seal)
+pospopcnt_u16_stub(pospopcnt_u16_avx512vbmi_harvey_seal)
+pospopcnt_u16_stub(pospopcnt_u16_avx512_mula2)
+pospopcnt_u16_stub(pospopcnt_u16_avx512_masked_ops)
 #endif
 
 #if __clang__ == 1 || __llvm__ == 1

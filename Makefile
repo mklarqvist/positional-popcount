@@ -17,8 +17,9 @@
 ###################################################################
 
 OPTFLAGS  := -O3 -march=native
-CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS)
-CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS)
+WARNFLAGS := -Wall -Wextra -pedantic
+CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)
+CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)
 CPP_SOURCE = benchmark.cpp benchmark/linux/instrumented_benchmark.cpp
 C_SOURCE   = pospopcnt.c example.c
 OBJECTS    = $(CPP_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
@@ -28,10 +29,10 @@ all: bench
 
 # Generic rules
 %.o: %.c
-	$(CC) $(CFLAGS)-c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.o: %.cpp
-	$(CXX) $(CPPFLAGS)-c -o $@ $<
+	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
 benchmark/linux/instrumented_benchmark.o : benchmark/linux/instrumented_benchmark.cpp
 	$(CXX) $(CPPFLAGS) -I. -Ibenchmark/linux -c -o $@ $<
