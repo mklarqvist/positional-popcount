@@ -90,7 +90,7 @@ void generate_random_data(IntegerType* data, size_t n) {
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
 
-    std::uniform_int_distribution<IntegerType> distr(0, std::numeric_limits<IntegerType>::max()-1); // right inclusive
+    std::uniform_int_distribution<uint32_t> distr(0, std::numeric_limits<IntegerType>::max()-1); // right inclusive
 
     for (int i = 0; i < n; ++i) {
         data[i] = distr(eng);
