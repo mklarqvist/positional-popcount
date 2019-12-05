@@ -1652,7 +1652,7 @@ int pospopcnt_u16_avx2_blend_popcnt_unroll4(const uint16_t* array, uint32_t len,
             A(0,1) A(2, 3)
 
 #define P0(p) input##p = _mm256_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
+#define P(p, k) P0(p) P0(k)
             P(0,1) P(2, 3)
         }
     }
@@ -1709,7 +1709,7 @@ int pospopcnt_u16_avx2_blend_popcnt_unroll8(const uint16_t* array, uint32_t len,
             A(0,1) A(2, 3) A(4, 5) A(6, 7)
 
 #define P0(p) input##p = _mm256_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
+#define P(p, k) P0(p) P0(k)
             P(0,1) P(2, 3) P(4, 5) P(6, 7)
         }
     }
@@ -1780,7 +1780,7 @@ int pospopcnt_u16_avx2_blend_popcnt_unroll16(const uint16_t* array, uint32_t len
             A(8,9) A(10,11) A(12,13) A(14,15)
 
 #define P0(p) input##p = _mm256_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
+#define P(p, k) P0(p) P0(k)
             P(0,1) P( 2, 3) P( 4, 5) P( 6, 7)
             P(8,9) P(10,11) P(12,13) P(14,15)
         }
@@ -1900,8 +1900,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* array, uint32_t len, 
             A(0,1) A(2, 3)
 
 #define P0(p) input##p = _mm_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
-
+#define P(p, k) P0(p) P0(k)
             P(0,1) P(2, 3)
         }
     }
@@ -1972,8 +1971,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* array, uint32_t len, 
             A(0,1) A(2, 3) A(4,5) A(6, 7)
 
 #define P0(p) input##p = _mm_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
-
+#define P(p, k) P0(p) P0(k)
             P(0,1) P(2, 3) P(4,5) P(6, 7)
         }
     }
@@ -2045,8 +2043,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll16(const uint16_t* array, uint32_t len,
             A(8,9) A(10, 11) A(12,13) A(14, 15)
 
 #define P0(p) input##p = _mm_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
-
+#define P(p, k) P0(p) P0(k)
             P(0,1) P( 2,  3) P( 4, 5) P( 6,  7)
             P(8,9) P(10, 11) P(12,13) P(14, 15)
         }
@@ -2312,8 +2309,7 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll4(const uint16_t* data, uint32_t l
             A(0,1) A(2, 3)
 
 #define P0(p) input##p = _mm512_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
-
+#define P(p, k) P0(p) P0(k)
             P(0,1) P(2, 3)
         }
     }
@@ -2371,8 +2367,7 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t l
             A(0,1) A(2, 3) A(4,5) A(6, 7)
 
 #define P0(p) input##p = _mm512_add_epi8(input##p, input##p);
-#define P(p, k) input##p = P0(p) P0(k)
-
+#define P(p, k) P0(p) P0(k)
             P(0,1) P(2, 3) P(4,5) P(6, 7)
         }
     }
