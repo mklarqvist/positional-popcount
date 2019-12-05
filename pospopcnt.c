@@ -1855,7 +1855,7 @@ int pospopcnt_u16_sse_blend_popcnt(const uint16_t* array, uint32_t len, uint32_t
         __m128i v1 = _mm_loadu_si128(data_vectors + i + 1);
 
         __m128i input0 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v1, 8));
-        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v1, 8));
+        __m128i input1 = _mm_or_si128(_mm_and_si128(v0, _mm_set1_epi16((int16_t)0xFF00)), _mm_srli_epi16(v1, 8));
         
         for (int i = 0; i < 8; ++i) {
             flags[ 7 - i] += _mm_popcnt_u32(_mm_movemask_epi8(input0));
@@ -1885,7 +1885,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* array, uint32_t len, 
         L(0) L(1) L(2) L(3)
 
 #define U0(p,k) __m128i input##p = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v##k, 8));
-#define U1(p,k) __m128i input##k = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v##k, 8));
+#define U1(p,k) __m128i input##k = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16((int16_t)0xFF00)), _mm_srli_epi16(v##k, 8));
 #define U(p, k)  U0(p,k) U1(p,k)
 
         U(0,1) U(2,3)
@@ -1957,7 +1957,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* array, uint32_t len, 
         L(4) L(5) L(6) L(7)
 
 #define U0(p,k) __m128i input##p = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v##k, 8));
-#define U1(p,k) __m128i input##k = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v##k, 8));
+#define U1(p,k) __m128i input##k = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16((int16_t)0xFF00)), _mm_srli_epi16(v##k, 8));
 #define U(p, k)  U0(p,k) U1(p,k)
 
         U(0,1) U(2,3) U(4,5) U(6,7)
@@ -2028,7 +2028,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll16(const uint16_t* array, uint32_t len,
         L(12) L(13) L(14) L(15)
 
 #define U0(p,k) __m128i input##p = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0x00FF)), _mm_slli_epi16(v##k, 8));
-#define U1(p,k) __m128i input##k = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16(0xFF00)), _mm_srli_epi16(v##k, 8));
+#define U1(p,k) __m128i input##k = _mm_or_si128(_mm_and_si128(v##p, _mm_set1_epi16((int16_t)0xFF00)), _mm_srli_epi16(v##k, 8));
 #define U(p, k)  U0(p,k) U1(p,k)
 
         U(0,1) U( 2, 3) U( 4, 5) U( 6, 7)
@@ -2212,8 +2212,8 @@ void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* fla
 
 
 __m128i sse4_merge1_odd(__m128i a, __m128i b) {
-    const __m128i t0 = a & _mm_set1_epi8(0xaa);
-    const __m128i t1 = b & _mm_set1_epi8(0xaa);
+    const __m128i t0 = a & _mm_set1_epi8((int8_t)0xaa);
+    const __m128i t1 = b & _mm_set1_epi8((int8_t)0xaa);
 
     return t0 | (_mm_srli_epi32(t1, 1));
 }
@@ -2226,8 +2226,8 @@ __m128i sse4_merge1_even(__m128i a, __m128i b) {
 }
 
 __m128i sse4_merge2_odd(__m128i a, __m128i b) {
-    const __m128i t0 = a & _mm_set1_epi8(0xcc);
-    const __m128i t1 = b & _mm_set1_epi8(0xcc);
+    const __m128i t0 = a & _mm_set1_epi8((int8_t)0xcc);
+    const __m128i t1 = b & _mm_set1_epi8((int8_t)0xcc);
 
     return t0 | (_mm_srli_epi32(t1, 2));
 }
@@ -2267,7 +2267,7 @@ int pospopcnt_u16_avx512bw_blend_popcnt(const uint16_t* data, uint32_t len, uint
         __m512i v1 = _mm512_loadu_si512(data_vectors + i + 1);
 
         __m512i input0 = _mm512_ternarylogic_epi32(v0, _mm512_set1_epi16(0x00FF), _mm512_slli_epi16(v1, 8), AND_OR);
-        __m512i input1 = _mm512_ternarylogic_epi32(v0, _mm512_set1_epi16(0xFF00), _mm512_srli_epi16(v1, 8), AND_OR);
+        __m512i input1 = _mm512_ternarylogic_epi32(v0, _mm512_set1_epi16((int16_t)0xFF00), _mm512_srli_epi16(v1, 8), AND_OR);
         
         for (int i = 0; i < 8; ++i) {
             flags[ 7 - i] += _mm_popcnt_u64(_mm512_movepi8_mask(input0));
