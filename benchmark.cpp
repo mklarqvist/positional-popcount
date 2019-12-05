@@ -4,6 +4,8 @@
 #include <cassert>//assert
 #include <cstring>//memset
 #include <type_traits>
+#include <algorithm>
+#include <numeric>
 
 #ifdef _MSC_VER
 # include <intrin.h>
