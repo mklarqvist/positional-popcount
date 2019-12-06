@@ -940,7 +940,7 @@ void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32
 #else 
 int pospopcnt_u16_scalar_umul128(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
 int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_t* out) { return(0); }
-void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts);
+void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts) {}
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6

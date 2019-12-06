@@ -5,8 +5,10 @@ set(CMAKE_BUILD_TYPE Release)
 include_directories(. benchmark/linux/)
 
 set(CMAKE_CXX_STANDARD 11)  # enable C++11 standard
-set(CMAKE_CXX_FLAGS "-O3 -march=native")
-set(CMAKE_C_FLAGS "-O3 -march=native")
+if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+    set(CMAKE_CXX_FLAGS "-O3 -march=native")
+    set(CMAKE_C_FLAGS "-O3 -march=native")
+endif()
 
 add_executable(bench pospopcnt.c benchmark.cpp)
 add_executable(example pospopcnt.c example.c)
