@@ -19,7 +19,7 @@ This benchmark shows the speedup of the 3 `pospopcnt` algorithms used on x86 CPU
 | pospopcnt_u16_sse_blend_popcnt_unroll8    | **2.09** | 3.16 | 2.35 | 1.88 | 1.67 | 1.56 | 1.5  | 1.44  |
 | pospopcnt_u16_avx512_blend_popcnt_unroll8 | 1.78 | **3.61** | **3.61** | 3.59 | 3.68 | 3.65 | 3.67 | 3.7   |
 | pospopcnt_u16_avx512_adder_forest        | 0.77 | 0.9  | 3.24 | **3.96** | **4.96** | 5.87 | 6.52 | 7.24  |
-| pospopcnt_u16_avx512_harvey_seal          | 0.52 | 0.74 | 1.83 | 2.64 | 4.06 | **6.43** | **9.41** | **16.28** |
+| pospopcnt_u16_avx512_harley_seal          | 0.52 | 0.74 | 1.83 | 2.64 | 4.06 | **6.43** | **9.41** | **16.28** |
 
 Compared to a naive unvectorized solution (`pospopcnt_u16_scalar_naive_nosimd`):
 
@@ -28,7 +28,7 @@ Compared to a naive unvectorized solution (`pospopcnt_u16_scalar_naive_nosimd`):
 | pospopcnt_u16_sse_blend_popcnt_unroll8    | **8.28** | 9.84  | 10.55 | 11    | 11.58 | 11.93 | 12.13 | 12.28  |
 | pospopcnt_u16_avx512_blend_popcnt_unroll8 | 7.07 | **11.25** | **16.21** | 21    | 25.49 | 27.91 | 29.73 | 31.55  |
 | pospopcnt_u16_avx512_adder_forest        | 3.05 | 2.82  | 14.53 | **23.13** | **34.37** | 44.91 | 52.78 | 61.68  |
-| pospopcnt_u16_avx512_harvey_seal          | 2.07 | 2.3   | 8.21  | 15.41 | 28.17 | **49.14** | **76.11** | **138.71** |
+| pospopcnt_u16_avx512_harley_seal          | 2.07 | 2.3   | 8.21  | 15.41 | 28.17 | **49.14** | **76.11** | **138.71** |
 
 The host architecture used is a 10 nm Cannon Lake [Core i3-8121U](https://ark.intel.com/content/www/us/en/ark/products/136863/intel-core-i3-8121u-processor-4m-cache-up-to-3-20-ghz.html) with gcc (GCC) 7.3.1 20180303 (Red Hat 7.3.1-5).
 
