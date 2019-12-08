@@ -155,6 +155,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     case PPOPCNT_U8_SSE_BLEND_POPCNT_UR16: return pospopcnt_u8_sse_blend_popcnt_unroll16;
     case PPOPCNT_U8_SSE_SAD: return pospopcnt_u8_sse_sad;
     case PPOPCNT_U8_SSE_HARLEY_SEAL: return pospopcnt_u8_sse_harley_seal;
+    case PPOPCNT_U8_SSE_POPCNT4BIT: return pospopcnt_u8_sse_popcnt4bit;
     case PPOPCNT_U8_AVX2_POPCNT: return pospopcnt_u8_avx2_popcnt;
     case PPOPCNT_U8_AVX2: return pospopcnt_u8_avx2;
     case PPOPCNT_U8_AVX2_POPCNT_NAIVE: return pospopcnt_u8_avx2_naive_counter;
@@ -2254,6 +2255,7 @@ int pospopcnt_u16_sse_harley_seal(const uint16_t* array, uint32_t len, uint32_t*
     return 0;
 }
 
+static
 __m128i sse4_merge1_odd(__m128i a, __m128i b) {
     const __m128i t0 = a & _mm_set1_epi8((int8_t)0xaa);
     const __m128i t1 = b & _mm_set1_epi8((int8_t)0xaa);
@@ -2261,11 +2263,146 @@ __m128i sse4_merge1_odd(__m128i a, __m128i b) {
     return t0 | (_mm_srli_epi32(t1, 1));
 }
 
+static
 __m128i sse4_merge1_even(__m128i a, __m128i b) {
     const __m128i t0 = a & _mm_set1_epi8(0x55);
     const __m128i t1 = b & _mm_set1_epi8(0x55);
 
     return t0 | (_mm_add_epi8(t1, t1));
+}
+
+static
+__m128i sse4_merge2_odd(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8((int8_t)0xcc);
+    const __m128i t1 = b & _mm_set1_epi8((int8_t)0xcc);
+
+    return t0 | (_mm_srli_epi32(t1, 2));
+}
+
+static
+__m128i sse4_merge2_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x33);
+    const __m128i t1 = b & _mm_set1_epi8(0x33);
+
+    return t0 | (_mm_slli_epi32(t1, 2));
+}
+
+static
+uint64_t sse4_sum_epu64(__m128i x) {
+    return (uint64_t)_mm_extract_epi64(x, 0)
+         + (uint64_t)_mm_extract_epi64(x, 1);
+}
+
+void pospopcnt_u8_sse_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    const __m128i zero = _mm_setzero_si128();
+
+    __m128i counter_a = zero;
+    __m128i counter_b = zero;
+    __m128i counter_c = zero;
+    __m128i counter_d = zero;
+    __m128i counter_e = zero;
+    __m128i counter_f = zero;
+    __m128i counter_g = zero;
+    __m128i counter_h = zero;
+
+    const __m128i popcnt_4bit = _mm_setr_epi8(
+        /* 0 */ 0, /* 1 */ 1, /* 2 */ 1, /* 3 */ 2,
+        /* 4 */ 1, /* 5 */ 2, /* 6 */ 2, /* 7 */ 3,
+        /* 8 */ 1, /* 9 */ 2, /* a */ 2, /* b */ 3,
+        /* c */ 2, /* d */ 3, /* e */ 3, /* f */ 4
+    );
+
+    const __m128i lo_nibble = _mm_set1_epi8(0x0f);
+
+    int local = 0;
+    __m128i counter8bit_a = zero;
+    __m128i counter8bit_b = zero;
+    __m128i counter8bit_c = zero;
+    __m128i counter8bit_d = zero;
+    __m128i counter8bit_e = zero;
+    __m128i counter8bit_f = zero;
+    __m128i counter8bit_g = zero;
+    __m128i counter8bit_h = zero;
+
+    for (const uint8_t* end = &data[(len & ~63)]; data != end; data += 64) {
+        // r0 = [a0|b0|c0|d0|e0|f0|g0|h0]
+        // r1 = [a1|b1|c1|d1|e1|f1|g1|h1]
+        // r2 = [a2|b2|c2|d2|e2|f2|g2|h2]
+        // r3 = [a3|b3|c3|d3|e3|f3|g3|h3]
+        const __m128i r0 = _mm_loadu_si128((__m128i*)&data[0*16]);
+        const __m128i r1 = _mm_loadu_si128((__m128i*)&data[1*16]);
+        const __m128i r2 = _mm_loadu_si128((__m128i*)&data[2*16]);
+        const __m128i r3 = _mm_loadu_si128((__m128i*)&data[3*16]);
+
+        // s0 = [a0|a1|c0|c1|e0|e1|g0|g1]
+        // s1 = [b0|b1|d0|d1|f0|f1|h0|h1]
+        // s2 = [a2|a3|c2|c3|e2|e3|g2|g3]
+        // s3 = [b2|b3|d2|d3|f2|f3|h2|h3]
+        const __m128i s0 = sse4_merge1_even(r0, r1);
+        const __m128i s1 = sse4_merge1_odd (r0, r1);
+        const __m128i s2 = sse4_merge1_even(r2, r3);
+        const __m128i s3 = sse4_merge1_odd (r2, r3);
+
+        // d0 = [a0|a1|a2|a3|e0|e1|e2|e3]
+        // d1 = [b0|b1|b2|b3|f0|f1|f2|f3]
+        // d2 = [c0|c1|c2|c3|g0|g1|g2|g3]
+        // d3 = [d0|d1|d2|d3|h0|h1|h2|h3]
+        const __m128i d0 = sse4_merge2_even(s0, s2);
+        const __m128i d1 = sse4_merge2_even(s1, s3);
+        const __m128i d2 = sse4_merge2_odd (s0, s2);
+        const __m128i d3 = sse4_merge2_odd (s1, s3);
+
+        // popcnt for 4-bit subwords in each registers
+        const __m128i popcnt_a = _mm_shuffle_epi8(popcnt_4bit, d0 & lo_nibble);
+        const __m128i popcnt_e = _mm_shuffle_epi8(popcnt_4bit, _mm_srli_epi32(d0, 4) & lo_nibble);
+        const __m128i popcnt_b = _mm_shuffle_epi8(popcnt_4bit, d1 & lo_nibble);
+        const __m128i popcnt_f = _mm_shuffle_epi8(popcnt_4bit, _mm_srli_epi32(d1, 4) & lo_nibble);
+        const __m128i popcnt_c = _mm_shuffle_epi8(popcnt_4bit, d2 & lo_nibble);
+        const __m128i popcnt_g = _mm_shuffle_epi8(popcnt_4bit, _mm_srli_epi32(d2, 4) & lo_nibble);
+        const __m128i popcnt_d = _mm_shuffle_epi8(popcnt_4bit, d3 & lo_nibble);
+        const __m128i popcnt_h = _mm_shuffle_epi8(popcnt_4bit, _mm_srli_epi32(d3, 4) & lo_nibble);
+
+        counter8bit_a = _mm_add_epi8(counter8bit_a, popcnt_a);
+        counter8bit_b = _mm_add_epi8(counter8bit_b, popcnt_b);
+        counter8bit_c = _mm_add_epi8(counter8bit_c, popcnt_c);
+        counter8bit_d = _mm_add_epi8(counter8bit_d, popcnt_d);
+        counter8bit_e = _mm_add_epi8(counter8bit_e, popcnt_e);
+        counter8bit_f = _mm_add_epi8(counter8bit_f, popcnt_f);
+        counter8bit_g = _mm_add_epi8(counter8bit_g, popcnt_g);
+        counter8bit_h = _mm_add_epi8(counter8bit_h, popcnt_h);
+
+        local += 1;
+        if (local == 63) {
+            // avoid overflows in the 8-bit counters
+#define U(n) \
+            counter_##n = _mm_add_epi64(counter_##n, _mm_sad_epu8(counter8bit_##n, zero)); \
+            counter8bit_##n = _mm_setzero_si128();
+
+            U(a) U(b) U(c) U(d)
+            U(e) U(f) U(g) U(h)
+#undef U
+            local = 0;
+        }
+    }
+
+    if (local != 0) {
+#define U(n) counter_##n = _mm_add_epi64(counter_##n, _mm_sad_epu8(counter8bit_##n, zero));
+        U(a) U(b) U(c) U(d)
+        U(e) U(f) U(g) U(h)
+#undef U
+    }
+
+    flag_counts[0] += sse4_sum_epu64(counter_a);
+    flag_counts[1] += sse4_sum_epu64(counter_b);
+    flag_counts[2] += sse4_sum_epu64(counter_c);
+    flag_counts[3] += sse4_sum_epu64(counter_d);
+    flag_counts[4] += sse4_sum_epu64(counter_e);
+    flag_counts[5] += sse4_sum_epu64(counter_f);
+    flag_counts[6] += sse4_sum_epu64(counter_g);
+    flag_counts[7] += sse4_sum_epu64(counter_h);
+
+    // scalar tail loop
+    pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
 }
 
 make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_blend_popcnt, pospopcnt_u16_sse_blend_popcnt)
@@ -2284,6 +2421,7 @@ pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll4)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll8)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll16)
 pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
+pospopcnt_u8_stub(pospopcnt_u8_sse_popcnt4bit)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
