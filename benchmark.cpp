@@ -17,6 +17,7 @@
 #include "pospopcnt.h"
 
 inline void* aligned_malloc(size_t size, size_t align) {
+    (void)align;
     void* result;
 #if __STDC_VERSION__ >= 201112L
     result = aligned_alloc(align, size);
@@ -50,7 +51,7 @@ uint64_t get_cpu_cycles() {
     result = __rdtsc();
 #endif
     return result;
-};
+}
 
 bool assert_truth(uint32_t* vals, uint32_t* truth) {
     uint64_t n_all = 0;
@@ -89,7 +90,7 @@ void generate_random_data(IntegerType* data, size_t n) {
 
     std::uniform_int_distribution<uint32_t> distr(0, std::numeric_limits<IntegerType>::max()-1); // right inclusive
 
-    for (int i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         data[i] = distr(eng);
     }
 }
@@ -168,7 +169,6 @@ public:
 
 template <typename pospopcnt_function_type, typename ItemType>
 Measurement pospopcnt_wrapper(
-    const char* method_name,
     pospopcnt_function_type measured_function,
     pospopcnt_function_type reference_function,
     int iterations,
@@ -257,9 +257,9 @@ struct Parameters {
 };
 
 class MeasurementsPrinter {
+    std::ostream& out;
     bool header_printed = false;
     bool only_time;
-    std::ostream& out;
     
 public:
     MeasurementsPrinter(std::ostream& out, bool only_time)
@@ -318,7 +318,7 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         auto method = get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i));
         auto reference = pospopcnt_u16_scalar_naive;
         const auto meas = pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
-            name, method, reference, params.iterations, vals, params.items_count);
+            method, reference, params.iterations, vals, params.items_count);
 
         printer.print(name, meas);
     }
@@ -330,7 +330,7 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         auto method = get_pospopcnt_u8_method(PPOPCNT_U8_METHODS(i));
         auto reference = pospopcnt_u8_scalar_naive;
         const auto meas = pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
-            name, method, reference, params.iterations, (uint8_t*)vals, params.items_count);
+            method, reference, params.iterations, (uint8_t*)vals, params.items_count);
 
         printer.print(name, meas);
     }
