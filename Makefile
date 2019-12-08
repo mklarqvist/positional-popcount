@@ -16,7 +16,7 @@
 # under the License.
 ###################################################################
 
-OPTFLAGS  := -O3 -march=native
+OPTFLAGS  := -O3 -march=native # -march=cannonlake 
 WARNFLAGS := # -Wall -Wextra -pedantic
 CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)
 CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)

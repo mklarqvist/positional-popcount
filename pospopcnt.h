@@ -356,6 +356,7 @@ typedef enum {
     PPOPCNT_U8_AVX512_MULA2,
     PPOPCNT_U8_AVX512BW_ADDER_FOREST,
     PPOPCNT_U8_AVX512BW_HARLEY_SEAL,
+    PPOPCNT_U8_AVX512BW_POPCNT4BIT,
     PPOPCNT_U8_AVX512VBMI_HARLEY_SEAL,
     //
     PPOPCNT_U8_NUMBER_METHODS
@@ -401,6 +402,7 @@ static const char * const pospopcnt_u8_method_names[] = {
     "pospopcnt_u8_avx512_mula2",
     "pospopcnt_u8_avx512bw_adder_forest",
     "pospopcnt_u8_avx512bw_harley_seal",
+    "pospopcnt_u8_avx512bw_popcnt4bit",
     "pospopcnt_u8_avx512vbmi_harley_seal"};
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
@@ -558,6 +560,7 @@ void pospopcnt_u8_avx512bw_blend_popcnt_unroll8(const uint8_t* data, size_t len,
 void pospopcnt_u8_avx512_mula2(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512bw_adder_forest(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512bw_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512vbmi_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
 
 /*======   Support   ======*/
