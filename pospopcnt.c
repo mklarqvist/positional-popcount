@@ -141,11 +141,44 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
 
 pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     switch(method) {
-    case(PPOPCNT_U8_SCALAR): return pospopcnt_u8_scalar_naive;
-    case(PPOPCNT_U8_SCALAR_UMUL128_UR2): return pospopcnt_u8_scalar_umul128_unroll2;
-    case(PPOPCNT_U8_SSE_SAD): return pospopcnt_u8_sse_sad;
-    case(PPOPCNT_U8_SSE_BLEND_POPCNT_UR8): return pospopcnt_u8_sse_blend_popcnt_unroll8;
-    case(PPOPCNT_U8_SSE_HARLEY_SEAL): return pospopcnt_u8_sse_harley_seal;
+    case PPOPCNT_U8_AUTO: return pospopcnt_u8_scalar_naive; /* TODO: implement something similar to pospopcnt_u16 */
+    case PPOPCNT_U8_SCALAR: return pospopcnt_u8_scalar_naive;
+    case PPOPCNT_U8_SCALAR_NOSIMD: return pospopcnt_u8_scalar_naive_nosimd;
+    case PPOPCNT_U8_SCALAR_PARTITION: return pospopcnt_u8_scalar_partition;
+    case PPOPCNT_U8_SCALAR_HIST1X4: return pospopcnt_u8_scalar_hist1x4;
+    case PPOPCNT_U8_SCALAR_UMUL128: return pospopcnt_u8_scalar_umul128;
+    case PPOPCNT_U8_SCALAR_UMUL128_UR2: return pospopcnt_u8_scalar_umul128_unroll2;
+    case PPOPCNT_U8_SSE_SINGLE: return pospopcnt_u8_sse_single;
+    case PPOPCNT_U8_SSE_BLEND_POPCNT: return pospopcnt_u8_sse_blend_popcnt;
+    case PPOPCNT_U8_SSE_BLEND_POPCNT_UR4: return pospopcnt_u8_sse_blend_popcnt_unroll4;
+    case PPOPCNT_U8_SSE_BLEND_POPCNT_UR8: return pospopcnt_u8_sse_blend_popcnt_unroll8;
+    case PPOPCNT_U8_SSE_BLEND_POPCNT_UR16: return pospopcnt_u8_sse_blend_popcnt_unroll16;
+    case PPOPCNT_U8_SSE_SAD: return pospopcnt_u8_sse_sad;
+    case PPOPCNT_U8_SSE_HARLEY_SEAL: return pospopcnt_u8_sse_harley_seal;
+    case PPOPCNT_U8_AVX2_POPCNT: return pospopcnt_u8_avx2_popcnt;
+    case PPOPCNT_U8_AVX2: return pospopcnt_u8_avx2;
+    case PPOPCNT_U8_AVX2_POPCNT_NAIVE: return pospopcnt_u8_avx2_naive_counter;
+    case PPOPCNT_U8_AVX2_SINGLE: return pospopcnt_u8_avx2_single;
+    case PPOPCNT_U8_AVX2_LEMIRE1: return pospopcnt_u8_avx2_lemire;
+    case PPOPCNT_U8_AVX2_LEMIRE2: return pospopcnt_u8_avx2_lemire2;
+    case PPOPCNT_U8_AVX2_BLEND_POPCNT: return pospopcnt_u8_avx2_blend_popcnt;
+    case PPOPCNT_U8_AVX2_BLEND_POPCNT_UR4: return pospopcnt_u8_avx2_blend_popcnt_unroll4;
+    case PPOPCNT_U8_AVX2_BLEND_POPCNT_UR8: return pospopcnt_u8_avx2_blend_popcnt_unroll8;
+    case PPOPCNT_U8_AVX2_BLEND_POPCNT_UR16: return pospopcnt_u8_avx2_blend_popcnt_unroll16;
+    case PPOPCNT_U8_AVX2_ADDER_FOREST: return pospopcnt_u8_avx2_adder_forest;
+    case PPOPCNT_U8_AVX2_HARLEY_SEAL: return pospopcnt_u8_avx2_harley_seal;
+    case PPOPCNT_U8_AVX512: return pospopcnt_u8_avx512;
+    case PPOPCNT_U8_AVX512BW_MASK32: return pospopcnt_u8_avx512bw_popcnt32_mask;
+    case PPOPCNT_U8_AVX512BW_MASK64: return pospopcnt_u8_avx512bw_popcnt64_mask;
+    case PPOPCNT_U8_AVX512_MASKED_OPS: return pospopcnt_u8_avx512_masked_ops;
+    case PPOPCNT_U8_AVX512_POPCNT: return pospopcnt_u8_avx512_popcnt;
+    case PPOPCNT_U8_AVX512BW_BLEND_POPCNT: return pospopcnt_u8_avx512bw_blend_popcnt;
+    case PPOPCNT_U8_AVX512BW_BLEND_POPCNT_UR4: return pospopcnt_u8_avx512bw_blend_popcnt_unroll4;
+    case PPOPCNT_U8_AVX512BW_BLEND_POPCNT_UR8: return pospopcnt_u8_avx512bw_blend_popcnt_unroll8;
+    case PPOPCNT_U8_AVX512BW_ADDER_FOREST: return pospopcnt_u8_avx512bw_adder_forest;
+    case PPOPCNT_U8_AVX512_MULA2: return pospopcnt_u8_avx512_mula2;
+    case PPOPCNT_U8_AVX512BW_HARLEY_SEAL: return pospopcnt_u8_avx512bw_harley_seal;
+    case PPOPCNT_U8_AVX512VBMI_HARLEY_SEAL: return pospopcnt_u8_avx512vbmi_harley_seal;
     case PPOPCNT_U8_NUMBER_METHODS: break; /* -Wswitch */
     }
     assert(0);
@@ -164,7 +197,19 @@ void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out) {
     int name(const uint16_t* data, uint32_t len, uint32_t* flags) { (void)data; (void)len; (void)flags; return(0); }
 
 #define pospopcnt_u8_stub(name) \
-    void name(const uint8_t* data, size_t len, uint32_t* flags) { (void)data; (void)len; (void)flags; return(0); }
+    void name(const uint8_t* data, size_t len, uint32_t* flags) { (void)data; (void)len; (void)flags; }
+
+// A pospopcnt 8-bit procedure can be expressed with a 16-bit procedure
+// Following macro is used to define such wrapper.
+#define make_pospopcnt_u8_from_u16(u8_function, pospopcnt_u16_function) \
+void u8_function(const uint8_t* data, size_t len, uint32_t* flags) {    \
+    uint32_t pospopcnt16[16] = {0};                                     \
+    pospopcnt_u16_function((uint16_t*)data, len/2, pospopcnt16);        \
+    for (int i=0; i < 8; i++)                                           \
+        flags[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];             \
+    if (len % 2 == 1) /* update the last byte, if len is odd */         \
+        pospopcnt_u8_scalar_naive_single(data[len - 1], flags);         \
+}
 
 
 void pospopcnt_u8_scalar_naive_single(uint8_t data, uint32_t* out) {
@@ -415,11 +460,20 @@ int pospopcnt_u16_avx2_single(const uint16_t* data, uint32_t len, uint32_t* flag
 
     return 0;
 }
+
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_popcnt, pospopcnt_u16_avx2_popcnt)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2, pospopcnt_u16_avx2)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_naive_counter, pospopcnt_u16_avx2_naive_counter)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_single, pospopcnt_u16_avx2_single)
 #else
 pospopcnt_u16_stub(pospopcnt_u16_avx2_popcnt)
 pospopcnt_u16_stub(pospopcnt_u16_avx2)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_naive_counter)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_single)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_popcnt)
+pospopcnt_u8_stub(pospopcnt_u8_avx2)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_naive_counter)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_single)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 3
@@ -679,21 +733,12 @@ int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flag_cou
     return 0;
 }
 
-void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts) {
-    uint32_t pospopcnt16[16];
-    for (int i=0; i < 16; i++)
-        pospopcnt16[i] = 0;
-
-    pospopcnt_u16_sse_sad((uint16_t*)data, len/2, pospopcnt16);
-    for (int i=0; i < 8; i++)
-        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
-
-    if (len % 2 == 1)
-        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
-}
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_single, pospopcnt_u16_sse_single)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_sad, pospopcnt_u16_sse_sad)
 #else
 pospopcnt_u16_stub(pospopcnt_u16_sse_single)
 pospopcnt_u16_stub(pospopcnt_u16_sse_sad)
+pospopcnt_u8_stub(pospopcnt_u8_sse_single)
 pospopcnt_u8_stub(pospopcnt_u8_sse_sad)
 #endif
 
@@ -776,6 +821,10 @@ int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* f
 
     return 0;
 }
+
+make_pospopcnt_u8_from_u16(pospopcnt_u8_scalar_partition, pospopcnt_u16_scalar_partition)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_scalar_naive_nosimd, pospopcnt_u16_scalar_naive_nosimd)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_scalar_hist1x4, pospopcnt_u16_scalar_hist1x4)
 
 #ifndef _MSC_VER
 // By @aqrit (https://github.com/aqrit)
@@ -935,21 +984,12 @@ int pospopcnt_u16_scalar_umul128_unroll2(const uint16_t* in, uint32_t n, uint32_
     return 0;
 }
 
-void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts) {
-    uint32_t pospopcnt16[32];
-    for (int i=0; i < 32; i++)
-        pospopcnt16[i] = 0;
-
-    pospopcnt_u16_scalar_umul128_unroll2((uint16_t*)data, len/2, pospopcnt16);
-    for (int i=0; i < 8; i++)
-        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
-
-    if (len % 2 == 1)
-        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
-}
+make_pospopcnt_u8_from_u16(pospopcnt_u8_scalar_umul128, pospopcnt_u16_scalar_umul128)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_scalar_umul128_unroll2, pospopcnt_u16_scalar_umul128_unroll2)
 #else 
 pospopcnt_u16_stub(pospopcnt_u16_scalar_umul128)
 pospopcnt_u16_stub(pospopcnt_u16_scalar_umul128_unroll2)
+pospopcnt_u8_stub(pospopcnt_u8_scalar_umul128)
 pospopcnt_u8_stub(pospopcnt_u8_scalar_umul128_unroll2)
 #endif
 
@@ -1030,9 +1070,14 @@ int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uin
 
     return 0;
 }
+
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_popcnt32_mask, pospopcnt_u16_avx512bw_popcnt32_mask)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_popcnt64_mask, pospopcnt_u16_avx512bw_popcnt64_mask)
 #else
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt32_mask)
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt64_mask)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_popcnt32_mask)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_popcnt64_mask)
 #endif
 
 int pospopcnt_u16_avx512_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -1148,11 +1193,19 @@ int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags) {
     return 0;
 }
 
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_popcnt32_mask, pospopcnt_u16_avx512bw_popcnt32_mask);
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_popcnt64_mask, pospopcnt_u16_avx512bw_popcnt64_mask);
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512_popcnt, pospopcnt_u16_avx512_popcnt);
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512, pospopcnt_u16_avx512);
 #else
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt32_mask)
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_popcnt64_mask)
 pospopcnt_u16_stub(pospopcnt_u16_avx512_popcnt)
 pospopcnt_u16_stub(pospopcnt_u16_avx512)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_popcnt32_mask)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_popcnt64_mask)
+pospopcnt_u8_stub(pospopcnt_u8_avx512_popcnt)
+pospopcnt_u8_stub(pospopcnt_u8_avx512)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 5
@@ -1836,6 +1889,15 @@ int pospopcnt_u16_avx2_blend_popcnt_unroll16(const uint16_t* array, uint32_t len
     
     return 0;
 }
+
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_lemire, pospopcnt_u16_avx2_lemire)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_lemire2, pospopcnt_u16_avx2_lemire2)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_blend_popcnt, pospopcnt_u16_avx2_blend_popcnt)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_blend_popcnt_unroll4, pospopcnt_u16_avx2_blend_popcnt_unroll4)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_blend_popcnt_unroll8, pospopcnt_u16_avx2_blend_popcnt_unroll8)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_blend_popcnt_unroll16, pospopcnt_u16_avx2_blend_popcnt_unroll16)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_adder_forest, pospopcnt_u16_avx2_adder_forest)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_harley_seal, pospopcnt_u16_avx2_harley_seal)
 #else
 pospopcnt_u16_stub(pospopcnt_u16_avx2_lemire)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_lemire2)
@@ -1845,6 +1907,14 @@ pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll8)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll16)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_adder_forest)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_harley_seal)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_lemire)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_lemire2)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt_unroll4)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt_unroll8)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt_unroll16)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_adder_forest)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_harley_seal)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 3
@@ -1933,19 +2003,6 @@ int pospopcnt_u16_sse_blend_popcnt_unroll4(const uint16_t* array, uint32_t len, 
 #undef P
     
     return 0;
-}
-
-void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flag_counts) {
-    uint32_t pospopcnt16[16];
-    for (int i=0; i < 16; i++)
-        pospopcnt16[i] = 0;
-
-    pospopcnt_u16_sse_blend_popcnt_unroll8((uint16_t*)data, len/2, pospopcnt16);
-    for (int i=0; i < 8; i++)
-        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
-
-    if (len % 2 == 1)
-        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
 }
 
 int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* array, uint32_t len, uint32_t* flags) {
@@ -2197,20 +2254,6 @@ int pospopcnt_u16_sse_harley_seal(const uint16_t* array, uint32_t len, uint32_t*
     return 0;
 }
 
-void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts) {
-    uint32_t pospopcnt16[16];
-    for (int i=0; i < 16; i++)
-        pospopcnt16[i] = 0;
-
-    pospopcnt_u16_sse_harley_seal((uint16_t*)data, len/2, pospopcnt16);
-    for (int i=0; i < 8; i++)
-        flag_counts[i] = pospopcnt16[i + 0] + pospopcnt16[i + 8];
-
-    if (len % 2 == 1)
-        pospopcnt_u8_scalar_naive_single(data[len - 1], flag_counts);
-}
-
-
 __m128i sse4_merge1_odd(__m128i a, __m128i b) {
     const __m128i t0 = a & _mm_set1_epi8((int8_t)0xaa);
     const __m128i t1 = b & _mm_set1_epi8((int8_t)0xaa);
@@ -2225,33 +2268,22 @@ __m128i sse4_merge1_even(__m128i a, __m128i b) {
     return t0 | (_mm_add_epi8(t1, t1));
 }
 
-__m128i sse4_merge2_odd(__m128i a, __m128i b) {
-    const __m128i t0 = a & _mm_set1_epi8((int8_t)0xcc);
-    const __m128i t1 = b & _mm_set1_epi8((int8_t)0xcc);
-
-    return t0 | (_mm_srli_epi32(t1, 2));
-}
-
-__m128i sse4_merge2_even(__m128i a, __m128i b) {
-    const __m128i t0 = a & _mm_set1_epi8(0x33);
-    const __m128i t1 = b & _mm_set1_epi8(0x33);
-
-    return t0 | (_mm_slli_epi32(t1, 2));
-}
-
-uint64_t sse4_sum_epu64(__m128i x) {
-    return (uint64_t)_mm_extract_epi64(x, 0)
-         + (uint64_t)_mm_extract_epi64(x, 1);
-}
-
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_blend_popcnt, pospopcnt_u16_sse_blend_popcnt)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_blend_popcnt_unroll4, pospopcnt_u16_sse_blend_popcnt_unroll4)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_blend_popcnt_unroll8, pospopcnt_u16_sse_blend_popcnt_unroll8)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_blend_popcnt_unroll16, pospopcnt_u16_sse_blend_popcnt_unroll16)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_sse_harley_seal, pospopcnt_u16_sse_harley_seal)
 #else
 pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt)
 pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll4)
 pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll8)
 pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll16)
 pospopcnt_u16_stub(pospopcnt_u16_sse_harley_seal)
-pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
+pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt)
+pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll4)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll8)
+pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll16)
+pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
@@ -2411,10 +2443,17 @@ int pospopcnt_u16_avx512bw_blend_popcnt_unroll8(const uint16_t* data, uint32_t l
     
     return 0;
 }
+
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt, pospopcnt_u16_avx512bw_blend_popcnt)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt_unroll4, pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt_unroll8, pospopcnt_u16_avx512bw_blend_popcnt_unroll8)
 #else 
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt)
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll8)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll4)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll8)
 #endif
 
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -2888,6 +2927,15 @@ int pospopcnt_u16_avx512_harley_seal(const uint16_t* data, uint32_t len, uint32_
     #endif
 }
 #undef AND_OR
+
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt, pospopcnt_u16_avx512bw_blend_popcnt)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt_unroll4, pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt_unroll8, pospopcnt_u16_avx512bw_blend_popcnt_unroll8)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_adder_forest, pospopcnt_u16_avx512bw_adder_forest)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_harley_seal, pospopcnt_u16_avx512bw_harley_seal)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512vbmi_harley_seal, pospopcnt_u16_avx512vbmi_harley_seal)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512_mula2, pospopcnt_u16_avx512_mula2)
+make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512_masked_ops, pospopcnt_u16_avx512_masked_ops)
 #else
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt)
 pospopcnt_u16_stub(pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
@@ -2897,6 +2945,14 @@ pospopcnt_u16_stub(pospopcnt_u16_avx512bw_harley_seal)
 pospopcnt_u16_stub(pospopcnt_u16_avx512vbmi_harley_seal)
 pospopcnt_u16_stub(pospopcnt_u16_avx512_mula2)
 pospopcnt_u16_stub(pospopcnt_u16_avx512_masked_ops)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll4)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll8)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_adder_forest)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_harley_seal)
+pospopcnt_u8_stub(pospopcnt_u8_avx512vbmi_harley_seal)
+pospopcnt_u8_stub(pospopcnt_u8_avx512_mula2)
+pospopcnt_u8_stub(pospopcnt_u8_avx512_masked_ops)
 #endif
 
 #if __clang__ == 1 || __llvm__ == 1

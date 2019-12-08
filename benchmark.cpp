@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <algorithm>
 #include <numeric>
+#include <iomanip>
 
 #ifdef _MSC_VER
 # include <intrin.h>
@@ -66,9 +67,13 @@ bool assert_truth(uint32_t* vals, uint32_t* truth) {
     }
 
     if (fail) {
-        std::cerr << "FAILURE:" << std::endl;
+        std::cout << "FAILURE:" << std::endl;
         for (int i = 0; i < 16; ++i) {
-            std::cerr << truth[i] << "\t" << vals[i] << std::endl;
+            std::cout << truth[i] << "\t" << vals[i];
+            if (truth[i] != vals[i])
+                std::cout << " ***";
+
+            std::cout << '\n';
         }
     }
 
@@ -79,6 +84,8 @@ template <typename IntegerType>
 void generate_random_data(IntegerType* data, size_t n) {
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
+
+    static_assert(sizeof(int32_t) >= sizeof(IntegerType), "please adjust uniform_int_distribution construction");
 
     std::uniform_int_distribution<uint32_t> distr(0, std::numeric_limits<IntegerType>::max()-1); // right inclusive
 
@@ -283,8 +290,11 @@ private:
     }
 
     void print_short(const char* method_name, const Measurement& meas) {
-        out << method_name << '\t'
-            << meas.cycles.mean << '\n';
+        out.width(50);
+        out << std::left << method_name << ' ';
+        out.width(10);
+        out.setf(std::ios::fixed, std::ios::floatfield);
+        out << std::right << std::setprecision(2) << meas.cycles.mean << '\n';
     }
 
     void print_header() {
@@ -308,7 +318,7 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         auto method = get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i));
         auto reference = pospopcnt_u16_scalar_naive;
         const auto meas = pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
-            name, method, reference, params.iterations, vals, params.iterations);
+            name, method, reference, params.iterations, vals, params.items_count);
 
         printer.print(name, meas);
     }
@@ -320,7 +330,7 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         auto method = get_pospopcnt_u8_method(PPOPCNT_U8_METHODS(i));
         auto reference = pospopcnt_u8_scalar_naive;
         const auto meas = pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
-            name, method, reference, params.iterations, (uint8_t*)vals, params.iterations);
+            name, method, reference, params.iterations, (uint8_t*)vals, params.items_count);
 
         printer.print(name, meas);
     }

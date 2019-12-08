@@ -16,9 +16,9 @@
 * under the License.
 */
 /*
- * Notice taken from the positional-popcount website 
+ * Notice taken from the positional-popcount website
  * (https://github.com/mklarqvist/positional-popcount):
- * 
+ *
  * These functions compute the novel "positional population count" (`pospopcnt`)
  * statistics using fast SIMD instructions. Given a stream of k-bit words, we
  * seek to count the number of set bits in positions 0, 1, 2, ..., k-1. This
@@ -34,23 +34,23 @@
  * CPUs compared to the efficient auto-vectorization of
  * `pospopcnt_u16_scalar_naive` for different array sizes (in number of 2-byte
  * values).
- * 
+ *
  * | Algorithm                   | 128  | 256  | 512  | 1024 | 2048 | 4096 | 8192 | 65536 |
  * |-----------------------------|------|------|------|------|------|------|------|-------|
  * | sse_blend_popcnt_unroll8    | 2.09 | 3.16 | 2.35 | 1.88 | 1.67 | 1.56 | 1.5  | 1.44  |
  * | avx512_blend_popcnt_unroll8 | 1.78 | 3.61 | 3.61 | 3.59 | 3.68 | 3.65 | 3.67 | 3.7   |
  * | avx512_adder_forest         | 0.77 | 0.9  | 3.24 | 3.96 | 4.96 | 5.87 | 6.52 | 7.24  |
  * | avx512_harley_seal          | 0.52 | 0.74 | 1.83 | 2.64 | 4.06 | 6.43 | 9.41 | 16.28 |
- * 
+ *
  * Compared to a naive unvectorized solution (`pospopcnt_u16_scalar_naive_nosimd`):
- * 
+ *
  * | Algorithm                   | 128  | 256   | 512   | 1024  | 2048  | 4096  | 8192  | 65536  |
  * |-----------------------------|------|-------|-------|-------|-------|-------|-------|--------|
  * | sse_mula_unroll8            | 8.28 | 9.84  | 10.55 | 11    | 11.58 | 11.93 | 12.13 | 12.28  |
  * | avx512_blend_popcnt_unroll8 | 7.07 | 11.25 | 16.21 | 21    | 25.49 | 27.91 | 29.73 | 31.55  |
  * | avx512_adder_forest         | 3.05 | 2.82  | 14.53 | 23.13 | 34.37 | 44.91 | 52.78 | 61.68  |
  * | avx512_harley_seal          | 2.07 | 2.3   | 8.21  | 15.41 | 28.17 | 49.14 | 76.11 | 138.71 |
- * 
+ *
 */
 #ifndef POSPOPCNT_H_2359235897293
 #define POSPOPCNT_H_2359235897293
@@ -155,26 +155,26 @@ uint64_t pospopcnt_loadu_u64(const void* ptr) {
 /**
  * Carry-save adder update step.
  * @see https://en.wikipedia.org/wiki/Carry-save_adder#Technical_details
- * 
+ *
  * Steps:
  * 1)  U = *L ⊕ B
  * 2) *H = (*L ^ B) | (U ^ C)
  * 3) *L = *L ⊕ B ⊕ C = U ⊕ C
- * 
+ *
  * B and C are 16-bit staggered registers such that &C - &B = 1.
- * 
+ *
  * Example usage:
  * pospopcnt_csa_sse(&twosA, &v1, _mm_loadu_si128(data + i + 0), _mm_loadu_si128(data + i + 1));
- * 
- * @param h 
- * @param l 
- * @param b 
- * @param c  
+ *
+ * @param h
+ * @param l
+ * @param b
+ * @param c
  */
 PPOPCNT_INLINE
-void pospopcnt_csa_sse(__m128i* __restrict__ h, 
-                       __m128i* __restrict__ l, 
-                       const __m128i b, const __m128i c) 
+void pospopcnt_csa_sse(__m128i* __restrict__ h,
+                       __m128i* __restrict__ l,
+                       const __m128i b, const __m128i c)
 {
      const __m128i u = _mm_xor_si128(*l, b);
      *h = _mm_or_si128(*l & b, u & c); // shift carry (sc_i).
@@ -193,9 +193,9 @@ void pospopcnt_csa_sse(__m128i* __restrict__ h,
 #endif
 
 PPOPCNT_INLINE
-void pospopcnt_csa_avx2(__m256i* __restrict__ h, 
-                        __m256i* __restrict__ l, 
-                        const __m256i b, const __m256i c) 
+void pospopcnt_csa_avx2(__m256i* __restrict__ h,
+                        __m256i* __restrict__ l,
+                        const __m256i b, const __m256i c)
 {
      const __m256i u = _mm256_xor_si256(*l, b);
      *h = _mm256_or_si256(*l & b, u & c);
@@ -221,9 +221,9 @@ static inline __m512i avx512_popcount(const __m512i v) {
 
 // 512i-version of carry-save adder subroutine.
 PPOPCNT_INLINE
-void pospopcnt_csa_avx512(__m512i* __restrict__ h, 
-                          __m512i* __restrict__ l, 
-                          __m512i b, __m512i c) 
+void pospopcnt_csa_avx512(__m512i* __restrict__ h,
+                          __m512i* __restrict__ l,
+                          __m512i b, __m512i c)
 {
      *h = _mm512_ternarylogic_epi32(c, b, *l, 0xE8); // 11101000
      *l = _mm512_ternarylogic_epi32(c, b, *l, 0x96); // 10010110
@@ -239,7 +239,7 @@ typedef enum {
     PPOPCNT_SCALAR_NOSIMD,
     PPOPCNT_SCALAR_PARTITION,
     PPOPCNT_SCALAR_HIST1X4,
-    PPOPCNT_SCALAR_UMUL128, 
+    PPOPCNT_SCALAR_UMUL128,
     PPOPCNT_SCALAR_UMUL128_UR2,
     PPOPCNT_SSE_SINGLE,
     PPOPCNT_SSE_BLEND_POPCNT,
@@ -317,21 +317,87 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx512vbmi_harley_seal"};
 
 typedef enum {
+    PPOPCNT_U8_AUTO,
     PPOPCNT_U8_SCALAR,
+    PPOPCNT_U8_SCALAR_NOSIMD,
+    PPOPCNT_U8_SCALAR_PARTITION,
+    PPOPCNT_U8_SCALAR_HIST1X4,
+    PPOPCNT_U8_SCALAR_UMUL128,
     PPOPCNT_U8_SCALAR_UMUL128_UR2,
-    PPOPCNT_U8_SSE_SAD,
+    PPOPCNT_U8_SSE_SINGLE,
+    PPOPCNT_U8_SSE_BLEND_POPCNT,
+    PPOPCNT_U8_SSE_BLEND_POPCNT_UR4,
     PPOPCNT_U8_SSE_BLEND_POPCNT_UR8,
+    PPOPCNT_U8_SSE_BLEND_POPCNT_UR16,
+    PPOPCNT_U8_SSE_SAD,
     PPOPCNT_U8_SSE_HARLEY_SEAL,
+    PPOPCNT_U8_AVX2_POPCNT,
+    PPOPCNT_U8_AVX2,
+    PPOPCNT_U8_AVX2_POPCNT_NAIVE,
+    PPOPCNT_U8_AVX2_SINGLE,
+    PPOPCNT_U8_AVX2_LEMIRE1,
+    PPOPCNT_U8_AVX2_LEMIRE2,
+    PPOPCNT_U8_AVX2_BLEND_POPCNT,
+    PPOPCNT_U8_AVX2_BLEND_POPCNT_UR4,
+    PPOPCNT_U8_AVX2_BLEND_POPCNT_UR8,
+    PPOPCNT_U8_AVX2_BLEND_POPCNT_UR16,
+    PPOPCNT_U8_AVX2_ADDER_FOREST,
+    PPOPCNT_U8_AVX2_HARLEY_SEAL,
+    PPOPCNT_U8_AVX512,
+    PPOPCNT_U8_AVX512BW_MASK32,
+    PPOPCNT_U8_AVX512BW_MASK64,
+    PPOPCNT_U8_AVX512_MASKED_OPS,
+    PPOPCNT_U8_AVX512_POPCNT,
+    PPOPCNT_U8_AVX512BW_BLEND_POPCNT,
+    PPOPCNT_U8_AVX512BW_BLEND_POPCNT_UR4,
+    PPOPCNT_U8_AVX512BW_BLEND_POPCNT_UR8,
+    PPOPCNT_U8_AVX512_MULA2,
+    PPOPCNT_U8_AVX512BW_ADDER_FOREST,
+    PPOPCNT_U8_AVX512BW_HARLEY_SEAL,
+    PPOPCNT_U8_AVX512VBMI_HARLEY_SEAL,
     //
     PPOPCNT_U8_NUMBER_METHODS
 } PPOPCNT_U8_METHODS;
 
 static const char * const pospopcnt_u8_method_names[] = {
+    "pospopcnt_u8",
     "pospopcnt_u8_scalar_naive",
+    "pospopcnt_u8_scalar_naive_nosimd",
+    "pospopcnt_u8_scalar_partition",
+    "pospopcnt_u8_scalar_hist1x4",
+    "pospopcnt_u8_scalar_umul128",
     "pospopcnt_u8_scalar_umul128_unroll2",
-    "pospopcnt_u8_sse_sad",
+    "pospopcnt_u8_sse_single",
+    "pospopcnt_u8_sse_blend_popcnt",
+    "pospopcnt_u8_sse_blend_popcnt_unroll4",
     "pospopcnt_u8_sse_blend_popcnt_unroll8",
-    "pospopcnt_u8_sse_harley_seal"};
+    "pospopcnt_u8_sse_blend_popcnt_unroll8",
+    "pospopcnt_u8_sse2_sad",
+    "pospopcnt_u8_sse2_harley_seal",
+    "pospopcnt_u8_avx2_popcnt",
+    "pospopcnt_u8_avx2",
+    "pospopcnt_u8_avx2_naive_counter",
+    "pospopcnt_u8_avx2_single",
+    "pospopcnt_u8_avx2_lemire",
+    "pospopcnt_u8_avx2_lemire2",
+    "pospopcnt_u8_avx2_blend_popcnt",
+    "pospopcnt_u8_avx2_blend_popcnt_unroll4",
+    "pospopcnt_u8_avx2_blend_popcnt_unroll8",
+    "pospopcnt_u8_avx2_blend_popcnt_unroll8",
+    "pospopcnt_u8_avx2_adder_forest",
+    "pospopcnt_u8_avx2_harley_seal",
+    "pospopcnt_u8_avx512",
+    "pospopcnt_u8_avx512bw_popcnt32_mask",
+    "pospopcnt_u8_avx512bw_popcnt64_mask",
+    "pospopcnt_u8_avx512_masked_ops",
+    "pospopcnt_u8_avx512_popcnt",
+    "pospopcnt_u8_avx512bw_blend_popcnt",
+    "pospopcnt_u8_avx512bw_blend_popcnt_unroll4",
+    "pospopcnt_u8_avx512bw_blend_popcnt_unroll8",
+    "pospopcnt_u8_avx512_mula2",
+    "pospopcnt_u8_avx512bw_adder_forest",
+    "pospopcnt_u8_avx512bw_harley_seal",
+    "pospopcnt_u8_avx512vbmi_harley_seal"};
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
 *  positional population count.
@@ -342,13 +408,13 @@ typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t len, uint
 typedef void(*pospopcnt_u8_method_type)(const uint8_t* data, size_t len, uint32_t* flags);
 
 /**
- * @brief Default function for computing the positional popcnt statistics. 
+ * @brief Default function for computing the positional popcnt statistics.
  *        Redirects to the best available algorithm during compilation time.
- * 
+ *
  * Example usage:
- * 
+ *
  * pospopcnt_u16(data, len, flags);
- * 
+ *
  * @param data  Input uint16_t data.
  * @param len   Number of input integers.
  * @param flags Output target flags.
@@ -358,11 +424,11 @@ int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags);
 
 /**
  * @brief Execute the target ppopcnt function with the argument data.
- * 
+ *
  * Example usage:
- * 
+ *
  * pospopcnt_u16_method(PPOPCNT_AVX2_MULA_UR8, data, len, flags);
- * 
+ *
  * @param method Target function (PPOPCNT_U16_METHODS).
  * @param data   Input uint16_t data.
  * @param len    Number of input integers.
@@ -373,12 +439,12 @@ int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint3
 
 /**
  * @brief Retrieve the target pospopcnt_u16_method pointer.
- * 
+ *
  * Example usage:
- * 
+ *
  * pospopcnt_u16_method_type f = get_pospopcnt_u16_method(PPOPCNT_AVX2_HARLEY_SEAL);
  * (*f)(data, len, flags);
- * 
+ *
  * @param method                     Target function (PPOPCNT_U16_METHODS).
  * @return pospopcnt_u16_method_type Returns the target function pointer.
  */
@@ -394,7 +460,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method);
 *  must be pre-allocated to sixteen 32-bit integers and initiated to zero
 *  before calling pospopcnt_u16_* the first time.
 *
-*  Function names are prefixed by its target instruction set: 
+*  Function names are prefixed by its target instruction set:
 *  [scalar, sse, avx2, avx512]. For example, pospopcnt_u16_avx2_harley_seal.
 ************************************************************************/
 int pospopcnt_u16_scalar_naive(const uint16_t* data, uint32_t len, uint32_t* flags);
@@ -438,23 +504,55 @@ int pospopcnt_u16_avx512vbmi_harley_seal(const uint16_t* data, uint32_t len, uin
 
 /**
  * @brief Retrieve the target pospopcnt_u8_method pointer.
- * 
+ *
  * Example usage:
- * 
+ *
  * pospopcnt_u8_method_type f = get_pospopcnt_u16_method(PPOPCNT8_AVX2_HARLEY_SEAL);
  * (*f)(data, len, flags);
- * 
+ *
  * @param method                     Target function (PPOPCNT_U8_METHODS).
  * @return pospopcnt_u16_method_type Returns the target function pointer.
  */
 pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method);
 
-void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out);
-void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flag_counts);
-void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flag_counts);
-void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flag_counts);
-void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flag_counts);
-void pospopcnt_u8_sse_variant1(const uint8_t* data, size_t len, uint32_t* flag_counts);
+void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_scalar_naive_nosimd(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_scalar_partition(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_scalar_hist1x4(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_scalar_umul128(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_scalar_umul128_unroll2(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_single(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_blend_popcnt(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_blend_popcnt_unroll4(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_blend_popcnt_unroll16(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_popcnt(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_naive_counter(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_single(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_lemire(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_lemire2(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_blend_popcnt(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_mula2(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_adder_forest(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_blend_popcnt_unroll4(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_blend_popcnt_unroll16(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_popcnt32_mask(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_popcnt64_mask(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512_masked_ops(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512_popcnt(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_blend_popcnt(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_blend_popcnt_unroll4(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_blend_popcnt_unroll8(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512_mula2(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_adder_forest(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512bw_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx512vbmi_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
 
 /*======   Support   ======*/
 // Wrapper for avx512*_harley_seal
