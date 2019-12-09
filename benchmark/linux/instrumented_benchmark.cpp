@@ -738,9 +738,10 @@ int main(int argc, char **argv) {
     size_t m = 1;
     size_t iterations = 0; 
     bool verbose = false;
+    bool tabular = false;
     int c;
 
-    while ((c = getopt(argc, argv, "vhm:n:i:")) != -1) {
+    while ((c = getopt(argc, argv, "vhtm:n:i:")) != -1) {
         switch (c) {
         case 'n':
             n = atoll(optarg);
@@ -750,6 +751,9 @@ int main(int argc, char **argv) {
             break;
         case 'v':
             verbose = true;
+            break;
+        case 't':
+            tabular = true;
             break;
         case 'h':
             print_usage(argv[0]);
@@ -797,15 +801,18 @@ int main(int argc, char **argv) {
 // #endif
 //     measureoverhead(n*m, iterations, verbose);
     
-    printf("Method\tSz\tIt\tI/c\tC/w\tI/w\tCycles\tInstructions\tBMiss\tCRef\tCMiss\tTime\tMBs\n");
+    if (tabular)
+        printf("Method\tSz\tIt\tI/c\tC/w\tI/w\tCycles\tInstructions\tBMiss\tCRef\tCMiss\tTime\tMBs\n");
 
-    benchmarkMemoryCopy("memcpy-8", n, m, iterations, verbose, true);
-    benchmarkMemoryCopy("memcpy-16", 2*n, m, iterations, verbose, true);
+    if (verbose && !tabular) printf("%-40s\t", "memcpy-8");
+    benchmarkMemoryCopy("memcpy-8", n, m, iterations, verbose, tabular);
+    if (verbose && !tabular) printf("%-40s\t", "memcpy-16");
+    benchmarkMemoryCopy("memcpy-16", 2*n, m, iterations, verbose, tabular);
 
     for (size_t k = 0; k < 7; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u16_method_names[k]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u16_method_names[k]);
         fflush(NULL);
-        bool isok = benchmarkMany(pospopcnt_u16_method_names[k], n, m, iterations, pospopcnt_u16_methods[k], verbose, true, true);
+        bool isok = benchmarkMany(pospopcnt_u16_method_names[k], n, m, iterations, pospopcnt_u16_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[k]);
         }
@@ -813,9 +820,9 @@ int main(int argc, char **argv) {
     }
 #if POSPOPCNT_SIMD_VERSION >= 3
     for (size_t k = 0; k < 7; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u16_method_names[7+k]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u16_method_names[7+k]);
         fflush(NULL);
-        bool isok = benchmarkMany(pospopcnt_u16_method_names[7+k], n, m, iterations, pospopcnt_u16_sse_methods[k], verbose, true, true);
+        bool isok = benchmarkMany(pospopcnt_u16_method_names[7+k], n, m, iterations, pospopcnt_u16_sse_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[7+k]);
         }
@@ -825,9 +832,9 @@ int main(int argc, char **argv) {
 
 #if POSPOPCNT_SIMD_VERSION >= 5
     for (size_t k = 0; k < 12; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u16_method_names[14+k]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u16_method_names[14+k]);
         fflush(NULL);
-        bool isok = benchmarkMany(pospopcnt_u16_method_names[14+k], n, m, iterations, pospopcnt_u16_avx2_methods[k], verbose, true, true);
+        bool isok = benchmarkMany(pospopcnt_u16_method_names[14+k], n, m, iterations, pospopcnt_u16_avx2_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[14+k]);
         }
@@ -837,9 +844,9 @@ int main(int argc, char **argv) {
 
 #if POSPOPCNT_SIMD_VERSION >= 6
     for (size_t k = 0; k < 12; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u16_method_names[26+k]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u16_method_names[26+k]);
         fflush(NULL);
-        bool isok = benchmarkMany(pospopcnt_u16_method_names[26+k], n, m, iterations, pospopcnt_u16_avx512_methods[k], verbose, true, true);
+        bool isok = benchmarkMany(pospopcnt_u16_method_names[26+k], n, m, iterations, pospopcnt_u16_avx512_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u16_method_names[26+k]);
         }
@@ -848,9 +855,9 @@ int main(int argc, char **argv) {
 #endif
 
     for (size_t k = 0; k < 6; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u8_method_names[k+1]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u8_method_names[k+1]);
         fflush(NULL);
-        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1], n, m, iterations, pospopcnt_u8_methods[k], verbose, true, true);
+        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1], n, m, iterations, pospopcnt_u8_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u8_method_names[k+1]);
         }
@@ -859,9 +866,9 @@ int main(int argc, char **argv) {
 
 #if POSPOPCNT_SIMD_VERSION >= 3
     for (size_t k = 0; k < 8; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u8_method_names[k+1+6]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u8_method_names[k+1+6]);
         fflush(NULL);
-        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1+6], n, m, iterations, pospopcnt_u8_sse_methods[k], verbose, true, true);
+        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1+6], n, m, iterations, pospopcnt_u8_sse_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u8_method_names[k+1+6]);
         }
@@ -871,9 +878,9 @@ int main(int argc, char **argv) {
 
 #if POSPOPCNT_SIMD_VERSION >= 5
     for (size_t k = 0; k < 13; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u8_method_names[k+1+6+8]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u8_method_names[k+1+6+8]);
         fflush(NULL);
-        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1+6+8], n, m, iterations, pospopcnt_u8_avx2_methods[k], verbose, true, true);
+        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1+6+8], n, m, iterations, pospopcnt_u8_avx2_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u8_method_names[k+1+6+8]);
         }
@@ -883,9 +890,9 @@ int main(int argc, char **argv) {
 
 #if POSPOPCNT_SIMD_VERSION >= 6
     for (size_t k = 0; k < 13; k++) {
-        if (0) printf("%-40s\t", pospopcnt_u8_method_names[k+1+6+8+13]);
+        if (verbose && !tabular) printf("%-40s\t", pospopcnt_u8_method_names[k+1+6+8+13]);
         fflush(NULL);
-        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1+6+8+13], n, m, iterations, pospopcnt_u8_avx512_methods[k], verbose, true, true);
+        bool isok = benchmarkMany8(pospopcnt_u8_method_names[k+1+6+8+13], n, m, iterations, pospopcnt_u8_avx512_methods[k], verbose, true, tabular);
         if (isok == false) {
             printf("Problem detected with %s.\n", pospopcnt_u8_method_names[k+1+6+8+13]);
         }
