@@ -323,7 +323,7 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         printer.print(name, meas);
     }
     for(int i = 0; i < PPOPCNT_U8_NUMBER_METHODS; ++i) {
-        const char* name = pospopcnt_u8_method_names[i];
+        const char* name = pospopcnt_u8_method_names[i+1];
         if (std::string(name).find(params.filter) == std::string::npos)
             continue;
 

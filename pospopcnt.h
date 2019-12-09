@@ -96,7 +96,7 @@ extern "C" {
 #elif defined(__AVX__) && __AVX__ == 1
 #define POSPOPCNT_SIMD_VERSION    4
 #define POSPOPCNT_SIMD_ALIGNMENT  16
-#elif defined(__SSE4_1__) && __SSE4_1__ == 1
+#elif defined(__SSE4_2__) && __SSE4_2__ == 1
 #define POSPOPCNT_SIMD_VERSION    3
 #define POSPOPCNT_SIMD_ALIGNMENT  16
 #elif defined(__SSE2__) && __SSE2__ == 1
