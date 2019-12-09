@@ -525,6 +525,98 @@ bool benchmarkMany8(const std::string& fn_name, uint32_t n, uint32_t m, uint32_t
     return isok;
 }
 
+bool benchmarkMemoryCopy(const std::string& fn_name, uint32_t n, uint32_t m, uint32_t iterations, bool verbose, bool tabular) {
+    std::vector<int> evts;
+#ifdef ALIGN
+    std::vector<std::vector<uint8_t,AlignedSTLAllocator<uint8_t,64>>> vdata(m, std::vector<uint8_t,AlignedSTLAllocator<uint8_t,64>>(n));
+    std::vector<std::vector<uint8_t,AlignedSTLAllocator<uint8_t,64>>> dst(m, std::vector<uint8_t,AlignedSTLAllocator<uint8_t,64>>(n));
+#else
+    std::vector<std::vector<uint8_t>> vdata(m, std::vector<uint8_t>(n));
+    std::vector<std::vector<uint8_t>> dst(m, std::vector<uint8_t>(n));
+#endif
+#ifdef ALIGN
+    for(auto & x : vdata) {
+      assert(get_alignment(x.data()) == 64);
+    }
+#endif
+
+    // printf("alignments: %d\n", best_alignment);
+
+    evts.push_back(PERF_COUNT_HW_CPU_CYCLES);
+    evts.push_back(PERF_COUNT_HW_INSTRUCTIONS);
+    evts.push_back(PERF_COUNT_HW_BRANCH_MISSES);
+    evts.push_back(PERF_COUNT_HW_CACHE_REFERENCES);
+    evts.push_back(PERF_COUNT_HW_CACHE_MISSES);
+    evts.push_back(PERF_COUNT_HW_REF_CPU_CYCLES);
+    LinuxEvents<PERF_TYPE_HARDWARE> unified(evts);
+    std::vector<unsigned long long> results; // tmp buffer
+    std::vector< std::vector<unsigned long long> > allresults;
+    std::vector<uint32_t> times;
+    results.resize(evts.size());
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 0xFFFF);
+
+    bool isok = true;
+    for (uint32_t i = 0; i < iterations; i++) {
+        for (size_t k = 0; k < m; k++) {
+            for(size_t k2 = 0; k2 < n ; k2++) {
+                vdata[k][k2] = dis(gen); // random init.
+            }
+        }
+
+        // std::vector<std::vector<uint32_t>> flags(m, std::vector<uint32_t>(16*2));
+        
+        const clockdef t1 = std::chrono::high_resolution_clock::now();
+        unified.start();
+        for (size_t k = 0; k < m ; k++) {
+            memcpy(dst[k].data(), vdata[k].data(), n*sizeof(uint8_t));
+        }
+        unified.end(results);
+        const clockdef t2 = std::chrono::high_resolution_clock::now();
+        allresults.push_back(results);
+        const auto time_span = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
+        times.push_back(time_span.count());
+    }
+
+    uint32_t tot_time = std::accumulate(times.begin(), times.end(), 0);
+    double mean_time = tot_time / times.size();
+
+    std::vector<unsigned long long> mins = compute_mins(allresults);
+    std::vector<double> avg = compute_averages(allresults);
+
+    double throughput = (n / (1024*1024.0)) / (mean_time / 1000000000.0);
+    
+    if (tabular) {
+        for (int i = 0; i < iterations; ++i) {
+            throughput = (n / (1024*1024.0)) / (times[i] / 1000000000.0);
+            printf("%s\t%u\t%d\t", fn_name.c_str(), n, i);
+            printf("%4.2f\t%4.3f\t%4.3f\t",
+                    double(allresults[i][1]) / allresults[i][0], double(allresults[i][0]) / (n*m), double(allresults[i][1]) / (n*m));
+            printf("%llu\t%llu\t%llu\t%llu\t%llu\t",
+                    allresults[i][0], allresults[i][1], allresults[i][2], allresults[i][3], allresults[i][4]);
+            printf("%u\t%4.2f\n", times[i], throughput);
+        }
+    } else if (verbose) {
+        printf("instructions per cycle %4.2f, cycles per 8-bit word:  %4.3f, "
+               "instructions per 8-bit word %4.3f \n",
+                double(mins[1]) / mins[0], double(mins[0]) / (n*m), double(mins[1]) / (n*m));
+        // first we display mins
+        printf("min: %8llu cycles, %8llu instructions, \t%8llu branch mis., %8llu "
+               "cache ref., %8llu cache mis.\n",
+                mins[0], mins[1], mins[2], mins[3], mins[4]);
+        printf("avg: %8.1f cycles, %8.1f instructions, \t%8.1f branch mis., %8.1f "
+               "cache ref., %8.1f cache mis.\n",
+                avg[0], avg[1], avg[2], avg[3], avg[4]);
+        printf("avg time: %f ns, %4.2f mb/s\n", mean_time, throughput);
+    } else {
+        printf("cycles per 8-bit word:  %4.3f; ref cycles per 8-bit word: %4.3f \n", double(mins[0]) / (n*m), double(mins[5]) / (n*m));
+    }
+
+    return isok;
+}
+
 #if POSPOPCNT_SIMD_VERSION >= 5
 void measurepopcnt(uint32_t n, uint32_t iterations, bool verbose) {
     std::vector<int> evts;
@@ -706,6 +798,9 @@ int main(int argc, char **argv) {
 //     measureoverhead(n*m, iterations, verbose);
     
     printf("Method\tSz\tIt\tI/c\tC/w\tI/w\tCycles\tInstructions\tBMiss\tCRef\tCMiss\tTime\tMBs\n");
+
+    benchmarkMemoryCopy("memcpy-8", n, m, iterations, verbose, true);
+    benchmarkMemoryCopy("memcpy-16", 2*n, m, iterations, verbose, true);
 
     for (size_t k = 0; k < 7; k++) {
         if (0) printf("%-40s\t", pospopcnt_u16_method_names[k]);
