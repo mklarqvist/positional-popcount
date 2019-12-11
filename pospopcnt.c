@@ -188,6 +188,16 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     return 0; /* unreachable, but some compilers complain without it */
 }
 
+pospopcnt_u32_method_type get_pospopcnt_u32_method(PPOPCNT_U32_METHODS method) {
+    switch(method) {
+    case PPOPCNT_U32_AUTO: return pospopcnt_u32_scalar_naive; /* TODO: implement something similar to pospopcnt_u16 */
+    case PPOPCNT_U32_SCALAR: return pospopcnt_u32_scalar_naive;
+    case PPOPCNT_U32_NUMBER_METHODS: break; /* -Wswitch */
+    }
+    assert(0);
+    return 0; /* unreachable, but some compilers complain without it */
+}
+
 void pospopcnt_u8_scalar_naive(const uint8_t* data, size_t len, uint32_t* out) {
     for (size_t i = 0; i < len; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -220,6 +230,14 @@ void pospopcnt_u8_scalar_naive_single(uint8_t data, uint32_t* out) {
         out[i] += ((data & (1 << i)) >> i);
 }
 
+
+void pospopcnt_u32_scalar_naive(const uint32_t* data, size_t len, uint32_t* out) {
+    for (size_t i = 0; i < len; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            out[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+}
 
 #if POSPOPCNT_SIMD_VERSION >= 5
 int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags) {
