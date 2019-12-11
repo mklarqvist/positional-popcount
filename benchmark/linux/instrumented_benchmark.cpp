@@ -377,7 +377,7 @@ bool benchmarkMany(const std::string& fn_name, uint32_t n, uint32_t m, uint32_t 
     
     if (tabular) {
         for (int i = 0; i < iterations; ++i) {
-            throughput = (n / (1024*1024.0)) / (times[i] / 1000000000.0);
+            throughput = ((2*n) / (1024*1024.0)) / (times[i] / 1000000000.0);
             printf("%s\t%u\t%d\t", fn_name.c_str(), n, i);
             printf("%4.2f\t%4.3f\t%4.3f\t",
                     double(allresults[i][1]) / allresults[i][0], double(allresults[i][0]) / (n*m), double(allresults[i][1]) / (n*m));
