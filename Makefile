@@ -19,7 +19,7 @@
 OPTFLAGS  := -O3 -march=native # -march=cannonlake 
 WARNFLAGS := # -Wall -Wextra -pedantic
 CFLAGS     = -std=c99 $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)
-CPPFLAGS   = -std=c++0x $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)
+CPPFLAGS   = -std=c++11 $(OPTFLAGS) $(DEBUG_FLAGS) $(WARNFLAGS)
 CPP_SOURCE = benchmark.cpp benchmark/linux/instrumented_benchmark.cpp
 C_SOURCE   = pospopcnt.c example.c
 OBJECTS    = $(CPP_SOURCE:.cpp=.o) $(C_SOURCE:.c=.o)
