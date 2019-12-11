@@ -807,7 +807,7 @@ int pospopcnt_u16_scalar_hist1x4(const uint16_t* data, uint32_t len, uint32_t* f
      }
      while (i < len) {
           ++low[data[i] & 255];
-          ++high[(data[++i] >> 8) & 255];
+          ++high[(data[i++] >> 8) & 255];
      }
 
      for (int i = 0; i < 256; ++i) {
