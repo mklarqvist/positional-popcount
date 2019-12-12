@@ -53,15 +53,15 @@ uint64_t get_cpu_cycles() {
     return result;
 }
 
-bool assert_truth(uint32_t* vals, uint32_t* truth) {
+bool assert_truth(uint32_t* vals, uint32_t* truth, int n) {
     uint64_t n_all = 0;
-    for(int i = 0; i < 16; ++i) n_all += vals[i];
+    for(int i = 0; i < n; ++i) n_all += vals[i];
     if(n_all == 0) return true;
     
     // temp
     bool fail = false;
 
-    for(int i = 0; i < 16; ++i) {
+    for(int i = 0; i < n; ++i) {
         if (vals[i] != truth[i]) {
             fail = true;
         }
@@ -69,7 +69,7 @@ bool assert_truth(uint32_t* vals, uint32_t* truth) {
 
     if (fail) {
         std::cout << "FAILURE:" << std::endl;
-        for (int i = 0; i < 16; ++i) {
+        for (int i = 0; i < n; ++i) {
             std::cout << truth[i] << "\t" << vals[i];
             if (truth[i] != vals[i])
                 std::cout << " ***";
@@ -167,6 +167,13 @@ public:
 };
 
 
+template <typename ItemType>
+struct pospopcnt_flags_count;
+template <> struct pospopcnt_flags_count<uint8_t> { static const int value = 8; };
+template <> struct pospopcnt_flags_count<uint16_t> { static const int value = 16; };
+template <> struct pospopcnt_flags_count<uint32_t> { static const int value = 32; };
+
+
 template <typename pospopcnt_function_type, typename ItemType>
 Measurement pospopcnt_wrapper(
     pospopcnt_function_type measured_function,
@@ -176,10 +183,11 @@ Measurement pospopcnt_wrapper(
     size_t n)
 {
     static_assert(std::is_unsigned<ItemType>::value, "ItemType must be an unsigned type");
+    constexpr const int flags_count = pospopcnt_flags_count<ItemType>::value;
 
     // Set counters to 0.
-    uint32_t counters[16] = {0};
-    uint32_t flags_truth[16] = {0};
+    uint32_t counters[flags_count] = {0};
+    uint32_t flags_truth[flags_count] = {0};
 
     uint32_t cycles_low = 0, cycles_high = 0;
     uint32_t cycles_low1 = 0, cycles_high1 = 0;
@@ -235,7 +243,7 @@ asm   volatile("RDTSCP\n\t"
 
         const clockdef t2 = std::chrono::high_resolution_clock::now();
 
-        assert_truth(counters, flags_truth);
+        assert_truth(counters, flags_truth, flags_count);
 
 #define RDTSC_u64(high, low) (((uint64_t)(high) << 32)|(low))
         stats.add_record(t1, t2, RDTSC_u64(cycles_high, cycles_low), RDTSC_u64(cycles_high1, cycles_low1));
@@ -306,7 +314,7 @@ private:
     }
 };
 
-void benchmark(uint16_t* vals, const Parameters& params) {
+void benchmark(uint32_t* vals, const Parameters& params) {
     // Cycle over algorithms.
 
     MeasurementsPrinter printer(std::cout, true);
@@ -318,10 +326,11 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         auto method = get_pospopcnt_u16_method(PPOPCNT_U16_METHODS(i));
         auto reference = pospopcnt_u16_scalar_naive;
         const auto meas = pospopcnt_wrapper<pospopcnt_u16_method_type, uint16_t>(
-            method, reference, params.iterations, vals, params.items_count);
+            method, reference, params.iterations, reinterpret_cast<uint16_t*>(vals), params.items_count);
 
         printer.print(name, meas);
     }
+
     for(int i = 0; i < PPOPCNT_U8_NUMBER_METHODS; ++i) {
         const char* name = pospopcnt_u8_method_names[i];
         if (std::string(name).find(params.filter) == std::string::npos)
@@ -330,21 +339,41 @@ void benchmark(uint16_t* vals, const Parameters& params) {
         auto method = get_pospopcnt_u8_method(PPOPCNT_U8_METHODS(i));
         auto reference = pospopcnt_u8_scalar_naive;
         const auto meas = pospopcnt_wrapper<pospopcnt_u8_method_type, uint8_t>(
-            method, reference, params.iterations, (uint8_t*)vals, params.items_count);
+            method, reference, params.iterations, reinterpret_cast<uint8_t*>(vals), params.items_count);
+
+        printer.print(name, meas);
+    }
+
+    for(int i = 1; i < PPOPCNT_U32_NUMBER_METHODS; ++i) {
+        const char* name = pospopcnt_u32_method_names[i];
+        if (std::string(name).find(params.filter) == std::string::npos)
+            continue;
+
+        auto method = get_pospopcnt_u32_method(PPOPCNT_U32_METHODS(i));
+        auto reference = pospopcnt_u32_scalar_naive;
+        const auto meas = pospopcnt_wrapper<pospopcnt_u32_method_type, uint32_t>(
+            method, reference, params.iterations, vals, params.items_count);
 
         printer.print(name, meas);
     }
 }
 
 void flag_test(const Parameters& params) {
-    std::cerr << "Will test " << params.items_count << " flags. (" << params.items_count*sizeof(uint16_t) / 1024 << "kB) repeated " << params.iterations << " times." << std::endl;
+    const size_t bytes  = params.items_count * sizeof(uint8_t);
+    const size_t words  = params.items_count * sizeof(uint16_t);
+    const size_t dwords = params.items_count * sizeof(uint32_t);
+    std::ostream& out = std::cerr;
 
-    // Memory align input data.
-    uint16_t* vals = (uint16_t*)aligned_malloc(params.items_count*sizeof(uint16_t), POSPOPCNT_SIMD_ALIGNMENT);
+    out << "Will test " << params.items_count << " flags (";
+    out << "8 bit proc: " << bytes / 1024 << "kB, ";
+    out << "16 bit proc: " << words / 1024 << "kB, ";
+    out << "32-bit proc: " << dwords / 1024 << "kB) repeated " << params.iterations << " times." << std::endl;
+
+    std::unique_ptr<uint32_t, decltype(&aligned_free)> vals(
+        static_cast<uint32_t*>(aligned_malloc(dwords, POSPOPCNT_SIMD_ALIGNMENT)),
+        &aligned_free);
         
-    benchmark(vals, params);
-    // Cleanup.
-    aligned_free(vals);
+    benchmark(vals.get(), params);
 }
 
 bool parse_args(int argc, char* argv[], Parameters& params);

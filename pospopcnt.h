@@ -404,6 +404,22 @@ static const char * const pospopcnt_u8_method_names[] = {
     "pospopcnt_u8_avx512bw_harley_seal",
     "pospopcnt_u8_avx512bw_popcnt4bit",
     "pospopcnt_u8_avx512vbmi_harley_seal"};
+
+typedef enum {
+    PPOPCNT_U32_AUTO,
+    PPOPCNT_U32_SCALAR,
+    PPOPCNT_U32_SSE_HARLEY_SEAL,
+    PPOPCNT_U32_AVX2_HARLEY_SEAL,
+    //
+    PPOPCNT_U32_NUMBER_METHODS
+} PPOPCNT_U32_METHODS;
+
+static const char * const pospopcnt_u32_method_names[] = {
+    "pospopcnt_u32",
+    "pospopcnt_u32_scalar_naive",
+    "pospopcnt_u32_sse_harley_seal",
+    "pospopcnt_u32_avx2_harley_seal"
+};
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
 *  positional population count.
@@ -412,6 +428,7 @@ static const char * const pospopcnt_u8_method_names[] = {
 // Function pointer definition.
 typedef int(*pospopcnt_u16_method_type)(const uint16_t* data, uint32_t len, uint32_t* flags);
 typedef void(*pospopcnt_u8_method_type)(const uint8_t* data, size_t len, uint32_t* flags);
+typedef void(*pospopcnt_u32_method_type)(const uint32_t* data, size_t len, uint32_t* flags);
 
 /**
  * @brief Default function for computing the positional popcnt statistics.
@@ -513,11 +530,11 @@ int pospopcnt_u16_avx512vbmi_harley_seal(const uint16_t* data, uint32_t len, uin
  *
  * Example usage:
  *
- * pospopcnt_u8_method_type f = get_pospopcnt_u16_method(PPOPCNT8_AVX2_HARLEY_SEAL);
+ * pospopcnt_u8_method_type f = get_pospopcnt_u8_method(PPOPCNT_U8_AVX2_HARLEY_SEAL);
  * (*f)(data, len, flags);
  *
- * @param method                     Target function (PPOPCNT_U8_METHODS).
- * @return pospopcnt_u16_method_type Returns the target function pointer.
+ * @param method                    Target function (PPOPCNT_U8_METHODS).
+ * @return pospopcnt_u8_method_type Returns the target function pointer.
  */
 pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method);
 
@@ -562,6 +579,23 @@ void pospopcnt_u8_avx512bw_adder_forest(const uint8_t* data, size_t len, uint32_
 void pospopcnt_u8_avx512bw_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512bw_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512vbmi_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
+
+/**
+ * @brief Retrieve the target pospopcnt_u32_method pointer.
+ *
+ * Example usage:
+ *
+ * pospopcnt_u32_method_type f = get_pospopcnt_u32_method(PPOPCNT_U32_SCALAR);
+ * (*f)(data, len, flags);
+ *
+ * @param method                     Target function (PPOPCNT_U32_METHODS).
+ * @return pospopcnt_u32_method_type Returns the target function pointer.
+ */
+pospopcnt_u32_method_type get_pospopcnt_u32_method(PPOPCNT_U32_METHODS method);
+
+void pospopcnt_u32_scalar_naive(const uint32_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u32_sse_harley_seal(const uint32_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u32_avx2_harley_seal(const uint32_t* data, size_t len, uint32_t* flags);
 
 /*======   Support   ======*/
 // Wrapper for avx512*_harley_seal
