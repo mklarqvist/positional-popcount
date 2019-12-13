@@ -195,6 +195,7 @@ pospopcnt_u32_method_type get_pospopcnt_u32_method(PPOPCNT_U32_METHODS method) {
     case PPOPCNT_U32_SSE_HARLEY_SEAL: return pospopcnt_u32_sse_harley_seal;
     case PPOPCNT_U32_SSE_HARLEY_SEAL_IMPROVED: return pospopcnt_u32_sse_harley_seal_improved;
     case PPOPCNT_U32_AVX2_HARLEY_SEAL: return pospopcnt_u32_avx2_harley_seal;
+    case PPOPCNT_U32_AVX2_HARLEY_SEAL_IMPROVED: return pospopcnt_u32_avx2_harley_seal_improved;
     case PPOPCNT_U32_NUMBER_METHODS: break; /* -Wswitch */
     }
     assert(0);
@@ -2142,31 +2143,191 @@ void pospopcnt_u32_avx2_harley_seal(const uint32_t* array, size_t len, uint32_t*
     }
 
     _mm256_storeu_si256((__m256i*)buffer, v1);
-    for (size_t i = 0; i < 8; ++i) {
+    for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 32; ++j) {
             flags[j] += ((buffer[i] & (1 << j)) >> j);
         }
     }
 
     _mm256_storeu_si256((__m256i*)buffer, v2);
-    for (size_t i = 0; i < 8; ++i) {
+    for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 32; ++j) {
             flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
         }
     }
     _mm256_storeu_si256((__m256i*)buffer, v4);
-    for (size_t i = 0; i < 8; ++i) {
+    for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 32; ++j) {
             flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
         }
     }
     _mm256_storeu_si256((__m256i*)buffer, v8);
-    for (size_t i = 0; i < 8; ++i) {
+    for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 32; ++j) {
             flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
         }
     }
 }
+
+// Note: a translation of pospopcnt_u32_sse_harley_seal_improved
+void pospopcnt_u32_avx2_harley_seal_improved(const uint32_t* array, size_t len, uint32_t* flags) {
+    for (size_t i = len - (len % (16 * 8)); i < len; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    const __m256i* data = (const __m256i*)array;
+    size_t size = len / 8;
+    __m256i v1  = _mm256_setzero_si256();
+    __m256i v2  = _mm256_setzero_si256();
+    __m256i v4  = _mm256_setzero_si256();
+    __m256i v8  = _mm256_setzero_si256();
+    __m256i v16 = _mm256_setzero_si256();
+    __m256i twosA, twosB, foursA, foursB, eightsA, eightsB;
+
+    const __m256i lookup = _mm256_setr_epi8(
+        0,  4,  8, 12, 1,  5,  9, 13, 2,  6, 10, 14, 3,  7, 11, 15,
+        0,  4,  8, 12, 1,  5,  9, 13, 2,  6, 10, 14, 3,  7, 11, 15);
+
+    const uint64_t limit = size - size % 16;
+    uint64_t i = 0;
+    uint32_t buffer[8];
+    __m256i counter[8];
+
+    while (i < limit) {
+        for (int i = 0; i < 8; ++i) {
+            counter[i] = _mm256_setzero_si256();
+        }
+
+        size_t thislimit = limit;
+        if (thislimit - i >= (1 << 16))
+            thislimit = i + (1 << 16) - 1;
+
+        for (/**/; i < thislimit; i += 16) {
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  0), _mm256_loadu_si256(data + i +  1));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  2), _mm256_loadu_si256(data + i +  3));
+            pospopcnt_csa_avx2(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  4), _mm256_loadu_si256(data + i +  5));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  6), _mm256_loadu_si256(data + i +  7));
+            pospopcnt_csa_avx2(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&eightsA,&v4, foursA, foursB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  8),  _mm256_loadu_si256(data + i +  9));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 10),  _mm256_loadu_si256(data + i + 11));
+            pospopcnt_csa_avx2(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i + 12),  _mm256_loadu_si256(data + i + 13));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 14),  _mm256_loadu_si256(data + i + 15));
+            pospopcnt_csa_avx2(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&eightsB,&v4, foursA, foursB);
+
+            {
+                const __m256i t0 = _mm256_shuffle_epi8(v16, lookup);
+                const __m256i m0 = _mm256_and_si256(t0, _mm256_set1_epi8(0x55));
+                const __m256i m1 = _mm256_and_si256(_mm256_srli_epi32(t0, 1), _mm256_set1_epi8(0x55));
+
+                const __m256i s0 = _mm256_maddubs_epi16(m0, _mm256_set1_epi16(0x0101));
+                const __m256i s1 = _mm256_maddubs_epi16(m1, _mm256_set1_epi16(0x0101));
+
+                const __m256i t1 = _mm256_or_si256(s0, _mm256_slli_epi32(s1, 8));
+
+                const __m256i n0 = _mm256_and_si256(t1, _mm256_set1_epi8(0x33));
+                const __m256i n1 = _mm256_and_si256(_mm256_srli_epi32(t1, 2), _mm256_set1_epi8(0x33));
+
+                const __m256i S0 = _mm256_madd_epi16(n0, _mm256_set1_epi32(0x00010001));
+                const __m256i S1 = _mm256_madd_epi16(n1, _mm256_set1_epi32(0x00010001));
+
+                const __m256i mask = _mm256_set1_epi32(0x0000000f);
+                counter[0] = _mm256_add_epi32(counter[0], _mm256_and_si256(S0, mask));
+                counter[1] = _mm256_add_epi32(counter[1], _mm256_and_si256(_mm256_srli_epi32(S0,  4), mask));
+                counter[2] = _mm256_add_epi32(counter[2], _mm256_and_si256(_mm256_srli_epi32(S0,  8), mask));
+                counter[3] = _mm256_add_epi32(counter[3], _mm256_and_si256(_mm256_srli_epi32(S0, 12), mask));
+                counter[4] = _mm256_add_epi32(counter[4], _mm256_and_si256(S1, mask));
+                counter[5] = _mm256_add_epi32(counter[5], _mm256_and_si256(_mm256_srli_epi32(S1,  4), mask));
+                counter[6] = _mm256_add_epi32(counter[6], _mm256_and_si256(_mm256_srli_epi32(S1,  8), mask));
+                counter[7] = _mm256_add_epi32(counter[7], _mm256_and_si256(_mm256_srli_epi32(S1, 12), mask));
+            }
+
+            pospopcnt_csa_avx2(&v16,    &v8, eightsA, eightsB);
+        }
+
+        // update the counters after the last iteration
+        {
+            const __m256i t0 = _mm256_shuffle_epi8(v16, lookup);
+
+            const __m256i m0 = _mm256_and_si256(t0, _mm256_set1_epi8(0x55));
+            const __m256i m1 = _mm256_and_si256(_mm256_srli_epi32(t0, 1), _mm256_set1_epi8(0x55));
+
+            const __m256i s0 = _mm256_maddubs_epi16(m0, _mm256_set1_epi16(0x0101));
+            const __m256i s1 = _mm256_maddubs_epi16(m1, _mm256_set1_epi16(0x0101));
+
+            const __m256i t1 = _mm256_or_si256(s0, _mm256_slli_epi32(s1, 8));
+
+            const __m256i n0 = _mm256_and_si256(t1, _mm256_set1_epi8(0x33));
+            const __m256i n1 = _mm256_and_si256(_mm256_srli_epi32(t1, 2), _mm256_set1_epi8(0x33));
+
+            const __m256i S0 = _mm256_madd_epi16(n0, _mm256_set1_epi32(0x00010001));
+            const __m256i S1 = _mm256_madd_epi16(n1, _mm256_set1_epi32(0x00010001));
+
+            const __m256i mask = _mm256_set1_epi32(0x0000000f);
+            counter[0] = _mm256_add_epi32(counter[0], _mm256_and_si256(S0, mask));
+            counter[1] = _mm256_add_epi32(counter[1], _mm256_and_si256(_mm256_srli_epi32(S0,  4), mask));
+            counter[2] = _mm256_add_epi32(counter[2], _mm256_and_si256(_mm256_srli_epi32(S0,  8), mask));
+            counter[3] = _mm256_add_epi32(counter[3], _mm256_and_si256(_mm256_srli_epi32(S0, 12), mask));
+            counter[4] = _mm256_add_epi32(counter[4], _mm256_and_si256(S1, mask));
+            counter[5] = _mm256_add_epi32(counter[5], _mm256_and_si256(_mm256_srli_epi32(S1,  4), mask));
+            counter[6] = _mm256_add_epi32(counter[6], _mm256_and_si256(_mm256_srli_epi32(S1,  8), mask));
+            counter[7] = _mm256_add_epi32(counter[7], _mm256_and_si256(_mm256_srli_epi32(S1, 12), mask));
+
+#define update_flags(counterN, index) \
+            _mm256_storeu_si256((__m256i*)buffer, _mm256_slli_epi32(counterN, 4)); \
+            flags[index + 8*0] += buffer[0]; \
+            flags[index + 8*1] += buffer[1]; \
+            flags[index + 8*2] += buffer[2]; \
+            flags[index + 8*3] += buffer[3]; \
+            flags[index + 8*0] += buffer[4]; \
+            flags[index + 8*1] += buffer[5]; \
+            flags[index + 8*2] += buffer[6]; \
+            flags[index + 8*3] += buffer[7];
+
+            update_flags(counter[0], 0);
+            update_flags(counter[1], 4);
+            update_flags(counter[2], 1);
+            update_flags(counter[3], 5);
+            update_flags(counter[4], 2);
+            update_flags(counter[5], 6);
+            update_flags(counter[6], 3);
+            update_flags(counter[7], 7);
+#undef update_flags
+        }
+    }
+
+    _mm256_storeu_si256((__m256i*)buffer, v1);
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            flags[j] += ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm256_storeu_si256((__m256i*)buffer, v2);
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm256_storeu_si256((__m256i*)buffer, v4);
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm256_storeu_si256((__m256i*)buffer, v8);
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+}
+
 
 make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_lemire, pospopcnt_u16_avx2_lemire)
 make_pospopcnt_u8_from_u16(pospopcnt_u8_avx2_lemire2, pospopcnt_u16_avx2_lemire2)
@@ -2195,6 +2356,7 @@ pospopcnt_u8_stub(pospopcnt_u8_avx2_adder_forest)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_popcnt4bit)
 pospopcnt_u32_stub(pospopcnt_u32_avx2_harley_seal)
+pospopcnt_u32_stub(pospopcnt_u32_avx2_harley_seal_improved)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 3

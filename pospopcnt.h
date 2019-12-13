@@ -411,6 +411,7 @@ typedef enum {
     PPOPCNT_U32_SSE_HARLEY_SEAL,
     PPOPCNT_U32_SSE_HARLEY_SEAL_IMPROVED,
     PPOPCNT_U32_AVX2_HARLEY_SEAL,
+    PPOPCNT_U32_AVX2_HARLEY_SEAL_IMPROVED,
     //
     PPOPCNT_U32_NUMBER_METHODS
 } PPOPCNT_U32_METHODS;
@@ -420,7 +421,8 @@ static const char * const pospopcnt_u32_method_names[] = {
     "pospopcnt_u32_scalar_naive",
     "pospopcnt_u32_sse_harley_seal",
     "pospopcnt_u32_sse_harley_seal_improved",
-    "pospopcnt_u32_avx2_harley_seal"
+    "pospopcnt_u32_avx2_harley_seal",
+    "pospopcnt_u32_avx2_harley_improved"
 };
 /*-**********************************************************************
 *  This section contains the higher level functions for computing the
@@ -599,6 +601,7 @@ void pospopcnt_u32_scalar_naive(const uint32_t* data, size_t len, uint32_t* flag
 void pospopcnt_u32_sse_harley_seal(const uint32_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u32_sse_harley_seal_improved(const uint32_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u32_avx2_harley_seal(const uint32_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u32_avx2_harley_seal_improved(const uint32_t* data, size_t len, uint32_t* flags);
 
 /*======   Support   ======*/
 // Wrapper for avx512*_harley_seal
