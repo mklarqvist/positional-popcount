@@ -156,6 +156,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     case PPOPCNT_U8_SSE_SAD: return pospopcnt_u8_sse_sad;
     case PPOPCNT_U8_SSE_HARLEY_SEAL: return pospopcnt_u8_sse_harley_seal;
     case PPOPCNT_U8_SSE_POPCNT4BIT: return pospopcnt_u8_sse_popcnt4bit;
+    case PPOPCNT_U8_SSE_HORIZREDUCE: return pospopcnt_u8_sse_horizreduce;
     case PPOPCNT_U8_AVX2_POPCNT: return pospopcnt_u8_avx2_popcnt;
     case PPOPCNT_U8_AVX2: return pospopcnt_u8_avx2;
     case PPOPCNT_U8_AVX2_POPCNT_NAIVE: return pospopcnt_u8_avx2_naive_counter;
@@ -2843,6 +2844,75 @@ void pospopcnt_u8_sse_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flag
     flag_counts[5] += sse4_sum_epu64(counter_f);
     flag_counts[6] += sse4_sum_epu64(counter_g);
     flag_counts[7] += sse4_sum_epu64(counter_h);
+
+    // scalar tail loop
+    pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
+}
+
+void pospopcnt_u8_sse_horizreduce(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    const __m128i zero = _mm_setzero_si128();
+
+    __m128i counter_a = zero;
+    __m128i counter_b = zero;
+
+    int local = 0;
+    __m128i counter = zero;
+
+    for (const uint8_t* end = &data[(len & ~15)]; data != end; data += 16) {
+        // in = [a0|b0|c0|d0|e0|f0|g0|h0|a1|b1|c1|d1|e1|f1|g1|h1|...............|
+        //      |       byte 0          |       byte 1          | bytes 2 .. 15 |
+        const __m128i in = _mm_loadu_si128((__m128i*)&data[0*16]);
+
+#define reduce16(input, mask, shift, output) \
+        __m128i output; \
+        { \
+            const __m128i tmp0 = _mm_and_si128(input, mask); \
+            const __m128i tmp1 = _mm_and_si128(_mm_srli_epi32(input, shift), mask); \
+            output = _mm_hadd_epi16(tmp0, tmp1); \
+        }
+
+        // 2-bit sums
+        reduce16(in, _mm_set1_epi8(0x55), 1, t0);
+
+        // 4-bit sums
+        reduce16(t0, _mm_set1_epi8(0x33), 2, t1);
+
+        // 8-bit sums
+        reduce16(t1, _mm_set1_epi8(0x0f), 4, t2);
+
+        // 16-bit sums
+        const __m128i t3 = _mm_maddubs_epi16(t2, _mm_set1_epi16(0x0101));
+
+        counter = _mm_add_epi16(counter, t3);
+
+        local += 1;
+        if (local == 32767/16) {
+            // avoid overflows in the 16-bit counters
+            const __m128i even = _mm_and_si128(counter, _mm_set1_epi32(0x0000ffff));
+            const __m128i odd  = _mm_srli_epi32(counter, 16);
+            counter_a = _mm_add_epi32(counter_a, even);
+            counter_b = _mm_add_epi32(counter_b, odd);
+            local = 0;
+        }
+
+#undef reduce16
+    }
+
+    if (local) {
+        const __m128i even = _mm_and_si128(counter, _mm_set1_epi32(0x0000ffff));
+        const __m128i odd  = _mm_srli_epi32(counter, 16);
+        counter_a = _mm_add_epi32(counter_a, even);
+        counter_b = _mm_add_epi32(counter_b, odd);
+    }
+
+    flag_counts[0] += _mm_extract_epi32(counter_a, 0);
+    flag_counts[1] += _mm_extract_epi32(counter_b, 0);
+    flag_counts[2] += _mm_extract_epi32(counter_a, 1);
+    flag_counts[3] += _mm_extract_epi32(counter_b, 1);
+    flag_counts[4] += _mm_extract_epi32(counter_a, 2);
+    flag_counts[5] += _mm_extract_epi32(counter_b, 2);
+    flag_counts[6] += _mm_extract_epi32(counter_a, 3);
+    flag_counts[7] += _mm_extract_epi32(counter_b, 3);
 
     // scalar tail loop
     pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
