@@ -2849,70 +2849,120 @@ void pospopcnt_u8_sse_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flag
     pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
 }
 
+static
+__m128i sse4_add1_odd(__m128i a, __m128i b) {
+    const __m128i mask = _mm_set1_epi8(0x55);
+    const __m128i t0 = _mm_srli_epi32(a, 1) & mask;
+    const __m128i t1 = _mm_srli_epi32(b, 1) & mask;
+
+    return _mm_add_epi32(t0, t1);
+}
+
+static
+__m128i sse4_add1_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x55);
+    const __m128i t1 = b & _mm_set1_epi8(0x55);
+
+    return _mm_add_epi32(t0, t1);
+}
+
+static
+__m128i sse4_add2_odd(__m128i a, __m128i b) {
+    const __m128i mask = _mm_set1_epi8(0x33);
+    const __m128i t0 = _mm_srli_epi32(a, 2) & mask;
+    const __m128i t1 = _mm_srli_epi32(b, 2) & mask;
+
+    return _mm_add_epi32(t0, t1);
+}
+
+static
+__m128i sse4_add2_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x33);
+    const __m128i t1 = b & _mm_set1_epi8(0x33);
+
+    return _mm_add_epi32(t0, t1);
+}
+
+/*
+    This variant follow is a modification of pospopcnt_u8_sse_popcnt4bit.
+    Instead of merging bits into subwords we add them and then add these
+    subwords using PSDABW instructions. As a result we're getting wide
+    64-bit counters, no bookeeping needed.
+
+    The pospopcnt_u8_sse_popcnt4bit approach is still suitable for
+    AVX512 vectorized popcounts.
+*/
 void pospopcnt_u8_sse_horizreduce(const uint8_t* data, size_t len, uint32_t* flag_counts) {
     const __m128i zero = _mm_setzero_si128();
 
     __m128i counter_a = zero;
     __m128i counter_b = zero;
+    __m128i counter_c = zero;
+    __m128i counter_d = zero;
+    __m128i counter_e = zero;
+    __m128i counter_f = zero;
+    __m128i counter_g = zero;
+    __m128i counter_h = zero;
 
-    int local = 0;
-    __m128i counter = zero;
+    for (const uint8_t* end = &data[(len & ~63)]; data != end; data += 64) {
+        // r0 = [a0|b0|c0|d0|e0|f0|g0|h0]
+        // r1 = [a1|b1|c1|d1|e1|f1|g1|h1]
+        // r2 = [a2|b2|c2|d2|e2|f2|g2|h2]
+        // r3 = [a3|b3|c3|d3|e3|f3|g3|h3]
+        const __m128i r0 = _mm_loadu_si128((__m128i*)&data[0*16]);
+        const __m128i r1 = _mm_loadu_si128((__m128i*)&data[1*16]);
+        const __m128i r2 = _mm_loadu_si128((__m128i*)&data[2*16]);
+        const __m128i r3 = _mm_loadu_si128((__m128i*)&data[3*16]);
 
-    for (const uint8_t* end = &data[(len & ~15)]; data != end; data += 16) {
-        // in = [a0|b0|c0|d0|e0|f0|g0|h0|a1|b1|c1|d1|e1|f1|g1|h1|...............|
-        //      |       byte 0          |       byte 1          | bytes 2 .. 15 |
-        const __m128i in = _mm_loadu_si128((__m128i*)&data[0*16]);
+        // s0 = [a0+a1|c0+c1|e0+e1|g0+g1]
+        // s1 = [b0+b1|d0+d1|f0+f1|h0+h1]
+        // s2 = [a2+a3|c2+c3|e2+e3|g2+g3]
+        // s3 = [b2+b3|d2+d3|f2+f3|h2+h3]
+        const __m128i s0 = sse4_add1_even(r0, r1);
+        const __m128i s1 = sse4_add1_odd (r0, r1);
+        const __m128i s2 = sse4_add1_even(r2, r3);
+        const __m128i s3 = sse4_add1_odd (r2, r3);
 
-#define reduce16(input, mask, shift, output) \
-        __m128i output; \
-        { \
-            const __m128i tmp0 = _mm_and_si128(input, mask); \
-            const __m128i tmp1 = _mm_and_si128(_mm_srli_epi32(input, shift), mask); \
-            output = _mm_hadd_epi16(tmp0, tmp1); \
-        }
+        // d0 = [a0+a1+a2+a3|e0+e1+e2+e3]
+        // d1 = [b0+b1+b2+b3|f0+f1+f2+f3]
+        // d2 = [c0+c1+c2+c3|g0+g1+g2+g3]
+        // d3 = [d0+d1+d2+d3|h0+h1+h2+h3]
+        const __m128i d0 = sse4_add2_even(s0, s2);
+        const __m128i d1 = sse4_add2_even(s1, s3);
+        const __m128i d2 = sse4_add2_odd (s0, s2);
+        const __m128i d3 = sse4_add2_odd (s1, s3);
 
-        // 2-bit sums
-        reduce16(in, _mm_set1_epi8(0x55), 1, t0);
+        // popcnt for 4-bit subwords in each registers
+        const __m128i mask_lo = _mm_set1_epi8(0x0f);
+        const __m128i mask_hi = _mm_set1_epi8(0xf0);
+        // Note: counter for higher nibble have to be divided by 16
+        const __m128i sum0 = _mm_sad_epu8(d0 & mask_lo, zero);
+        const __m128i sum1 = _mm_sad_epu8(d0 & mask_hi, zero);
+        const __m128i sum2 = _mm_sad_epu8(d1 & mask_lo, zero);
+        const __m128i sum3 = _mm_sad_epu8(d1 & mask_hi, zero);
+        const __m128i sum4 = _mm_sad_epu8(d2 & mask_lo, zero);
+        const __m128i sum5 = _mm_sad_epu8(d2 & mask_hi, zero);
+        const __m128i sum6 = _mm_sad_epu8(d3 & mask_lo, zero);
+        const __m128i sum7 = _mm_sad_epu8(d3 & mask_hi, zero);
 
-        // 4-bit sums
-        reduce16(t0, _mm_set1_epi8(0x33), 2, t1);
-
-        // 8-bit sums
-        reduce16(t1, _mm_set1_epi8(0x0f), 4, t2);
-
-        // 16-bit sums
-        const __m128i t3 = _mm_maddubs_epi16(t2, _mm_set1_epi16(0x0101));
-
-        counter = _mm_add_epi16(counter, t3);
-
-        local += 1;
-        if (local == 32767/16) {
-            // avoid overflows in the 16-bit counters
-            const __m128i even = _mm_and_si128(counter, _mm_set1_epi32(0x0000ffff));
-            const __m128i odd  = _mm_srli_epi32(counter, 16);
-            counter_a = _mm_add_epi32(counter_a, even);
-            counter_b = _mm_add_epi32(counter_b, odd);
-            local = 0;
-        }
-
-#undef reduce16
+        counter_a = _mm_add_epi64(counter_a, sum0);
+        counter_b = _mm_add_epi64(counter_b, sum1);
+        counter_c = _mm_add_epi64(counter_c, sum2);
+        counter_d = _mm_add_epi64(counter_d, sum3);
+        counter_e = _mm_add_epi64(counter_e, sum4);
+        counter_f = _mm_add_epi64(counter_f, sum5);
+        counter_g = _mm_add_epi64(counter_g, sum6);
+        counter_h = _mm_add_epi64(counter_h, sum7);
     }
 
-    if (local) {
-        const __m128i even = _mm_and_si128(counter, _mm_set1_epi32(0x0000ffff));
-        const __m128i odd  = _mm_srli_epi32(counter, 16);
-        counter_a = _mm_add_epi32(counter_a, even);
-        counter_b = _mm_add_epi32(counter_b, odd);
-    }
-
-    flag_counts[0] += _mm_extract_epi32(counter_a, 0);
-    flag_counts[1] += _mm_extract_epi32(counter_b, 0);
-    flag_counts[2] += _mm_extract_epi32(counter_a, 1);
-    flag_counts[3] += _mm_extract_epi32(counter_b, 1);
-    flag_counts[4] += _mm_extract_epi32(counter_a, 2);
-    flag_counts[5] += _mm_extract_epi32(counter_b, 2);
-    flag_counts[6] += _mm_extract_epi32(counter_a, 3);
-    flag_counts[7] += _mm_extract_epi32(counter_b, 3);
+    flag_counts[0] += sse4_sum_epu64(counter_a);
+    flag_counts[1] += sse4_sum_epu64(counter_c);
+    flag_counts[2] += sse4_sum_epu64(counter_e);
+    flag_counts[3] += sse4_sum_epu64(counter_g);
+    flag_counts[4] += sse4_sum_epu64(counter_b) >> 4;
+    flag_counts[5] += sse4_sum_epu64(counter_d) >> 4;
+    flag_counts[6] += sse4_sum_epu64(counter_f) >> 4;
+    flag_counts[7] += sse4_sum_epu64(counter_h) >> 4;
 
     // scalar tail loop
     pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
@@ -3278,6 +3328,7 @@ pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll8)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll16)
 pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_sse_popcnt4bit)
+pospopcnt_u8_stub(pospopcnt_u8_sse_horizreduce)
 pospopcnt_u32_stub(pospopcnt_u32_sse_harley_seal)
 #endif
 
