@@ -332,7 +332,7 @@ void benchmark(uint32_t* vals, const Parameters& params) {
     }
 
     for(int i = 0; i < PPOPCNT_U8_NUMBER_METHODS; ++i) {
-        const char* name = pospopcnt_u8_method_names[i+1];
+        const char* name = pospopcnt_u8_method_names[i];
         if (std::string(name).find(params.filter) == std::string::npos)
             continue;
 
