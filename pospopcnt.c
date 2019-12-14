@@ -156,6 +156,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     case PPOPCNT_U8_SSE_SAD: return pospopcnt_u8_sse_sad;
     case PPOPCNT_U8_SSE_HARLEY_SEAL: return pospopcnt_u8_sse_harley_seal;
     case PPOPCNT_U8_SSE_POPCNT4BIT: return pospopcnt_u8_sse_popcnt4bit;
+    case PPOPCNT_U8_SSE_HORIZREDUCE: return pospopcnt_u8_sse_horizreduce;
     case PPOPCNT_U8_AVX2_POPCNT: return pospopcnt_u8_avx2_popcnt;
     case PPOPCNT_U8_AVX2: return pospopcnt_u8_avx2;
     case PPOPCNT_U8_AVX2_POPCNT_NAIVE: return pospopcnt_u8_avx2_naive_counter;
@@ -169,6 +170,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     case PPOPCNT_U8_AVX2_ADDER_FOREST: return pospopcnt_u8_avx2_adder_forest;
     case PPOPCNT_U8_AVX2_HARLEY_SEAL: return pospopcnt_u8_avx2_harley_seal;
     case PPOPCNT_U8_AVX2_POPCNT4BIT: return pospopcnt_u8_avx2_popcnt4bit;
+    case PPOPCNT_U8_AVX2_HORIZREDUCE: return pospopcnt_u8_avx2_horizreduce;
     case PPOPCNT_U8_AVX512: return pospopcnt_u8_avx512;
     case PPOPCNT_U8_AVX512BW_MASK32: return pospopcnt_u8_avx512bw_popcnt32_mask;
     case PPOPCNT_U8_AVX512BW_MASK64: return pospopcnt_u8_avx512bw_popcnt64_mask;
@@ -2074,6 +2076,116 @@ void pospopcnt_u8_avx2_popcnt4bit(const uint8_t* data, size_t len, uint32_t* fla
     pospopcnt_u8_scalar_naive(data, len % (4*32), flag_counts);
 }
 
+static
+__m256i avx2_add1_odd(__m256i a, __m256i b) {
+    const __m256i mask = _mm256_set1_epi8(0x55);
+    const __m256i t0 = _mm256_srli_epi32(a, 1) & mask;
+    const __m256i t1 = _mm256_srli_epi32(b, 1) & mask;
+
+    return _mm256_add_epi32(t0, t1);
+}
+
+static
+__m256i avx2_add1_even(__m256i a, __m256i b) {
+    const __m256i t0 = a & _mm256_set1_epi8(0x55);
+    const __m256i t1 = b & _mm256_set1_epi8(0x55);
+
+    return _mm256_add_epi32(t0, t1);
+}
+
+static
+__m256i avx2_add2_odd(__m256i a, __m256i b) {
+    const __m256i mask = _mm256_set1_epi8(0x33);
+    const __m256i t0 = _mm256_srli_epi32(a, 2) & mask;
+    const __m256i t1 = _mm256_srli_epi32(b, 2) & mask;
+
+    return _mm256_add_epi32(t0, t1);
+}
+
+static
+__m256i avx2_add2_even(__m256i a, __m256i b) {
+    const __m256i t0 = a & _mm256_set1_epi8(0x33);
+    const __m256i t1 = b & _mm256_set1_epi8(0x33);
+
+    return _mm256_add_epi32(t0, t1);
+}
+
+void pospopcnt_u8_avx2_horizreduce(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    const __m256i zero = _mm256_setzero_si256();
+
+    __m256i counter_a = zero;
+    __m256i counter_b = zero;
+    __m256i counter_c = zero;
+    __m256i counter_d = zero;
+    __m256i counter_e = zero;
+    __m256i counter_f = zero;
+    __m256i counter_g = zero;
+    __m256i counter_h = zero;
+
+    for (const uint8_t* end = &data[(len & ~127)]; data != end; data += 128) {
+        // r0 = [a0|b0|c0|d0|e0|f0|g0|h0]
+        // r1 = [a1|b1|c1|d1|e1|f1|g1|h1]
+        // r2 = [a2|b2|c2|d2|e2|f2|g2|h2]
+        // r3 = [a3|b3|c3|d3|e3|f3|g3|h3]
+        const __m256i r0 = _mm256_loadu_si256((__m256i*)&data[0*32]);
+        const __m256i r1 = _mm256_loadu_si256((__m256i*)&data[1*32]);
+        const __m256i r2 = _mm256_loadu_si256((__m256i*)&data[2*32]);
+        const __m256i r3 = _mm256_loadu_si256((__m256i*)&data[3*32]);
+
+        // s0 = [a0+a1|c0+c1|e0+e1|g0+g1]
+        // s1 = [b0+b1|d0+d1|f0+f1|h0+h1]
+        // s2 = [a2+a3|c2+c3|e2+e3|g2+g3]
+        // s3 = [b2+b3|d2+d3|f2+f3|h2+h3]
+        const __m256i s0 = avx2_add1_even(r0, r1);
+        const __m256i s1 = avx2_add1_odd (r0, r1);
+        const __m256i s2 = avx2_add1_even(r2, r3);
+        const __m256i s3 = avx2_add1_odd (r2, r3);
+
+        // d0 = [a0+a1+a2+a3|e0+e1+e2+e3]
+        // d1 = [b0+b1+b2+b3|f0+f1+f2+f3]
+        // d2 = [c0+c1+c2+c3|g0+g1+g2+g3]
+        // d3 = [d0+d1+d2+d3|h0+h1+h2+h3]
+        const __m256i d0 = avx2_add2_even(s0, s2);
+        const __m256i d1 = avx2_add2_even(s1, s3);
+        const __m256i d2 = avx2_add2_odd (s0, s2);
+        const __m256i d3 = avx2_add2_odd (s1, s3);
+
+        // popcnt for 4-bit subwords in each registers
+        const __m256i mask_lo = _mm256_set1_epi8(0x0f);
+        const __m256i mask_hi = _mm256_set1_epi8(0xf0);
+        // Note: counter for higher nibble have to be divided by 16
+        const __m256i sum0 = _mm256_sad_epu8(d0 & mask_lo, zero);
+        const __m256i sum1 = _mm256_sad_epu8(d0 & mask_hi, zero);
+        const __m256i sum2 = _mm256_sad_epu8(d1 & mask_lo, zero);
+        const __m256i sum3 = _mm256_sad_epu8(d1 & mask_hi, zero);
+        const __m256i sum4 = _mm256_sad_epu8(d2 & mask_lo, zero);
+        const __m256i sum5 = _mm256_sad_epu8(d2 & mask_hi, zero);
+        const __m256i sum6 = _mm256_sad_epu8(d3 & mask_lo, zero);
+        const __m256i sum7 = _mm256_sad_epu8(d3 & mask_hi, zero);
+
+        counter_a = _mm256_add_epi64(counter_a, sum0);
+        counter_b = _mm256_add_epi64(counter_b, sum1);
+        counter_c = _mm256_add_epi64(counter_c, sum2);
+        counter_d = _mm256_add_epi64(counter_d, sum3);
+        counter_e = _mm256_add_epi64(counter_e, sum4);
+        counter_f = _mm256_add_epi64(counter_f, sum5);
+        counter_g = _mm256_add_epi64(counter_g, sum6);
+        counter_h = _mm256_add_epi64(counter_h, sum7);
+    }
+
+    flag_counts[0] += avx2_sum_epu64(counter_a);
+    flag_counts[1] += avx2_sum_epu64(counter_c);
+    flag_counts[2] += avx2_sum_epu64(counter_e);
+    flag_counts[3] += avx2_sum_epu64(counter_g);
+    flag_counts[4] += avx2_sum_epu64(counter_b) >> 4;
+    flag_counts[5] += avx2_sum_epu64(counter_d) >> 4;
+    flag_counts[6] += avx2_sum_epu64(counter_f) >> 4;
+    flag_counts[7] += avx2_sum_epu64(counter_h) >> 4;
+
+    // scalar tail loop
+    pospopcnt_u8_scalar_naive(data, len % 256, flag_counts);
+}
+
 void pospopcnt_u32_avx2_harley_seal(const uint32_t* array, size_t len, uint32_t* flags) {
     for (size_t i = len - (len % (16 * 8)); i < len; ++i) {
         for (int j = 0; j < 32; ++j) {
@@ -2848,6 +2960,125 @@ void pospopcnt_u8_sse_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flag
     pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
 }
 
+static
+__m128i sse4_add1_odd(__m128i a, __m128i b) {
+    const __m128i mask = _mm_set1_epi8(0x55);
+    const __m128i t0 = _mm_srli_epi32(a, 1) & mask;
+    const __m128i t1 = _mm_srli_epi32(b, 1) & mask;
+
+    return _mm_add_epi32(t0, t1);
+}
+
+static
+__m128i sse4_add1_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x55);
+    const __m128i t1 = b & _mm_set1_epi8(0x55);
+
+    return _mm_add_epi32(t0, t1);
+}
+
+static
+__m128i sse4_add2_odd(__m128i a, __m128i b) {
+    const __m128i mask = _mm_set1_epi8(0x33);
+    const __m128i t0 = _mm_srli_epi32(a, 2) & mask;
+    const __m128i t1 = _mm_srli_epi32(b, 2) & mask;
+
+    return _mm_add_epi32(t0, t1);
+}
+
+static
+__m128i sse4_add2_even(__m128i a, __m128i b) {
+    const __m128i t0 = a & _mm_set1_epi8(0x33);
+    const __m128i t1 = b & _mm_set1_epi8(0x33);
+
+    return _mm_add_epi32(t0, t1);
+}
+
+/*
+    This variant follow is a modification of pospopcnt_u8_sse_popcnt4bit.
+    Instead of merging bits into subwords we add them and then add these
+    subwords using PSDABW instructions. As a result we're getting wide
+    64-bit counters, no bookeeping needed.
+
+    The pospopcnt_u8_sse_popcnt4bit approach is still suitable for
+    AVX512 vectorized popcounts.
+*/
+void pospopcnt_u8_sse_horizreduce(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    const __m128i zero = _mm_setzero_si128();
+
+    __m128i counter_a = zero;
+    __m128i counter_b = zero;
+    __m128i counter_c = zero;
+    __m128i counter_d = zero;
+    __m128i counter_e = zero;
+    __m128i counter_f = zero;
+    __m128i counter_g = zero;
+    __m128i counter_h = zero;
+
+    for (const uint8_t* end = &data[(len & ~63)]; data != end; data += 64) {
+        // r0 = [a0|b0|c0|d0|e0|f0|g0|h0]
+        // r1 = [a1|b1|c1|d1|e1|f1|g1|h1]
+        // r2 = [a2|b2|c2|d2|e2|f2|g2|h2]
+        // r3 = [a3|b3|c3|d3|e3|f3|g3|h3]
+        const __m128i r0 = _mm_loadu_si128((__m128i*)&data[0*16]);
+        const __m128i r1 = _mm_loadu_si128((__m128i*)&data[1*16]);
+        const __m128i r2 = _mm_loadu_si128((__m128i*)&data[2*16]);
+        const __m128i r3 = _mm_loadu_si128((__m128i*)&data[3*16]);
+
+        // s0 = [a0+a1|c0+c1|e0+e1|g0+g1]
+        // s1 = [b0+b1|d0+d1|f0+f1|h0+h1]
+        // s2 = [a2+a3|c2+c3|e2+e3|g2+g3]
+        // s3 = [b2+b3|d2+d3|f2+f3|h2+h3]
+        const __m128i s0 = sse4_add1_even(r0, r1);
+        const __m128i s1 = sse4_add1_odd (r0, r1);
+        const __m128i s2 = sse4_add1_even(r2, r3);
+        const __m128i s3 = sse4_add1_odd (r2, r3);
+
+        // d0 = [a0+a1+a2+a3|e0+e1+e2+e3]
+        // d1 = [b0+b1+b2+b3|f0+f1+f2+f3]
+        // d2 = [c0+c1+c2+c3|g0+g1+g2+g3]
+        // d3 = [d0+d1+d2+d3|h0+h1+h2+h3]
+        const __m128i d0 = sse4_add2_even(s0, s2);
+        const __m128i d1 = sse4_add2_even(s1, s3);
+        const __m128i d2 = sse4_add2_odd (s0, s2);
+        const __m128i d3 = sse4_add2_odd (s1, s3);
+
+        // popcnt for 4-bit subwords in each registers
+        const __m128i mask_lo = _mm_set1_epi8(0x0f);
+        const __m128i mask_hi = _mm_set1_epi8(0xf0);
+        // Note: counter for higher nibble have to be divided by 16
+        const __m128i sum0 = _mm_sad_epu8(d0 & mask_lo, zero);
+        const __m128i sum1 = _mm_sad_epu8(d0 & mask_hi, zero);
+        const __m128i sum2 = _mm_sad_epu8(d1 & mask_lo, zero);
+        const __m128i sum3 = _mm_sad_epu8(d1 & mask_hi, zero);
+        const __m128i sum4 = _mm_sad_epu8(d2 & mask_lo, zero);
+        const __m128i sum5 = _mm_sad_epu8(d2 & mask_hi, zero);
+        const __m128i sum6 = _mm_sad_epu8(d3 & mask_lo, zero);
+        const __m128i sum7 = _mm_sad_epu8(d3 & mask_hi, zero);
+
+        counter_a = _mm_add_epi64(counter_a, sum0);
+        counter_b = _mm_add_epi64(counter_b, sum1);
+        counter_c = _mm_add_epi64(counter_c, sum2);
+        counter_d = _mm_add_epi64(counter_d, sum3);
+        counter_e = _mm_add_epi64(counter_e, sum4);
+        counter_f = _mm_add_epi64(counter_f, sum5);
+        counter_g = _mm_add_epi64(counter_g, sum6);
+        counter_h = _mm_add_epi64(counter_h, sum7);
+    }
+
+    flag_counts[0] += sse4_sum_epu64(counter_a);
+    flag_counts[1] += sse4_sum_epu64(counter_c);
+    flag_counts[2] += sse4_sum_epu64(counter_e);
+    flag_counts[3] += sse4_sum_epu64(counter_g);
+    flag_counts[4] += sse4_sum_epu64(counter_b) >> 4;
+    flag_counts[5] += sse4_sum_epu64(counter_d) >> 4;
+    flag_counts[6] += sse4_sum_epu64(counter_f) >> 4;
+    flag_counts[7] += sse4_sum_epu64(counter_h) >> 4;
+
+    // scalar tail loop
+    pospopcnt_u8_scalar_naive(data, len % 64, flag_counts);
+}
+
 void pospopcnt_u32_sse_harley_seal(const uint32_t* array, size_t len, uint32_t* flags) {
     for (size_t i = len - (len % (16 * 4)); i < len; ++i) {
         for (int j = 0; j < 32; ++j) {
@@ -3208,6 +3439,7 @@ pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll8)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll16)
 pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_sse_popcnt4bit)
+pospopcnt_u8_stub(pospopcnt_u8_sse_horizreduce)
 pospopcnt_u32_stub(pospopcnt_u32_sse_harley_seal)
 #endif
 

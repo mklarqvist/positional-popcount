@@ -332,6 +332,7 @@ typedef enum {
     PPOPCNT_U8_SSE_SAD,
     PPOPCNT_U8_SSE_HARLEY_SEAL,
     PPOPCNT_U8_SSE_POPCNT4BIT,
+    PPOPCNT_U8_SSE_HORIZREDUCE,
     PPOPCNT_U8_AVX2_POPCNT,
     PPOPCNT_U8_AVX2,
     PPOPCNT_U8_AVX2_POPCNT_NAIVE,
@@ -345,6 +346,7 @@ typedef enum {
     PPOPCNT_U8_AVX2_ADDER_FOREST,
     PPOPCNT_U8_AVX2_HARLEY_SEAL,
     PPOPCNT_U8_AVX2_POPCNT4BIT,
+    PPOPCNT_U8_AVX2_HORIZREDUCE,
     PPOPCNT_U8_AVX512,
     PPOPCNT_U8_AVX512BW_MASK32,
     PPOPCNT_U8_AVX512BW_MASK64,
@@ -378,6 +380,7 @@ static const char * const pospopcnt_u8_method_names[] = {
     "pospopcnt_u8_sse2_sad",
     "pospopcnt_u8_sse2_harley_seal",
     "pospopcnt_u8_sse_popcnt4bit",
+    "pospopcnt_u8_sse_horizreduce",
     "pospopcnt_u8_avx2_popcnt",
     "pospopcnt_u8_avx2",
     "pospopcnt_u8_avx2_naive_counter",
@@ -391,6 +394,7 @@ static const char * const pospopcnt_u8_method_names[] = {
     "pospopcnt_u8_avx2_adder_forest",
     "pospopcnt_u8_avx2_harley_seal",
     "pospopcnt_u8_avx2_popcnt4bit",
+    "pospopcnt_u8_avx2_horizreduce",
     "pospopcnt_u8_avx512",
     "pospopcnt_u8_avx512bw_popcnt32_mask",
     "pospopcnt_u8_avx512bw_popcnt64_mask",
@@ -556,6 +560,7 @@ void pospopcnt_u8_sse_blend_popcnt_unroll16(const uint8_t* data, size_t len, uin
 void pospopcnt_u8_sse_sad(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_sse_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_sse_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_sse_horizreduce(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx2_popcnt(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx2(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx2_naive_counter(const uint8_t* data, size_t len, uint32_t* flags);
@@ -570,6 +575,7 @@ void pospopcnt_u8_avx2_blend_popcnt_unroll8(const uint8_t* data, size_t len, uin
 void pospopcnt_u8_avx2_blend_popcnt_unroll16(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx2_harley_seal(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx2_popcnt4bit(const uint8_t* data, size_t len, uint32_t* flags);
+void pospopcnt_u8_avx2_horizreduce(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512bw_popcnt32_mask(const uint8_t* data, size_t len, uint32_t* flags);
 void pospopcnt_u8_avx512bw_popcnt64_mask(const uint8_t* data, size_t len, uint32_t* flags);
