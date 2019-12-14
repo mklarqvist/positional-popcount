@@ -248,6 +248,7 @@ typedef enum {
     PPOPCNT_SSE_BLEND_POPCNT_UR16,
     PPOPCNT_SSE_SAD,
     PPOPCNT_SSE_HARLEY_SEAL,
+    PPOPCNT_SSE_HARLEY_SEAL_IMPROVED,
     PPOPCNT_AVX2_POPCNT,
     PPOPCNT_AVX2,
     PPOPCNT_AVX2_POPCNT_NAIVE,
@@ -291,6 +292,7 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_sse_blend_popcnt_unroll16",
     "pospopcnt_u16_sse_sad",
     "pospopcnt_u16_sse_harley_seal",
+    "pospopcnt_u16_sse_harley_seal_improved",
     "pospopcnt_u16_avx2_popcnt",
     "pospopcnt_u16_avx2",
     "pospopcnt_u16_avx2_naive_counter",
@@ -507,6 +509,7 @@ int pospopcnt_u16_sse_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, u
 int pospopcnt_u16_sse_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_sad(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_sse_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_sse_harley_seal_improved(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_popcnt(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_naive_counter(const uint16_t* data, uint32_t len, uint32_t* flags);

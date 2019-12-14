@@ -109,6 +109,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_SSE_BLEND_POPCNT_UR16): return pospopcnt_u16_sse_blend_popcnt_unroll16;
     case(PPOPCNT_SSE_SAD): return pospopcnt_u16_sse_sad;
     case(PPOPCNT_SSE_HARLEY_SEAL): return pospopcnt_u16_sse_harley_seal;
+    case(PPOPCNT_SSE_HARLEY_SEAL_IMPROVED): return pospopcnt_u16_sse_harley_seal_improved;
     case(PPOPCNT_AVX2_POPCNT): return pospopcnt_u16_avx2_popcnt;
     case(PPOPCNT_AVX2): return pospopcnt_u16_avx2;
     case(PPOPCNT_AVX2_POPCNT_NAIVE): return pospopcnt_u16_avx2_naive_counter;
@@ -2781,6 +2782,165 @@ int pospopcnt_u16_sse_harley_seal(const uint16_t* array, uint32_t len, uint32_t*
             }
         }
     }
+
+    _mm_storeu_si128((__m128i*)buffer, v1);
+    for (size_t i = 0; i < 8; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm_storeu_si128((__m128i*)buffer, v2);
+    for (size_t i = 0; i < 8; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm_storeu_si128((__m128i*)buffer, v4);
+    for (size_t i = 0; i < 8; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm_storeu_si128((__m128i*)buffer, v8);
+    for (size_t i = 0; i < 8; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    return 0;
+}
+
+/*
+   This version differs from pospopcnt_u16_sse_harley_seal with the step of
+   updating v16 vector (the vector of MSBs). We horizontally reduce all bits
+   from input and end up with sixteen 8-bit sums.  The sums are then used to
+   update the auxiliary counters.
+
+   In the original algorithm update is done in a simple loop. The loop's body
+   consists 3 instructions and there're 16 iterations, total 48 instructions.
+   In the improved version we have 23 instructions (~2 fold).
+
+   Additionally, the number of auxiliary counters was reduced from 16 to 4 (4 fold).
+*/
+int pospopcnt_u16_sse_harley_seal_improved(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    for (uint32_t i = len - (len % (16 * 8)); i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    const __m128i* data = (const __m128i*)array;
+    size_t size = len / 8;
+    __m128i v1  = _mm_setzero_si128();
+    __m128i v2  = _mm_setzero_si128();
+    __m128i v4  = _mm_setzero_si128();
+    __m128i v8  = _mm_setzero_si128();
+    __m128i v16 = _mm_setzero_si128();
+    __m128i twosA, twosB, foursA, foursB, eightsA, eightsB;
+
+    const uint64_t limit = size - size % 16;
+    uint64_t i = 0;
+    uint16_t buffer[8];
+    __m128i counter[4];
+    for (size_t i = 0; i < 4; ++i) {
+        counter[i] = _mm_setzero_si128();
+    }
+
+    while (i < limit) {
+
+        size_t thislimit = limit;
+        if (thislimit - i >= (1 << 16))
+            thislimit = i + (1 << 16) - 1;
+
+        for (/**/; i < thislimit; i += 16) {
+#define horizreduce(input, mask, shift, output) \
+        __m128i output; \
+        { \
+            const __m128i tmp0 = _mm_and_si128(input, mask); \
+            const __m128i tmp1 = _mm_and_si128(_mm_srli_epi32(input, shift), mask); \
+            output = _mm_hadd_epi16(tmp0, tmp1); \
+        }
+
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  0), _mm_loadu_si128(data + i +  1));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i +  2), _mm_loadu_si128(data + i +  3));
+            pospopcnt_csa_sse(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  4), _mm_loadu_si128(data + i +  5));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i +  6), _mm_loadu_si128(data + i +  7));
+            pospopcnt_csa_sse(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&eightsA,&v4, foursA, foursB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i +  8),  _mm_loadu_si128(data + i +  9));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i + 10),  _mm_loadu_si128(data + i + 11));
+            pospopcnt_csa_sse(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&twosA,  &v1, _mm_loadu_si128(data + i + 12),  _mm_loadu_si128(data + i + 13));
+            pospopcnt_csa_sse(&twosB,  &v1, _mm_loadu_si128(data + i + 14),  _mm_loadu_si128(data + i + 15));
+            pospopcnt_csa_sse(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_sse(&eightsB,&v4, foursA, foursB);
+            {
+                horizreduce(v16, _mm_set1_epi8(0x55), 1, t0); // t0 = 2-bit counters
+                horizreduce(t0,  _mm_set1_epi8(0x33), 2, t1); // t1 = 4-bit counters
+                horizreduce(t1,  _mm_set1_epi8(0x0f), 4, t2); // t2 = 8-bit counters
+
+                const __m128i mask_byte0 = _mm_set1_epi32(0x000000ff);
+                counter[0] = _mm_add_epi32(counter[0], t2 & mask_byte0);
+                counter[1] = _mm_add_epi32(counter[1], _mm_srli_epi32(t2, 1*8) & mask_byte0);
+                counter[2] = _mm_add_epi32(counter[2], _mm_srli_epi32(t2, 2*8) & mask_byte0);
+                counter[3] = _mm_add_epi32(counter[3], _mm_srli_epi32(t2, 3*8) & mask_byte0);
+            }
+            pospopcnt_csa_sse(&v16, &v8, eightsA, eightsB);
+        } // for
+
+        // update the counters after the last iteration
+        {
+            horizreduce(v16, _mm_set1_epi8(0x55), 1, t0);
+            horizreduce(t0,  _mm_set1_epi8(0x33), 2, t1);
+            horizreduce(t1,  _mm_set1_epi8(0x0f), 4, t2);
+
+            const __m128i mask_byte0 = _mm_set1_epi32(0x000000ff);
+            counter[0] = _mm_add_epi32(counter[0], t2 & mask_byte0);
+            counter[1] = _mm_add_epi32(counter[1], _mm_srli_epi32(t2, 1*8) & mask_byte0);
+            counter[2] = _mm_add_epi32(counter[2], _mm_srli_epi32(t2, 2*8) & mask_byte0);
+            counter[3] = _mm_add_epi32(counter[3], _mm_srli_epi32(t2, 3*8) & mask_byte0);
+        }
+    }
+
+    counter[0] = _mm_slli_epi32(counter[0], 4); // * 16
+    counter[1] = _mm_slli_epi32(counter[1], 4); // * 16
+    counter[2] = _mm_slli_epi32(counter[2], 4); // * 16
+    counter[3] = _mm_slli_epi32(counter[3], 4); // * 16
+
+#if 0 // Left to illustrate the mapping between auxiliary counters and flags.
+    flags[0] += _mm_extract_epi32(counter[0], 0);
+    flags[1] += _mm_extract_epi32(counter[2], 0);
+    flags[2] += _mm_extract_epi32(counter[0], 1);
+    flags[3] += _mm_extract_epi32(counter[2], 1);
+    flags[4] += _mm_extract_epi32(counter[0], 2);
+    flags[5] += _mm_extract_epi32(counter[2], 2);
+    flags[6] += _mm_extract_epi32(counter[0], 3);
+    flags[7] += _mm_extract_epi32(counter[2], 3);
+
+    flags[8]  += _mm_extract_epi32(counter[1], 0);
+    flags[9]  += _mm_extract_epi32(counter[3], 0);
+    flags[10] += _mm_extract_epi32(counter[1], 1);
+    flags[11] += _mm_extract_epi32(counter[3], 1);
+    flags[12] += _mm_extract_epi32(counter[1], 2);
+    flags[13] += _mm_extract_epi32(counter[3], 2);
+    flags[14] += _mm_extract_epi32(counter[1], 3);
+    flags[15] += _mm_extract_epi32(counter[3], 3);
+#else
+#define update_flags(offset, counters)                  \
+    {                                                   \
+        __m128i* ptr = (__m128i*)(flags + offset);      \
+        const __m128i f = _mm_loadu_si128(ptr);         \
+        const __m128i s = _mm_add_epi32(f, counters);   \
+        _mm_storeu_si128(ptr, s);                       \
+    }
+    update_flags(0  /*  0 ..  3 */, _mm_unpacklo_epi32(counter[0], counter[2]));
+    update_flags(4  /*  4 ..  7 */, _mm_unpackhi_epi32(counter[0], counter[2]));
+    update_flags(8  /*  8 .. 11 */, _mm_unpacklo_epi32(counter[1], counter[3]));
+    update_flags(12 /* 12 .. 15 */, _mm_unpackhi_epi32(counter[1], counter[3]));
+#undef update_flags
+#endif
 
     _mm_storeu_si128((__m128i*)buffer, v1);
     for (size_t i = 0; i < 8; ++i) {
