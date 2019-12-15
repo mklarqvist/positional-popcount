@@ -261,6 +261,7 @@ typedef enum {
     PPOPCNT_AVX2_BLEND_POPCNT_UR16,
     PPOPCNT_AVX2_ADDER_FOREST,
     PPOPCNT_AVX2_HARLEY_SEAL,
+    PPOPCNT_AVX2_HARLEY_SEAL_IMPROVED,
     PPOPCNT_AVX512,
     PPOPCNT_AVX512BW_MASK32,
     PPOPCNT_AVX512BW_MASK64,
@@ -305,6 +306,7 @@ static const char * const pospopcnt_u16_method_names[] = {
     "pospopcnt_u16_avx2_blend_popcnt_unroll16",
     "pospopcnt_u16_avx2_adder_forest",
     "pospopcnt_u16_avx2_harley_seal",
+    "pospopcnt_u16_avx2_harley_seal_improved",
     "pospopcnt_u16_avx512",
     "pospopcnt_u16_avx512bw_popcnt32_mask",
     "pospopcnt_u16_avx512bw_popcnt64_mask",
@@ -523,6 +525,7 @@ int pospopcnt_u16_avx2_blend_popcnt_unroll4(const uint16_t* data, uint32_t len, 
 int pospopcnt_u16_avx2_blend_popcnt_unroll8(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_blend_popcnt_unroll16(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx2_harley_seal(const uint16_t* data, uint32_t len, uint32_t* flags);
+int pospopcnt_u16_avx2_harley_seal_improved(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512bw_popcnt32_mask(const uint16_t* data, uint32_t len, uint32_t* flags);
 int pospopcnt_u16_avx512bw_popcnt64_mask(const uint16_t* data, uint32_t len, uint32_t* flags);

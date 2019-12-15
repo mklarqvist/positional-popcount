@@ -48,49 +48,8 @@ int pospopcnt_u16(const uint16_t* data, uint32_t len, uint32_t* flags) {
 }
 
 int pospopcnt_u16_method(PPOPCNT_U16_METHODS method, const uint16_t* data, uint32_t len, uint32_t* flags) {
-    switch(method) {
-    case(PPOPCNT_AUTO): return pospopcnt_u16(data, len, flags);
-    case(PPOPCNT_SCALAR): return pospopcnt_u16_scalar_naive(data, len, flags);
-    case(PPOPCNT_SCALAR_NOSIMD): return pospopcnt_u16_scalar_naive_nosimd(data, len, flags);
-    case(PPOPCNT_SCALAR_PARTITION): return pospopcnt_u16_scalar_partition(data, len, flags);
-    case(PPOPCNT_SCALAR_HIST1X4): return pospopcnt_u16_scalar_hist1x4(data, len, flags);
-    case(PPOPCNT_SCALAR_UMUL128): return pospopcnt_u16_scalar_umul128(data, len, flags);
-    case(PPOPCNT_SCALAR_UMUL128_UR2): return pospopcnt_u16_scalar_umul128_unroll2(data, len, flags);
-    case(PPOPCNT_SSE_SINGLE): return pospopcnt_u16_sse_single(data, len, flags);
-    case(PPOPCNT_SSE_BLEND_POPCNT): return pospopcnt_u16_sse_blend_popcnt(data, len, flags);
-    case(PPOPCNT_SSE_BLEND_POPCNT_UR4): return pospopcnt_u16_sse_blend_popcnt_unroll4(data, len, flags);
-    case(PPOPCNT_SSE_BLEND_POPCNT_UR8): return pospopcnt_u16_sse_blend_popcnt_unroll8(data, len, flags);
-    case(PPOPCNT_SSE_BLEND_POPCNT_UR16): return pospopcnt_u16_sse_blend_popcnt_unroll16(data, len, flags);
-    case(PPOPCNT_SSE_SAD): return pospopcnt_u16_sse_sad(data, len, flags);
-    case(PPOPCNT_SSE_HARLEY_SEAL): return pospopcnt_u16_sse_harley_seal(data, len, flags);
-    case(PPOPCNT_AVX2_POPCNT): return pospopcnt_u16_avx2_popcnt(data, len, flags);
-    case(PPOPCNT_AVX2): return pospopcnt_u16_avx2(data, len, flags);
-    case(PPOPCNT_AVX2_POPCNT_NAIVE): return pospopcnt_u16_avx2_naive_counter(data, len, flags);
-    case(PPOPCNT_AVX2_SINGLE): return pospopcnt_u16_avx2_single(data, len, flags);
-    case(PPOPCNT_AVX2_LEMIRE1): return pospopcnt_u16_avx2_lemire(data, len, flags);
-    case(PPOPCNT_AVX2_LEMIRE2): return pospopcnt_u16_avx2_lemire2(data, len, flags);
-    case(PPOPCNT_AVX2_BLEND_POPCNT): return pospopcnt_u16_avx2_blend_popcnt(data, len, flags);
-    case(PPOPCNT_AVX2_BLEND_POPCNT_UR4): return pospopcnt_u16_avx2_blend_popcnt_unroll4(data, len, flags);
-    case(PPOPCNT_AVX2_BLEND_POPCNT_UR8): return pospopcnt_u16_avx2_blend_popcnt_unroll8(data, len, flags);
-    case(PPOPCNT_AVX2_BLEND_POPCNT_UR16): return pospopcnt_u16_avx2_blend_popcnt_unroll16(data, len, flags);
-    case(PPOPCNT_AVX2_ADDER_FOREST): return pospopcnt_u16_avx2_adder_forest(data, len, flags);
-    case(PPOPCNT_AVX2_HARLEY_SEAL): return pospopcnt_u16_avx2_harley_seal(data, len, flags);
-    case(PPOPCNT_AVX512): return pospopcnt_u16_avx512(data, len, flags);
-    case(PPOPCNT_AVX512BW_MASK32): return pospopcnt_u16_avx512bw_popcnt32_mask(data, len, flags);
-    case(PPOPCNT_AVX512BW_MASK64): return pospopcnt_u16_avx512bw_popcnt64_mask(data, len, flags);
-    case(PPOPCNT_AVX512_MASKED_OPS): return pospopcnt_u16_avx512_masked_ops(data, len, flags);
-    case(PPOPCNT_AVX512_POPCNT): return pospopcnt_u16_avx512_popcnt(data, len, flags);
-    case(PPOPCNT_AVX512BW_BLEND_POPCNT): return pospopcnt_u16_avx512bw_blend_popcnt(data, len, flags);
-    case(PPOPCNT_AVX512BW_BLEND_POPCNT_UR4): return pospopcnt_u16_avx512bw_blend_popcnt_unroll4(data, len, flags);
-    case(PPOPCNT_AVX512BW_BLEND_POPCNT_UR8): return pospopcnt_u16_avx512bw_blend_popcnt_unroll8(data, len, flags);
-    case(PPOPCNT_AVX512BW_ADDER_FOREST): return pospopcnt_u16_avx512bw_adder_forest(data, len, flags);
-    case(PPOPCNT_AVX512_MULA2): return pospopcnt_u16_avx512_mula2(data, len, flags);
-    case(PPOPCNT_AVX512BW_HARLEY_SEAL): return pospopcnt_u16_avx512bw_harley_seal(data, len, flags);
-    case(PPOPCNT_AVX512VBMI_HARLEY_SEAL): return pospopcnt_u16_avx512vbmi_harley_seal(data, len, flags);
-    case PPOPCNT_NUMBER_METHODS: break; /* -Wswitch */
-    }
-    assert(0);
-    return 0; /* unreachable, but some compilers complain without it */
+    pospopcnt_u16_method_type pospopcnt_u16 = get_pospopcnt_u16_method(method);
+    return pospopcnt_u16(data, len, flags);
 }
 
 pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
@@ -122,6 +81,7 @@ pospopcnt_u16_method_type get_pospopcnt_u16_method(PPOPCNT_U16_METHODS method) {
     case(PPOPCNT_AVX2_BLEND_POPCNT_UR16): return pospopcnt_u16_avx2_blend_popcnt_unroll16;
     case(PPOPCNT_AVX2_ADDER_FOREST): return pospopcnt_u16_avx2_adder_forest;
     case(PPOPCNT_AVX2_HARLEY_SEAL): return pospopcnt_u16_avx2_harley_seal;
+    case(PPOPCNT_AVX2_HARLEY_SEAL_IMPROVED): return pospopcnt_u16_avx2_harley_seal_improved;
     case(PPOPCNT_AVX512): return pospopcnt_u16_avx512;
     case(PPOPCNT_AVX512BW_MASK32): return pospopcnt_u16_avx512bw_popcnt32_mask;
     case(PPOPCNT_AVX512BW_MASK64): return pospopcnt_u16_avx512bw_popcnt64_mask;
@@ -1714,6 +1674,140 @@ int pospopcnt_u16_avx2_harley_seal(const uint16_t* array, uint32_t len, uint32_t
     return 0;
 }
 
+int pospopcnt_u16_avx2_harley_seal_improved(const uint16_t* array, uint32_t len, uint32_t* flags) {
+    for (uint32_t i = len - (len % (16 * 16)); i < len; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((array[i] & (1 << j)) >> j);
+        }
+    }
+
+    const __m256i* data = (const __m256i*)array;
+    size_t size = len / 16;
+    __m256i v1  = _mm256_setzero_si256();
+    __m256i v2  = _mm256_setzero_si256();
+    __m256i v4  = _mm256_setzero_si256();
+    __m256i v8  = _mm256_setzero_si256();
+    __m256i v16 = _mm256_setzero_si256();
+    __m256i twosA, twosB, foursA, foursB, eightsA, eightsB;
+
+    const uint64_t limit = size - size % 16;
+    uint64_t i = 0;
+    uint16_t buffer[16];
+    __m256i counter[4];
+    for (size_t i = 0; i < 4; ++i) {
+        counter[i] = _mm256_setzero_si256();
+    }
+
+    while (i < limit) {
+
+        size_t thislimit = limit;
+        if (thislimit - i >= (1 << 16))
+            thislimit = i + (1 << 16) - 1;
+
+        for (/**/; i < thislimit; i += 16) {
+#define horizreduce(input, mask, shift, output) \
+        __m256i output; \
+        { \
+            const __m256i tmp0 = _mm256_and_si256(input, mask); \
+            const __m256i tmp1 = _mm256_and_si256(_mm256_srli_epi32(input, shift), mask); \
+            output = _mm256_hadd_epi16(tmp0, tmp1); \
+        }
+
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  0), _mm256_loadu_si256(data + i +  1));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  2), _mm256_loadu_si256(data + i +  3));
+            pospopcnt_csa_avx2(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  4), _mm256_loadu_si256(data + i +  5));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i +  6), _mm256_loadu_si256(data + i +  7));
+            pospopcnt_csa_avx2(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&eightsA,&v4, foursA, foursB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i +  8),  _mm256_loadu_si256(data + i +  9));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 10),  _mm256_loadu_si256(data + i + 11));
+            pospopcnt_csa_avx2(&foursA, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&twosA,  &v1, _mm256_loadu_si256(data + i + 12),  _mm256_loadu_si256(data + i + 13));
+            pospopcnt_csa_avx2(&twosB,  &v1, _mm256_loadu_si256(data + i + 14),  _mm256_loadu_si256(data + i + 15));
+            pospopcnt_csa_avx2(&foursB, &v2, twosA, twosB);
+            pospopcnt_csa_avx2(&eightsB,&v4, foursA, foursB);
+            {
+                horizreduce(v16, _mm256_set1_epi8(0x55), 1, t0); // t0 = 2-bit counters
+                horizreduce(t0,  _mm256_set1_epi8(0x33), 2, t1); // t1 = 4-bit counters
+                horizreduce(t1,  _mm256_set1_epi8(0x0f), 4, t2); // t2 = 8-bit counters
+
+                const __m256i mask_byte0 = _mm256_set1_epi32(0x000000ff);
+                counter[0] = _mm256_add_epi32(counter[0], t2 & mask_byte0);
+                counter[1] = _mm256_add_epi32(counter[1], _mm256_srli_epi32(t2, 1*8) & mask_byte0);
+                counter[2] = _mm256_add_epi32(counter[2], _mm256_srli_epi32(t2, 2*8) & mask_byte0);
+                counter[3] = _mm256_add_epi32(counter[3], _mm256_srli_epi32(t2, 3*8) & mask_byte0);
+            }
+            pospopcnt_csa_avx2(&v16, &v8, eightsA, eightsB);
+        } // for
+
+        // update the counters after the last iteration
+        {
+            horizreduce(v16, _mm256_set1_epi8(0x55), 1, t0);
+            horizreduce(t0,  _mm256_set1_epi8(0x33), 2, t1);
+            horizreduce(t1,  _mm256_set1_epi8(0x0f), 4, t2);
+
+            const __m256i mask_byte0 = _mm256_set1_epi32(0x000000ff);
+            counter[0] = _mm256_add_epi32(counter[0], t2 & mask_byte0);
+            counter[1] = _mm256_add_epi32(counter[1], _mm256_srli_epi32(t2, 1*8) & mask_byte0);
+            counter[2] = _mm256_add_epi32(counter[2], _mm256_srli_epi32(t2, 2*8) & mask_byte0);
+            counter[3] = _mm256_add_epi32(counter[3], _mm256_srli_epi32(t2, 3*8) & mask_byte0);
+        }
+#undef horizreduce
+    }
+
+    counter[0] = _mm256_slli_epi32(counter[0], 4); // * 16
+    counter[1] = _mm256_slli_epi32(counter[1], 4); // * 16
+    counter[2] = _mm256_slli_epi32(counter[2], 4); // * 16
+    counter[3] = _mm256_slli_epi32(counter[3], 4); // * 16
+
+    flags[0] += _mm256_extract_epi32(counter[0], 0) + _mm256_extract_epi32(counter[0], 4);
+    flags[1] += _mm256_extract_epi32(counter[2], 0) + _mm256_extract_epi32(counter[2], 4);
+    flags[2] += _mm256_extract_epi32(counter[0], 1) + _mm256_extract_epi32(counter[0], 5);
+    flags[3] += _mm256_extract_epi32(counter[2], 1) + _mm256_extract_epi32(counter[2], 5);
+    flags[4] += _mm256_extract_epi32(counter[0], 2) + _mm256_extract_epi32(counter[0], 6);
+    flags[5] += _mm256_extract_epi32(counter[2], 2) + _mm256_extract_epi32(counter[2], 6);
+    flags[6] += _mm256_extract_epi32(counter[0], 3) + _mm256_extract_epi32(counter[0], 7);
+    flags[7] += _mm256_extract_epi32(counter[2], 3) + _mm256_extract_epi32(counter[2], 7);
+
+    flags[8]  += _mm256_extract_epi32(counter[1], 0) + _mm256_extract_epi32(counter[1], 4);
+    flags[9]  += _mm256_extract_epi32(counter[3], 0) + _mm256_extract_epi32(counter[3], 4);
+    flags[10] += _mm256_extract_epi32(counter[1], 1) + _mm256_extract_epi32(counter[1], 5);
+    flags[11] += _mm256_extract_epi32(counter[3], 1) + _mm256_extract_epi32(counter[3], 5);
+    flags[12] += _mm256_extract_epi32(counter[1], 2) + _mm256_extract_epi32(counter[1], 6);
+    flags[13] += _mm256_extract_epi32(counter[3], 2) + _mm256_extract_epi32(counter[3], 6);
+    flags[14] += _mm256_extract_epi32(counter[1], 3) + _mm256_extract_epi32(counter[1], 7);
+    flags[15] += _mm256_extract_epi32(counter[3], 3) + _mm256_extract_epi32(counter[3], 7);
+
+    _mm256_storeu_si256((__m256i*)buffer, v1);
+    for (size_t i = 0; i < 16; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+
+    _mm256_storeu_si256((__m256i*)buffer, v2);
+    for (size_t i = 0; i < 16; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += 2 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm256_storeu_si256((__m256i*)buffer, v4);
+    for (size_t i = 0; i < 16; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += 4 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    _mm256_storeu_si256((__m256i*)buffer, v8);
+    for (size_t i = 0; i < 16; ++i) {
+        for (int j = 0; j < 16; ++j) {
+            flags[j] += 8 * ((buffer[i] & (1 << j)) >> j);
+        }
+    }
+    return 0;
+}
+
+
 int pospopcnt_u16_avx2_blend_popcnt_unroll4(const uint16_t* array, uint32_t len, uint32_t* flags) {
     const __m256i* data_vectors = (const __m256i*)(array);
     const uint32_t n_cycles = len / 16;
@@ -2461,6 +2555,7 @@ pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll8)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_blend_popcnt_unroll16)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_adder_forest)
 pospopcnt_u16_stub(pospopcnt_u16_avx2_harley_seal)
+pospopcnt_u16_stub(pospopcnt_u16_avx2_harley_seal_improved)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_lemire)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_lemire2)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt)
@@ -2902,6 +2997,7 @@ int pospopcnt_u16_sse_harley_seal_improved(const uint16_t* array, uint32_t len, 
             counter[2] = _mm_add_epi32(counter[2], _mm_srli_epi32(t2, 2*8) & mask_byte0);
             counter[3] = _mm_add_epi32(counter[3], _mm_srli_epi32(t2, 3*8) & mask_byte0);
         }
+#undef horizreduce
     }
 
     counter[0] = _mm_slli_epi32(counter[0], 4); // * 16
@@ -3593,6 +3689,7 @@ pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll4)
 pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll8)
 pospopcnt_u16_stub(pospopcnt_u16_sse_blend_popcnt_unroll16)
 pospopcnt_u16_stub(pospopcnt_u16_sse_harley_seal)
+pospopcnt_u16_stub(pospopcnt_u16_sse_harley_seal_improved)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll4)
 pospopcnt_u8_stub(pospopcnt_u8_sse_blend_popcnt_unroll8)
