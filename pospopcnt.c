@@ -3699,6 +3699,7 @@ pospopcnt_u8_stub(pospopcnt_u8_sse_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_sse_popcnt4bit)
 pospopcnt_u8_stub(pospopcnt_u8_sse_horizreduce)
 pospopcnt_u32_stub(pospopcnt_u32_sse_harley_seal)
+pospopcnt_u32_stub(pospopcnt_u32_sse_harley_seal_improved)
 #endif
 
 #if POSPOPCNT_SIMD_VERSION >= 6
