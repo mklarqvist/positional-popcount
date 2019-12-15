@@ -2565,6 +2565,7 @@ pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt_unroll16)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_adder_forest)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_popcnt4bit)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_horizreduce)
 pospopcnt_u32_stub(pospopcnt_u32_avx2_harley_seal)
 pospopcnt_u32_stub(pospopcnt_u32_avx2_harley_seal_improved)
 #endif
