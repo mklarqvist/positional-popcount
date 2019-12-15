@@ -183,6 +183,7 @@ pospopcnt_u8_method_type get_pospopcnt_u8_method(PPOPCNT_U8_METHODS method) {
     case PPOPCNT_U8_AVX512_MULA2: return pospopcnt_u8_avx512_mula2;
     case PPOPCNT_U8_AVX512BW_HARLEY_SEAL: return pospopcnt_u8_avx512bw_harley_seal;
     case PPOPCNT_U8_AVX512BW_POPCNT4BIT: return pospopcnt_u8_avx512bw_popcnt4bit;
+    case PPOPCNT_U8_AVX512BW_SADBW: return pospopcnt_u8_avx512bw_sadbw;
     case PPOPCNT_U8_AVX512VBMI_HARLEY_SEAL: return pospopcnt_u8_avx512vbmi_harley_seal;
     case PPOPCNT_U8_NUMBER_METHODS: break; /* -Wswitch */
     }
@@ -2469,6 +2470,7 @@ pospopcnt_u8_stub(pospopcnt_u8_avx2_blend_popcnt_unroll16)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_adder_forest)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_avx2_popcnt4bit)
+pospopcnt_u8_stub(pospopcnt_u8_avx2_horizreduce)
 pospopcnt_u32_stub(pospopcnt_u32_avx2_harley_seal)
 pospopcnt_u32_stub(pospopcnt_u32_avx2_harley_seal_improved)
 #endif
@@ -3751,6 +3753,125 @@ void pospopcnt_u8_avx512bw_popcnt4bit(const uint8_t* data, size_t len, uint32_t*
     pospopcnt_u8_scalar_naive(data, len % (4*64), flag_counts);
 }
 
+#define qword(x0, x1, x2, x3, x4, x5, x6, x7) \
+   (((uint64_t)(x0) << (0*8)) | \
+    ((uint64_t)(x1) << (1*8)) | \
+    ((uint64_t)(x2) << (2*8)) | \
+    ((uint64_t)(x3) << (3*8)) | \
+    ((uint64_t)(x4) << (4*8)) | \
+    ((uint64_t)(x5) << (5*8)) | \
+    ((uint64_t)(x6) << (6*8)) | \
+    ((uint64_t)(x7) << (7*8)))
+
+#define _mm512_setr_epi8( \
+    a0, a1, a2, a3, a4, a5, a6, a7, \
+    b0, b1, b2, b3, b4, b5, b6, b7, \
+    c0, c1, c2, c3, c4, c5, c6, c7, \
+    d0, d1, d2, d3, d4, d5, d6, d7, \
+    e0, e1, e2, e3, e4, e5, e6, e7, \
+    f0, f1, f2, f3, f4, f5, f6, f7, \
+    g0, g1, g2, g3, g4, g5, g6, g7, \
+    h0, h1, h2, h3, h4, h5, h6, h7) \
+    _mm512_setr_epi64( \
+        qword(a0, a1, a2, a3, a4, a5, a6, a7),\
+        qword(b0, b1, b2, b3, b4, b5, b6, b7),\
+        qword(c0, c1, c2, c3, c4, c5, c6, c7),\
+        qword(d0, d1, d2, d3, d4, d5, d6, d7),\
+        qword(e0, e1, e2, e3, e4, e5, e6, e7),\
+        qword(f0, f1, f2, f3, f4, f5, f6, f7),\
+        qword(g0, g1, g2, g3, g4, g5, g6, g7),\
+        qword(h0, h1, h2, h3, h4, h5, h6, h7))
+
+void pospopcnt_u8_avx512bw_sadbw(const uint8_t* data, size_t len, uint32_t* flag_counts) {
+    const __m512i zero = _mm512_setzero_si512();
+
+    __m512i counts = zero;
+
+    for (const uint8_t* end = &data[len & ~(64 - 1)]; data != end; data += 64) {
+        const __m512i in = _mm512_loadu_si512((__m512i*)data);
+
+        // in = [a0|a1|a2|a3|a4|a5|a6|a7|.............|n0|n1|n2|n3|n4|n5|n6|n7]
+        //      |       byte 63         | bytes 1..62 |        byte 0         ]
+
+        // 1. Isolate pairs of bits (0, 4), (1, 5), (2, 6), (3, 7) and store
+        //    them in separate nibbles.
+        const __m512i mask = _mm512_set1_epi8(0x11);
+        const __m512i t04  = _mm512_and_si512(in, mask);
+        const __m512i t15  = _mm512_and_si512(_mm512_srli_epi32(in, 1), mask);
+        const __m512i t26  = _mm512_and_si512(_mm512_srli_epi32(in, 2), mask);
+        const __m512i t37  = _mm512_and_si512(_mm512_srli_epi32(in, 3), mask);
+
+        // 2. Count these bits in parallel. Each qword in the result vector
+        //    has in the lowest byte the counts of 8 bits. The counts are
+        //    stored in byte's nibbles.
+        const __m512i sum04 = _mm512_sad_epu8(t04, zero);
+        const __m512i sum15 = _mm512_sad_epu8(t15, zero);
+        const __m512i sum26 = _mm512_sad_epu8(t26, zero);
+        const __m512i sum37 = _mm512_sad_epu8(t37, zero);
+
+        // 3. Group these non-zero bytes in separate qwords. Each qword will hold
+        //    counters for given group
+#define lo(idx) idx
+#define hi(idx) (idx + 64)
+#define any     0xff
+        const __m512i group0_idx = _mm512_setr_epi8(
+            /* qword 0 */   lo(0), lo(8), lo(16), lo(24), lo(32), lo(40), lo(48), lo(56), // sum04
+            /* qword 1 */   hi(0), hi(8), hi(16), hi(24), hi(32), hi(40), hi(48), hi(56), // sum15
+            /* qword 2 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 3 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 4 */   lo(0), lo(8), lo(16), lo(24), lo(32), lo(40), lo(48), lo(56), // sum04
+            /* qword 5 */   hi(0), hi(8), hi(16), hi(24), hi(32), hi(40), hi(48), hi(56), // sum15
+            /* qword 6 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 7 */   any,   any,   any,     any,   any,    any,    any,    any);
+        const __m512i g0 = _mm512_permutex2var_epi8(sum04, group0_idx, sum15);
+
+        const __m512i group1_idx = _mm512_setr_epi8(
+            /* qword 0 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 1 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 2 */   lo(0), lo(8), lo(16), lo(24), lo(32), lo(40), lo(48), lo(56),  // sum26
+            /* qword 3 */   hi(0), hi(8), hi(16), hi(24), hi(32), hi(40), hi(48), hi(56),  // sum37
+            /* qword 4 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 5 */   any,   any,   any,     any,   any,    any,    any,    any,
+            /* qword 6 */   lo(0), lo(8), lo(16), lo(24), lo(32), lo(40), lo(48), lo(56),  // sum26
+            /* qword 7 */   hi(0), hi(8), hi(16), hi(24), hi(32), hi(40), hi(48), hi(56)); // sum37
+        const __m512i g1 = _mm512_permutex2var_epi8(sum26, group1_idx, sum37);
+#undef any
+#undef lo
+#undef hi
+        // 4. Merge the counters
+        const __m512i merge_mask = _mm512_setr_epi64(-1, -1, 0, 0, -1, -1, 0, 0);
+        const __m512i t0  = _mm512_ternarylogic_epi32(merge_mask, g0, g1, 0xca);
+        
+        // 5. Mask proper nibbles: lower in qwords 0..3, higher in qword 4..7
+        const __m512i nibble_mask = _mm512_setr_epi64(
+            0x0f0f0f0f0f0f0f0flu, 0x0f0f0f0f0f0f0f0flu, 0x0f0f0f0f0f0f0f0flu, 0x0f0f0f0f0f0f0f0flu,
+            0xf0f0f0f0f0f0f0f0lu, 0xf0f0f0f0f0f0f0f0lu, 0xf0f0f0f0f0f0f0f0lu, 0xf0f0f0f0f0f0f0f0lu);
+
+        const __m512i t1 = _mm512_and_si512(t0, nibble_mask);
+        
+        // 6. Sum counters for each bit. Please note that values in qword 4..7
+        //    are multiplied by 16 (shifted right by 4 bits).
+        const __m512i t2 = _mm512_sad_epu8(t1, zero);
+
+        // 7. Update the vector of 64-bit counters
+        counts = _mm512_add_epi64(counts, t2);
+    }
+
+    // save the counters
+    uint64_t tmp[8];
+    _mm512_storeu_si512(tmp, counts);
+    for (int i=0; i < 4; i++) {
+        flag_counts[i + 0] += (uint32_t)tmp[i + 0];
+        flag_counts[i + 4] += (uint32_t)(tmp[i + 4] >> 4);
+    }
+
+    // scalar tail loop
+    pospopcnt_u8_scalar_naive(data, len % (64), flag_counts);
+}
+
+#undef qword
+#undef _mm512_setr_epi8
+
 make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt, pospopcnt_u16_avx512bw_blend_popcnt)
 make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt_unroll4, pospopcnt_u16_avx512bw_blend_popcnt_unroll4)
 make_pospopcnt_u8_from_u16(pospopcnt_u8_avx512bw_blend_popcnt_unroll8, pospopcnt_u16_avx512bw_blend_popcnt_unroll8)
@@ -3762,6 +3883,7 @@ pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt)
 pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll4)
 pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll8)
 pospopcnt_u8_stub(pospopcnt_u8_avx512bw_popcnt4bit)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_sadbw)
 #endif
 
 int pospopcnt_u16_avx512_mula2(const uint16_t* data, uint32_t len, uint32_t* flags) {
@@ -4262,6 +4384,7 @@ pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll4)
 pospopcnt_u8_stub(pospopcnt_u8_avx512bw_blend_popcnt_unroll8)
 pospopcnt_u8_stub(pospopcnt_u8_avx512bw_harley_seal)
 pospopcnt_u8_stub(pospopcnt_u8_avx512bw_popcnt4bit)
+pospopcnt_u8_stub(pospopcnt_u8_avx512bw_sadbw)
 pospopcnt_u8_stub(pospopcnt_u8_avx512_masked_ops)
 pospopcnt_u8_stub(pospopcnt_u8_avx512_mula2)
 pospopcnt_u8_stub(pospopcnt_u8_avx512vbmi_harley_seal)
